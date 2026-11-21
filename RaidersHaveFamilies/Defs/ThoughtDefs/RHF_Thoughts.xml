@@ -7,8 +7,8 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: обнародованное издевательство</label>
-        <description>Семья и представители фракции получили сообщение о причинённых пленнику страданиях.</description>
+        <label>RHF: злорадство от чужого горя</label>
+        <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>2</baseMoodEffect>
       </li>
     </stages>
@@ -20,8 +20,8 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: обнародованное издевательство</label>
-        <description>Семья и представители фракции получили сообщение о причинённых пленнику страданиях.</description>
+        <label>RHF: злорадство от чужого горя</label>
+        <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>4</baseMoodEffect>
       </li>
     </stages>
@@ -33,8 +33,8 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: обнародованное издевательство</label>
-        <description>Семья и представители фракции получили сообщение о причинённых пленнику страданиях.</description>
+        <label>RHF: злорадство от чужого горя</label>
+        <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>8</baseMoodEffect>
       </li>
     </stages>
@@ -46,8 +46,8 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: обнародованное издевательство</label>
-        <description>Семья и представители фракции получили сообщение о причинённых пленнику страданиях.</description>
+        <label>RHF: злорадство от чужого горя</label>
+        <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>16</baseMoodEffect>
       </li>
     </stages>
@@ -59,8 +59,8 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: обнародованное издевательство</label>
-        <description>Семья и представители фракции получили сообщение о причинённых пленнику страданиях.</description>
+        <label>RHF: злорадство от чужого горя</label>
+        <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>32</baseMoodEffect>
       </li>
     </stages>
@@ -72,8 +72,8 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: обнародованное издевательство</label>
-        <description>Семья и представители фракции получили сообщение о причинённых пленнику страданиях.</description>
+        <label>RHF: злорадство от чужого горя</label>
+        <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>48</baseMoodEffect>
       </li>
     </stages>

@@ -113,6 +113,8 @@ namespace RaidersHaveFamilies
             if (RHFMod.Settings?.Enabled != true || __instance == null ||
                 !__instance.IsPrisonerOfColony) return;
             __state = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(__instance);
+            if (__state != null && __instance.Spawned)
+                __state.LastHeldCell = __instance.Position;
         }
         [HarmonyPostfix]
         public static void Postfix(Pawn __instance, DamageInfo? dinfo, RHFHostageRecord __state)
@@ -124,6 +126,28 @@ namespace RaidersHaveFamilies
             string job=actor?.CurJobDef?.defName ?? "";
             bool executed=playerDamage && job.IndexOf("Execute",StringComparison.OrdinalIgnoreCase)>=0;
             RHFHostageDiplomacy.OnHostageDeath(__instance, playerDamage, executed);
+        }
+    }
+
+    // Executed only for actual physical corpse-related events; no periodic scan.
+    [HarmonyPatch(typeof(Corpse), nameof(Corpse.ButcherProducts))]
+    public static class RHFDeadButcheredEvent
+    {
+        [HarmonyPrefix]
+        public static void Prefix(Corpse __instance, Pawn butcher)
+        { RHFHostageDiplomacy.RecordCorpseButchered(__instance, butcher); }
+    }
+
+    [HarmonyPatch(typeof(Thing), nameof(Thing.Ingested))]
+    public static class RHFDeadConsumedEvent
+    {
+        [HarmonyPrefix]
+        public static void Prefix(Thing __instance, Pawn ingester)
+        {
+            if (__instance is Corpse corpse)
+                RHFHostageDiplomacy.RecordCorpseConsumed(corpse, ingester);
+            else
+                RHFHostageDiplomacy.RecordHumanMeatConsumption(__instance, ingester);
         }
     }
 

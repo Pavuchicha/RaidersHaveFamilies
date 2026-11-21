@@ -176,6 +176,8 @@ namespace RaidersHaveFamilies
         // Persistent number of generated off-map pawns. Retains v0.1.x save key.
         public int CreatedWorldPawns;
         public List<RHFHostageRecord> Hostages = new List<RHFHostageRecord>();
+        public List<RHFReprisalCase> ReprisalCases = new List<RHFReprisalCase>();
+        public int LastHumanMeatConsumptionTick;
         public List<RHFManagedLink> ManagedLinks = new List<RHFManagedLink>();
         public List<RHFProvenanceLink> ProvenanceLinks = new List<RHFProvenanceLink>();
         public List<RHFWorldKin> GeneratedKin = new List<RHFWorldKin>();
@@ -188,6 +190,9 @@ namespace RaidersHaveFamilies
             base.ExposeData();
             Scribe_Values.Look(ref CreatedWorldPawns, "rhfWorldPawnsCreated", 0);
             Scribe_Collections.Look(ref Hostages, "rhfHostagesV2", LookMode.Deep);
+            Scribe_Collections.Look(ref ReprisalCases, "rhfReprisalCasesV10", LookMode.Deep);
+            Scribe_Values.Look(ref LastHumanMeatConsumptionTick,
+                "rhfLastHumanMeatConsumptionTickV10", 0);
             Scribe_Collections.Look(ref ManagedLinks, "rhfLinksV2", LookMode.Deep);
             Scribe_Collections.Look(ref ProvenanceLinks, "rhfProvenanceV4", LookMode.Deep);
             Scribe_Collections.Look(ref GeneratedKin, "rhfGeneratedKinV2", LookMode.Deep);
@@ -196,6 +201,7 @@ namespace RaidersHaveFamilies
             {
                 CreatedWorldPawns = Math.Max(0, CreatedWorldPawns);
                 if (Hostages == null) Hostages = new List<RHFHostageRecord>();
+                if (ReprisalCases == null) ReprisalCases = new List<RHFReprisalCase>();
                 if (ManagedLinks == null) ManagedLinks = new List<RHFManagedLink>();
                 if (ProvenanceLinks == null) ProvenanceLinks = new List<RHFProvenanceLink>();
                 if (ProvenanceLinks.Count == 0 && ManagedLinks.Count > 0)
@@ -393,6 +399,8 @@ namespace RaidersHaveFamilies
                 }
                 RHFHostageDiplomacy.UpdateOffers(this, tick);
             }
+            // Reprisal machinery is independent of ordinary ransom negotiations.
+            RHFReprisalSystem.Update(this, tick);
             CleanupDeparted();
             CleanupGeneratedKin();
             PruneProvenance();

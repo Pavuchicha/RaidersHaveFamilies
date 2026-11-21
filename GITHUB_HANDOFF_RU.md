@@ -1,25 +1,11 @@
-# RHF v0.9.0 — передача и установка через GitHub Desktop
+# Raiders Have Families — передача v0.10.0
 
-База: v0.8.0 + тактическая надстройка v0.9.0. Полный проект, НЕ патч поверх
-неизвестной ветки. Не ставить версии v0.7/v0.8 отдельно перед этим.
+Этот ZIP содержит **все исходники**. Он заменяет в GitHub Desktop версии 0.7–0.9.2; пользователь ранее подтвердил тест в RimWorld только на v0.6.1.
 
-## Процедура
+1. Pull origin, Repository → Show in Explorer.
+2. Из архива распаковать **содержимое в корень репозитория** с заменой файлов (корень содержит `.github`, `RaidersHaveFamilies`, `tests`).
+3. Summary: `RHF v0.10.0 - Death Reports, Cannibalism and Coalition Reprisals`.
+4. Commit to main → Push origin → GitHub Actions.
+5. При зелёной сборке скачать artifact `RaidersHaveFamilies-RimWorld-1.7-v0.10.0-REPRISALS-TEST`, затем установить ZIP с папкой мода и DLL. Работать на копии сохранения.
 
-1. В GitHub Desktop выбери `RaidersHaveFamilies`, ветка `main`.
-2. `Pull origin` → `Repository → Show in Explorer`.
-3. Распакуй *СОДЕРЖИМОЕ* архива в открытый корень репозитория, с заменой.
-4. В Summary: `RHF v0.9.0 - Tactical Squads, Role Equipment and Rescue AI`.
-5. `Commit to main` → `Push origin`.
-6. Открой Actions, дождись зелёного `Build Raiders Have Families 0.9.0`.
-7. Скачай артефакт `RaidersHaveFamilies-RimWorld-1.7-v0.9.0-TACTICAL-TEST`.
-8. Внутри ZIP готовая папка `RaidersHaveFamilies` с DLL. Удали прежнюю папку
-   мода из `RimWorld/Mods`, установи новую; Harmony перед RHF. Тестовая копия сейва.
-
-**Внимание:** если билд красный, присылай логи шага `Compile mod DLL` — точную
-первую ошибку CSxxxx. В этом архиве DLL нет, только исходники.
-
-## Проверка
-
-В режиме разработчика `RHF - ТЕСТЫ | ДИАГНОСТИКА` команды 20 и 21.
-Увидишь реальную инвентарную выдачу комплектов и список ролей. В игре необходимо
-проверить вынос раненых и CE: статические тесты не доказывают поведение в бою.
+**Статус:** локально нет .NET 10, поэтому DLL и игровой TPS не проверены. Ключевое новое описание: `RHF_100_REVIEW_RU.md`. Дальнейшую работу вести из полного ZIP v0.10.0, не с отдельного старого патча.

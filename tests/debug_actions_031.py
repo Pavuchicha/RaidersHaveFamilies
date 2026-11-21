@@ -6,7 +6,7 @@ ops=(P/'RHFOperations.cs').read_text('utf-8')
 host=(P/'RHFHostageSystems.cs').read_text('utf-8')
 debug=(P/'RHFDebugActions.cs').read_text('utf-8')
 assert 'TraitDefOf.Cannibal' not in host
-assert 'GetNamedSilentFail("Cannibal")' in host
+assert 'n.Equals("Cannibal"' in host
 assert 'SetGuestStatus(null, false)' not in ops
 assert 'SetGuestStatus(null);' in ops
 assert 'bool prisoner)' not in patch

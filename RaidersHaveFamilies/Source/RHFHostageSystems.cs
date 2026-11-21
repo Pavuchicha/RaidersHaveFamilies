@@ -74,6 +74,13 @@ namespace RaidersHaveFamilies
         public int SelfAdmittedMutilations;
         public int LastAdmittedMissing;
         public bool MercyAwarded; // avoids repeated ideology memories in exit/sale hooks
+        // Dead hostages remain negotiable until the player explicitly settles the case.
+        public bool PlayerCausedDeath;
+        public bool BodyButchered;
+        public bool BodyConsumedDirectly;
+        public int ButcheredTick;
+        public string NameAtCapture = "";
+        public IntVec3 LastHeldCell = IntVec3.Invalid;
 
         public RHFHostageRecord() { }
         public RHFHostageRecord(Pawn pawn)
@@ -84,6 +91,8 @@ namespace RaidersHaveFamilies
             OfficeName = RHFRankResolver.OfficeFor(pawn, Importance);
             CaptureTick = Find.TickManager.TicksGame;
             InitialIdeology = pawn.Ideo?.ToString() ?? "";
+            NameAtCapture = pawn.LabelShortCap;
+            if (pawn.Spawned) LastHeldCell = pawn.Position;
             InitialMissing = RHFHostageDiplomacy.MissingParts(pawn);
             LastAdmittedMissing = InitialMissing;
             LastReportedMissing = InitialMissing;
@@ -131,6 +140,12 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref SelfAdmittedMutilations, "rhfSelfAdmittedV7", 0);
             Scribe_Values.Look(ref LastAdmittedMissing, "rhfLastAdmittedMissingV7", 0);
             Scribe_Values.Look(ref MercyAwarded, "rhfMercyAwardedV8", false);
+            Scribe_Values.Look(ref PlayerCausedDeath, "rhfPlayerCausedDeathV10", false);
+            Scribe_Values.Look(ref BodyButchered, "rhfBodyButcheredV10", false);
+            Scribe_Values.Look(ref BodyConsumedDirectly, "rhfBodyConsumedDirectlyV10", false);
+            Scribe_Values.Look(ref ButcheredTick, "rhfButcheredTickV10", 0);
+            Scribe_Values.Look(ref NameAtCapture, "rhfNameAtCaptureV10", "");
+            Scribe_Values.Look(ref LastHeldCell, "rhfLastHeldCellV10", IntVec3.Invalid);
             if (Scribe.mode==LoadSaveMode.PostLoadInit && RankSchema<3)
             { Importance=RHFRankResolver.RankOf(Pawn); RankSchema=3; }
         }
@@ -138,6 +153,9 @@ namespace RaidersHaveFamilies
 
     public static class RHFHostageDiplomacy
     {
+        public static bool IsDeadCase(RHFHostageRecord record)
+        { return record != null && (record.DeathTick > 0 || record.Pawn?.Dead == true); }
+
         public static bool HostageEligible(Pawn pawn)
         {
             return pawn != null && !pawn.Dead && pawn.RaceProps.Humanlike &&
@@ -259,20 +277,65 @@ namespace RaidersHaveFamilies
             return false;
         }
 
-        // A surgery job from a prisoner interaction mod may bypass RecipeWorker.ApplyOnPawn.
-        // This fallback is evaluated ONLY when opening a conversation and only for an
-        // explicit mutilation interaction with newly missing body parts.
+        // Compatibility with RimWorld 1.7 prisoner interaction mode storage.
+        // In 1.7 the old Pawn_GuestTracker.interactionMode field is no longer
+        // available as a public API. Resolve the CURRENT selection via the
+        // game's IsInteractionEnabled(PrisonerInteractionModeDef) method if
+        // present, rather than referencing the removed field. Reflection is
+        // resolved ONCE, invoked only for a hostage dialogue/evidence audit.
+        // No work is added to the ordinary pawn or world tick.
+        private static readonly System.Reflection.MethodInfo WceModeEnabledApi =
+            ResolveWceModeEnabledApi();
+
+        private static System.Reflection.MethodInfo ResolveWceModeEnabledApi()
+        {
+            const System.Reflection.BindingFlags flags =
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.NonPublic;
+            foreach (System.Reflection.MethodInfo method in typeof(Pawn_GuestTracker).GetMethods(flags))
+            {
+                if (method.Name != "IsInteractionEnabled" || method.ReturnType != typeof(bool))
+                    continue;
+                System.Reflection.ParameterInfo[] parameters = method.GetParameters();
+                if (parameters.Length == 1 &&
+                    parameters[0].ParameterType.IsAssignableFrom(typeof(PrisonerInteractionModeDef)))
+                    return method;
+            }
+            return null; // Do NOT infer torture when the actual mode is unknown.
+        }
+
+        private static bool IsWceMutilationModeEnabled(Pawn pawn)
+        {
+            if (pawn?.guest == null || WceModeEnabledApi == null) return false;
+            PrisonerInteractionModeDef mode =
+                DefDatabase<PrisonerInteractionModeDef>.GetNamedSilentFail("WCE2_Mutilate");
+            if (mode == null) return false;
+            try
+            {
+                return WceModeEnabledApi.Invoke(pawn.guest, new object[] { mode }) is bool active && active;
+            }
+            catch (Exception e)
+            {
+                if (RHFMod.Settings?.VerboseLogging == true)
+                    Log.Warning("[RHF] Cannot read prisoner mutilation mode: " + e.Message);
+                return false;
+            }
+        }
+
+        // Some prisoner interaction mods bypass RecipeWorker.ApplyOnPawn.
+        // Infer ONLY when the explicit WCE2 mutilation mode is selected AND
+        // a body part newly went missing; a normal combat injury alone is
+        // not automatically a crime. Missing proof can be reported manually.
         public static void AuditInteractionMutilation(RHFHostageRecord r)
         {
-            if (r?.Pawn?.guest?.interactionMode?.defName == null ||
-                RHFMod.Settings?.WCE2Events != true) return;
-            string mode = r.Pawn.guest.interactionMode.defName.ToLowerInvariant();
-            if (!mode.Contains("mutilat") && !mode.Contains("tortur")) return;
+            if (r?.Pawn == null || RHFMod.Settings?.WCE2Events != true ||
+                !IsWceMutilationModeEnabled(r.Pawn)) return;
             int newMissing = MissingParts(r.Pawn) - Math.Max(r.InitialMissing, r.LastAdmittedMissing);
             if (newMissing <= 0) return;
             r.LastAdmittedMissing = MissingParts(r.Pawn);
-            // No doctor identity is fabricated. This is a contextual WCE2 interaction,
-            // not a proven recipe hook: the log explicitly marks it as inferred.
+            // Inference from a selected WCE2 mode is distinct from a proven
+            // surgery hook. The record says so, rather than inventing a doctor.
             r.WceOperations = Math.Min(1000, r.WceOperations + 1);
             r.SurgicalCrueltyCount = Math.Min(1000, r.SurgicalCrueltyCount + newMissing);
             int severity = Math.Min(12, 6 + newMissing * 2);
@@ -392,16 +455,127 @@ namespace RaidersHaveFamilies
             Find.WindowStack.Add(new Dialog_MessageBox(ReportCondition(r)));
         }
 
-        private static void ReportExecution(RHFHostageRecord r)
+        // Three mutually exclusive terminal dispositions. None can be repeated:
+        // the hostage is removed from the normal ledger immediately after the choice.
+        // Concealed VIPs retain only a tiny separate world event record, not a captive.
+        public static string ResolveDeadHostage(RHFHostageRecord r, int answer)
         {
-            if(r==null || !r.Executed || r.DeathReportMade || r.OriginalFaction==null)return;
-            r.DeathReportMade=true;
-            RHFPoliticalReputation.Change(r.OriginalFaction,
-                -Math.Min(100, 25+r.Importance*8+r.CrueltyScore/4));
-            RHFMoralResponse.GivePublicCrueltyThoughts(r.Pawn,
-                Math.Max(30,r.CrueltyScore),r.Importance,RHFPublicityKind.Execution);
-            QueueRetaliation(r);
-            Find.WindowStack.Add(new Dialog_MessageBox("Казнь объявлена. Родственники и руководство фракции узнали подробности."));
+            RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
+            if (r == null || ledger == null || !ledger.Hostages.Contains(r) ||
+                !IsDeadCase(r) || r.OriginalFaction == null)
+                return "Сведения об этом пленнике уже закрыты или недоступны.";
+            int now = Find.TickManager.TicksGame;
+            string name = string.IsNullOrEmpty(r.NameAtCapture) ?
+                (r.Pawn?.LabelShortCap ?? "неизвестный пленник") : r.NameAtCapture;
+            Faction faction = r.OriginalFaction;
+            bool cannibalism = answer == 2;
+            if (cannibalism && !CanConfessCannibalism(r))
+                return "Нельзя подтвердить каннибализм: нет записи о разделке или поедании тела пленника.";
+            ledger.Hostages.Remove(r);
+            r.DeathReportMade = answer != 0;
+            r.OfferDeadlineTick = 0;
+            r.NextRetaliationTick = 0;
+            if (answer == 0)
+            {
+                // No instant magical knowledge for the other side: keep a sealed case
+                // only if a VIP search is believable. It is NOT a negotiable hostage.
+                if (r.Importance >= 6 && RHFMod.Settings?.Retaliation == true)
+                {
+                    var secret = RHFReprisalCase.FromRecord(r, RHFReprisalCause.ConcealedVip, now);
+                    ledger.ReprisalCases.Add(secret);
+                    return "Вы не отвечаете на вопросы. «Тогда мы найдём его сами», — обрывает разговор представитель " +
+                        faction.Name + ". Имя исчезло из списка RHF; о смерти фракции не сообщено. " +
+                        "Для возможного поиска VIP оставлена закрытая запись без доступа к переговорам.";
+                }
+                return "Вы предпочли молчание. Запись «" + name + "» окончательно закрыта в реестре пленников RHF.";
+            }
+            if (answer == 3) r.PlayerCausedDeath = true; // player's explicit confession
+            int severity = Math.Max(r.CrueltyScore,
+                r.Executed ? 40 + r.Importance * 7 :
+                r.PlayerCausedDeath ? 25 + r.Importance * 5 : 0);
+            string effect = "";
+            if (answer == 2)
+            {
+                // Exceptional crime: distinct from the torture memory and significantly
+                // escalates diplomatic consequences and guaranteed attempted reprisal.
+                severity = Math.Max(severity, 340 + r.Importance * 10);
+                RHFPoliticalReputation.Change(faction, -Mathf.Clamp(65 + r.Importance * 5, 0, 100));
+                int moods = RHFMoralResponse.GivePublicCrueltyThoughts(r.Pawn, severity,
+                    r.Importance, RHFPublicityKind.Cannibalism);
+                effect = "\nRHF: злорадство от сообщения о каннибализме получили " + moods + " колонистов.";
+                if (RHFMod.Settings?.Retaliation == true)
+                    ledger.ReprisalCases.Add(RHFReprisalCase.FromRecord(r, RHFReprisalCause.Cannibalism, now));
+                return "«Вы... съели " + name + "? Я передам запись, но дальше говорить не могу»." +
+                    "\nФракция " + faction.Name + " получила признание о каннибализме." +
+                    "\nПри включённых ответных операциях готовится мощная коалиционная месть." + effect;
+            }
+            RHFPoliticalReputation.Change(faction,
+                -Mathf.Clamp((r.PlayerCausedDeath || r.Executed ? 25 : 6) +
+                    r.Importance * (r.PlayerCausedDeath ? 8 : 3) + r.CrueltyScore / 4, 0, 100));
+            int rewarded = r.PlayerCausedDeath || r.Executed ?
+                RHFMoralResponse.GivePublicCrueltyThoughts(r.Pawn, severity,
+                    r.Importance, RHFPublicityKind.Execution) : 0;
+            if (RHFMod.Settings?.Retaliation == true && (r.PlayerCausedDeath || r.Executed) && r.Importance >= 3)
+                ledger.ReprisalCases.Add(RHFReprisalCase.FromRecord(r, RHFReprisalCause.DisclosedDeath, now));
+            return (r.Executed ? "«Вы казнили " : r.PlayerCausedDeath ? "«Вы убили " : "«Значит, умер ") +
+                name + "... Мы услышали вас. Теперь эти слова станут официальными»." +
+                "\nДело закрыто. RHF-бонус за публичное признание получили " + rewarded + " колонистов.";
+        }
+
+        public static bool CanConfessCannibalism(RHFHostageRecord r)
+        {
+            if (!IsDeadCase(r)) return false;
+            // Direct corpse eating is conclusive. Butchery allows an explicit PLAYER
+            // confession about subsequent consumption: produced meat/meal stacks lose
+            // victim identity in vanilla, so no automatic attribution is invented.
+            RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
+            return r.BodyConsumedDirectly ||
+                (r.BodyButchered && ledger != null &&
+                 ledger.LastHumanMeatConsumptionTick >= r.ButcheredTick &&
+                 ledger.LastHumanMeatConsumptionTick > 0);
+        }
+
+        public static void RecordCorpseButchered(Corpse corpse, Pawn butcher)
+        {
+            if (RHFMod.Settings?.Enabled != true || corpse?.InnerPawn == null ||
+                butcher?.Faction != Faction.OfPlayer) return;
+            RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(corpse.InnerPawn);
+            if (record == null || !record.Pawn.Dead) return;
+            record.BodyButchered = true;
+            record.ButcheredTick = Find.TickManager.TicksGame;
+        }
+
+        // Human meat and meals lose source identity after butchering/stacking.
+        // Track actual consumption globally, then require an explicit statement by
+        // the player to link it to this particular butchered captive.
+        public static void RecordHumanMeatConsumption(Thing food, Pawn ingester)
+        {
+            if (RHFMod.Settings?.Enabled != true || food == null ||
+                ingester?.Faction != Faction.OfPlayer) return;
+            bool humanMeat = string.Equals(food.def?.defName, "Meat_Human",
+                StringComparison.OrdinalIgnoreCase);
+            if (!humanMeat)
+            {
+                CompIngredients ingredients = food.TryGetComp<CompIngredients>();
+                if (ingredients?.ingredients != null)
+                    for (int i = 0; i < ingredients.ingredients.Count; i++)
+                        if (ingredients.ingredients[i]?.defName == "Meat_Human")
+                        { humanMeat = true; break; }
+            }
+            if (humanMeat)
+            {
+                RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
+                if (ledger != null) ledger.LastHumanMeatConsumptionTick =
+                    Find.TickManager.TicksGame;
+            }
+        }
+
+        public static void RecordCorpseConsumed(Corpse corpse, Pawn ingester)
+        {
+            if (RHFMod.Settings?.Enabled != true || corpse?.InnerPawn == null ||
+                ingester?.Faction != Faction.OfPlayer) return;
+            RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(corpse.InnerPawn);
+            if (record != null && record.Pawn.Dead) record.BodyConsumedDirectly = true;
         }
 
         public static void Refuse(RHFHostageRecord r)
@@ -432,15 +606,15 @@ namespace RaidersHaveFamilies
             for (int i = ledger.Hostages.Count - 1; i >= 0; i--)
             {
                 RHFHostageRecord r = ledger.Hostages[i];
-                if (r == null || r.Pawn == null || r.Paid ||
-                    ((r.Pawn.Dead && (r.DeathTick<=0 || tick-r.DeathTick>180000) ||
-                      (r.Pawn.Map == null && !r.Pawn.IsPrisonerOfColony && !r.Negotiated && !r.Pawn.Dead))
-                     && (r.NextRetaliationTick <= 0 || r.RetaliationIssued)))
+                if (r == null || (r.Pawn == null && !IsDeadCase(r)) || r.Paid ||
+                    (r.Pawn != null && r.Pawn.Map == null && !r.Pawn.IsPrisonerOfColony && !r.Negotiated && !r.Pawn.Dead &&
+                     (r.NextRetaliationTick <= 0 || r.RetaliationIssued)))
                 {
                     // Discard stale tracking; never alter relationships belonging to other mods.
                     ledger.Hostages.RemoveAt(i);
                     continue;
                 }
+                if (IsDeadCase(r)) continue; // deceased cases remain for an actual radio decision
                 if (r.Pawn.IsSlaveOfColony && !r.Enslaved)
                 {
                     r.Enslaved = true;
@@ -460,7 +634,7 @@ namespace RaidersHaveFamilies
                     r.OfferDeadlineTick = 0;
                     QueueRetaliation(r);
                 }
-                if (r.NextRetaliationTick > 0 && tick >= r.NextRetaliationTick && !r.RetaliationIssued)
+                if (!r.Pawn.Dead && r.NextRetaliationTick > 0 && tick >= r.NextRetaliationTick && !r.RetaliationIssued)
                     StartRetaliation(r);
                 if (r.InitialOfferMade || r.Negotiated || r.Importance < 3 ||
                     !HostageEligible(r.Pawn) || tick - r.CaptureTick < 60000 ||
@@ -751,16 +925,21 @@ namespace RaidersHaveFamilies
             var ledger = Current.Game?.GetComponent<RHFGameLedger>();
             RHFHostageRecord r = ledger?.FindHostage(victim);
             if (r == null || r.OriginalFaction == null || r.Paid) return;
+            if (r.DeathTick > 0) return; // one event, even with nested death hooks
             r.DeathTick=Find.TickManager.TicksGame;
             r.Executed=execution;
-            int goodwillLoss = causedByPlayer ? 10 + r.Importance * 13 : 2 + r.Importance * 3;
-            if (r.WceOperations > r.DisclosedOperations)
-                goodwillLoss += Math.Min(70, (r.CrueltyScore - r.DisclosedCrueltyScore) * 3);
-            RHFPoliticalReputation.Change(r.OriginalFaction, -Math.Min(100, goodwillLoss));
-            if (r.Importance >= 2 && causedByPlayer) QueueRetaliation(r);
+            r.PlayerCausedDeath = causedByPlayer || execution ||
+                (r.LastConfirmedOperationSeverity > 0 &&
+                 r.LastConfirmedOperationTick > 0 &&
+                 r.DeathTick - r.LastConfirmedOperationTick <= 120);
             r.Negotiated = false;
             r.PendingSilver = 0;
-            // No joyous thoughts here. Disclosure is still needed for publicity bonuses.
+            r.PendingGoodwill = false;
+            r.OfferDeadlineTick = 0;
+            // Death is NOT magically announced to another faction. Player chooses
+            // disclosure or concealment in a later, actual comms dialogue.
+            r.NextRetaliationTick = 0;
+            // No immediate RHF mood: enjoyment comes from telling the family/faction.
         }
 
         public static void RecordWceOperation(Pawn victim, Pawn doctor, string recipe,
@@ -801,67 +980,108 @@ namespace RaidersHaveFamilies
 
     public enum RHFPublicityKind { Torture, Execution, Cannibalism, Slavery, ForcedConversion }
 
+    // One-off psychological cruelty: the reward is for deliberately TELLING the
+    // victim's relatives/faction about suffering, never for surgery itself.
+    // Vanilla and WCE2 immediate surgery thoughts are not modified.
     public static class RHFMoralResponse
     {
-        // No mood reward when operations remain unknown. Vanilla thought systems for
-        // eating people, execution, slavery and conversion are never replaced.
-        public static int GivePublicCrueltyThoughts(Pawn victim, int newCruelty, int importance,
-            RHFPublicityKind kind=RHFPublicityKind.Torture)
+        // Character and ideology are independent paths. A pawn with both still
+        // receives just ONE RHF memory (the greatest current level replaces prior).
+        public static string EligibleTraitReason(Pawn colonist, RHFPublicityKind kind)
         {
-            // Exponential escalation in score, but bounded by six discrete memories.
-            // This avoids destabilizing pawn moods or creating unbounded stacks.
-            int severity = Mathf.Clamp(Mathf.CeilToInt(Mathf.Log(1f + newCruelty *
-                (1f + importance * 0.5f), 1.7f)), 1, 6);
-            ThoughtDef memory = DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_PublicCruelty" + severity);
+            if (colonist?.story?.traits == null) return null;
+            bool violence = kind == RHFPublicityKind.Torture ||
+                kind == RHFPublicityKind.Execution || kind == RHFPublicityKind.Cannibalism;
+            bool humiliation = violence || kind == RHFPublicityKind.Slavery ||
+                kind == RHFPublicityKind.ForcedConversion;
+            foreach (Trait trait in colonist.story.traits.allTraits)
+            {
+                string n = trait?.def?.defName ?? "";
+                if (violence && n.Equals("Bloodlust", StringComparison.OrdinalIgnoreCase))
+                    return "Кровожадность";
+                if (humiliation && n.Equals("Psychopath", StringComparison.OrdinalIgnoreCase))
+                    return "Психопат";
+                // Optional third-party sadism traits. These are only matched when
+                // the exact TraitDef actually exists on this pawn. No dependency on
+                // any particular character or ideology mod is introduced.
+                if (humiliation && (n.Equals("Sadist", StringComparison.OrdinalIgnoreCase) ||
+                    n.Equals("Sadistic", StringComparison.OrdinalIgnoreCase) ||
+                    n.Equals("Torturer", StringComparison.OrdinalIgnoreCase) ||
+                    n.EndsWith("_Sadist", StringComparison.OrdinalIgnoreCase) ||
+                    n.EndsWith("_Sadistic", StringComparison.OrdinalIgnoreCase)))
+                    return "Садизм (модовая черта: " + trait.def.defName + ")";
+                if (kind == RHFPublicityKind.Cannibalism &&
+                    n.Equals("Cannibal", StringComparison.OrdinalIgnoreCase))
+                    return "Каннибал";
+            }
+            return null;
+        }
+
+        public static bool EligibleIdeology(Pawn colonist, Pawn victim, RHFPublicityKind kind)
+        {
+            if (!ModsConfig.IdeologyActive || colonist?.Ideo == null) return false;
+            foreach (Precept precept in colonist.Ideo.PreceptsListForReading)
+            {
+                string n = precept?.def?.defName?.ToLowerInvariant() ?? "";
+                if (kind == RHFPublicityKind.Torture &&
+                    (n == "wce2_torture_alwaysrespected" ||
+                    (n == "wce2_torture_respectedguilty" && victim?.guilt?.IsGuilty == true)))
+                    return true;
+                if (kind == RHFPublicityKind.Execution &&
+                    (n.Contains("execution_required") || n.Contains("execution_respected")))
+                    return true;
+                if (kind == RHFPublicityKind.Cannibalism &&
+                    (n.Contains("cannibalism_required") || n.Contains("cannibalism_respected")))
+                    return true;
+                if (kind == RHFPublicityKind.Slavery &&
+                    (n.Contains("slavery_honorable") || n.Contains("slavery_required")))
+                    return true;
+                if (kind == RHFPublicityKind.ForcedConversion &&
+                    (n.Contains("conversion_respected") || n.Contains("proselytizing_required")))
+                    return true;
+            }
+            return false;
+        }
+
+        public static int MemoryLevel(int newCruelty, int importance)
+        {
+            // Prior logarithmic formula saturated at tier 6 after a single limb
+            // removal on a VIP. Deliberate bounded thresholds preserve differences.
+            float weight = Mathf.Max(0, newCruelty) * (1f +
+                Mathf.Clamp(importance, 0, 8) * 0.20f);
+            if (weight < 18f) return 1;
+            if (weight < 40f) return 2;
+            if (weight < 85f) return 3;
+            if (weight < 170f) return 4;
+            if (weight < 310f) return 5;
+            return 6;
+        }
+
+        public static int GivePublicCrueltyThoughts(Pawn victim, int newCruelty, int importance,
+            RHFPublicityKind kind = RHFPublicityKind.Torture)
+        {
+            if (newCruelty <= 0 || RHFMod.Settings?.Enabled != true) return 0;
+            // No per-tick work: this is called only from a completed radio report.
+            ThoughtDef memory = DefDatabase<ThoughtDef>.GetNamedSilentFail(
+                "RHF_PublicCruelty" + MemoryLevel(newCruelty, importance));
             if (memory == null) return 0;
             int awarded = 0;
-            foreach (Map m in Find.Maps)
+            foreach (Map map in Find.Maps)
             {
-                if (!m.IsPlayerHome) continue;
-                foreach (Pawn p in m.mapPawns.FreeColonistsSpawned)
+                if (!map.IsPlayerHome) continue;
+                foreach (Pawn p in map.mapPawns.FreeColonistsSpawned)
                 {
-                    if (p.needs?.mood == null || p.story?.traits == null) continue;
-                    bool bloodlust = p.story.traits.HasTrait(TraitDefOf.Bloodlust) &&
-                        (kind==RHFPublicityKind.Torture || kind==RHFPublicityKind.Execution);
-                    // 1.7 reference builds do not export Cannibal through TraitDefOf.
-                    // Resolve the vanilla Def by name, and tolerate its removal by race/trait mods.
-                    TraitDef cannibalDef = DefDatabase<TraitDef>.GetNamedSilentFail("Cannibal");
-                    bool cannibal = kind==RHFPublicityKind.Cannibalism &&
-                        cannibalDef != null && p.story.traits.HasTrait(cannibalDef);
-                    bool endorses = false;
-                    if (ModsConfig.IdeologyActive && p.Ideo != null)
+                    if (p?.needs?.mood == null) continue;
+                    if (EligibleTraitReason(p, kind) == null && !EligibleIdeology(p, victim, kind))
+                        continue;
+                    for (int old = 1; old <= 6; old++)
                     {
-                        foreach (Precept precept in p.Ideo.PreceptsListForReading)
-                        {
-                            string n = precept.def?.defName?.ToLowerInvariant() ?? "";
-                            if (kind==RHFPublicityKind.Torture &&
-                                (n == "wce2_torture_alwaysrespected" ||
-                                 (n == "wce2_torture_respectedguilty" && victim?.guilt?.IsGuilty == true)))
-                            { endorses = true; break; }
-                            if(kind==RHFPublicityKind.Execution &&
-                                (n.Contains("execution_required") || n.Contains("execution_respected")))
-                            { endorses=true;break; }
-                            if(kind==RHFPublicityKind.Cannibalism &&
-                                (n.Contains("cannibalism_required") || n.Contains("cannibalism_respected")))
-                            { endorses=true;break; }
-                            if(kind==RHFPublicityKind.Slavery &&
-                                (n.Contains("slavery_honorable") || n.Contains("slavery_required")))
-                            { endorses=true;break; }
-                            if(kind==RHFPublicityKind.ForcedConversion &&
-                                (n.Contains("conversion_respected") || n.Contains("proselytizing_required")))
-                            { endorses=true;break; }
-                        }
+                        ThoughtDef previous = DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_PublicCruelty" + old);
+                        if (previous != null)
+                            p.needs.mood.thoughts.memories.RemoveMemoriesOfDef(previous);
                     }
-                    if (bloodlust || cannibal || endorses)
-                    {
-                        for (int old = 1; old <= 6; old++)
-                        {
-                            ThoughtDef previous = DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_PublicCruelty" + old);
-                            if (previous != null) p.needs.mood.thoughts.memories.RemoveMemoriesOfDef(previous);
-                        }
-                        p.needs.mood.thoughts.memories.TryGainMemory(memory);
-                        awarded++;
-                    }
+                    p.needs.mood.thoughts.memories.TryGainMemory(memory);
+                    awarded++;
                 }
             }
             return awarded;

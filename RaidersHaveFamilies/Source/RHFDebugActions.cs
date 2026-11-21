@@ -248,6 +248,12 @@ namespace RaidersHaveFamilies
                 sb.AppendLine("Издевательства: " + r.CrueltyScore +
                     "; операции: " + r.WceOperations +
                     "; уже раскрыто: " + r.DisclosedCrueltyScore);
+                sb.AppendLine("Новое НЕраскрытое издевательство: " +
+                    Math.Max(0, r.CrueltyScore - r.DisclosedCrueltyScore) +
+                    "; предполагаемый уровень бонуса: " +
+                    (r.CrueltyScore > r.DisclosedCrueltyScore ?
+                        RHFMoralResponse.MemoryLevel(r.CrueltyScore-r.DisclosedCrueltyScore,r.Importance).ToString()+"/6" :
+                        "нет нового события"));
                 sb.AppendLine("Можно наградить за милосердие: " + RHFMercy.Eligible(r));
             }
             else sb.AppendLine("Выбери пленника RHF для проверки истории операций.");
@@ -257,18 +263,69 @@ namespace RaidersHaveFamilies
                 {
                     if (colonist?.needs?.mood == null) continue;
                     int mercy = RHFMercy.PreceptLevel(colonist);
-                    bool torture = false;
-                    if (ModsConfig.IdeologyActive && colonist.Ideo != null)
-                        foreach (Precept precept in colonist.Ideo.PreceptsListForReading)
-                        {
-                            string n = precept?.def?.defName?.ToLowerInvariant() ?? "";
-                            if (n == "wce2_torture_alwaysrespected" ||
-                                (n == "wce2_torture_respectedguilty" && p?.guilt?.IsGuilty == true))
-                                torture = true;
-                        }
+                    string trait = RHFMoralResponse.EligibleTraitReason(colonist, RHFPublicityKind.Torture);
+                    bool ideology = RHFMoralResponse.EligibleIdeology(colonist, p, RHFPublicityKind.Torture);
                     sb.AppendLine(colonist.LabelShortCap + ": милосердие " + mercy +
-                        "/3, пытки по идеологии " + torture);
+                        "/3; жестокость RHF: черта=" + (trait ?? "нет") +
+                        ", идеология=" + (ideology ? "да" : "нет") +
+                        "; получит бонус при новом докладе=" + (trait != null || ideology));
                 }
+            Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
+        }
+
+        [DebugAction(ChecksCategory, "22 — Аудит смерти, разделки и поедания пленников", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void AuditDeadCaptives()
+        {
+            RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
+            if (ledger == null) return;
+            var sb = new System.Text.StringBuilder(500);
+            sb.AppendLine("RHF v0.10: посмертные дела (не меняет состояние игры)");
+            int pending = 0;
+            foreach (RHFHostageRecord record in ledger.Hostages)
+            {
+                if (!RHFHostageDiplomacy.IsDeadCase(record)) continue;
+                if (++pending > 24) { sb.AppendLine("… показаны первые 24 дела"); break; }
+                sb.AppendLine((record.NameAtCapture ?? "?") +
+                    "; фракция=" + (record.OriginalFaction?.Name ?? "нет") +
+                    "; ранг=" + record.Importance +
+                    "; убийство игроком=" + record.PlayerCausedDeath +
+                    "; казнь=" + record.Executed +
+                    "; разделка=" + record.BodyButchered +
+                    "; поедание тела=" + record.BodyConsumedDirectly +
+                    "; возможно признание каннибализма=" +
+                    RHFHostageDiplomacy.CanConfessCannibalism(record) +
+                    "; бонус за смерть уровень=" +
+                    RHFMoralResponse.MemoryLevel(Math.Max(record.CrueltyScore,
+                        record.Executed ? 40 + record.Importance * 7 :
+                        record.PlayerCausedDeath ? 25 + record.Importance * 5 : 0),
+                        record.Importance));
+            }
+            sb.AppendLine("Неопубликованных дел о смерти: " + pending);
+            sb.AppendLine("Последнее употребление человеческого мяса/блюда: " +
+                ledger.LastHumanMeatConsumptionTick);
+            Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
+        }
+
+        [DebugAction(ChecksCategory, "23 — Аудит тайных дел и коалиционной мести", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void AuditReprisalCases()
+        {
+            RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
+            if (ledger?.ReprisalCases == null) return;
+            var sb = new System.Text.StringBuilder(500);
+            sb.AppendLine("RHF: тайные поиски / карательные операции: " + ledger.ReprisalCases.Count);
+            int n=0;
+            foreach (RHFReprisalCase c in ledger.ReprisalCases)
+            {
+                if (c == null) continue;
+                if (++n>24) { sb.AppendLine("… показаны первые 24 дела"); break; }
+                sb.AppendLine(c.VictimName + " [" + (RHFReprisalCause)c.Cause +
+                    "] фракция=" + (c.Faction?.Name ?? "нет") +
+                    ", состояние=" + c.Stage +
+                    ", следующие действия тик=" + c.DueTick +
+                    ", неудачных попыток=" + c.FailedAttempts);
+            }
             Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
         }
 

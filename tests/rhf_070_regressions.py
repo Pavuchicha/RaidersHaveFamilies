@@ -16,7 +16,7 @@ assert 'Widgets.DrawMenuSection(area);\n            Text.Font' not in r.split('p
 h=source['RHFHostageSystems']
 for name in ['LastAdmittedMissing','HighDemandRejected','RefusalCount','NegotiatorSocial','NegotiatedPrice','AuditInteractionMutilation','CanAdmitMutilation','AdmitMutilation','HasNewEvidence']:
  assert name in h,name
-assert 'mode.Contains("mutilat")' in h
+assert 'IsWceMutilationModeEnabled' in h and 'GetNamedSilentFail("WCE2_Mutilate")' in h
 assert 'QueueRetaliation(r, true)' in h
 assert 'ReportCondition(r)' in h
 assert 'HighDemandRejected' in source['RHFDialogue'] and 'negotiator' in source['RHFDialogue']
@@ -32,5 +32,5 @@ assert 'ЦЕЛЬ ОПЕРАЦИИ' in ops and 'new LookTargets(map.Center, map)'
 assert '01 — Спасение' in source['RHFDebugActions']
 assert '09 — Месть' in source['RHFDebugActions']
 assert 'Настроение (RHF)' in source['RHFPreceptNotes']
-assert '0.9.0' in (root/'.github/workflows/build.yml').read_text()
+assert '0.10.0' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: 0.7 regression guards for social visibility, rank, diplomacy, WCE2, raid reports and localized dev menu')

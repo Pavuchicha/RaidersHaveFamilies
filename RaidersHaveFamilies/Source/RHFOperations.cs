@@ -98,6 +98,8 @@ namespace RaidersHaveFamilies
         public IntVec3 PodCell = IntVec3.Invalid;
         public bool Finished;
         public bool DebugForced; // developer-mode test; does not change player settings
+        public string CaseKeyV10 = ""; // sealed victim disappearance or public atrocity
+        public IntVec3 CaseSearchCellV10 = IntVec3.Invalid;
 
         public RHFOperation() { }
         public void ExposeData()
@@ -140,6 +142,8 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref PodCell, "podCell", IntVec3.Invalid);
             Scribe_Values.Look(ref Finished, "finished", false);
             Scribe_Values.Look(ref DebugForced, "debugForced", false);
+            Scribe_Values.Look(ref CaseKeyV10, "rhfCaseKeyV10", "");
+            Scribe_Values.Look(ref CaseSearchCellV10, "rhfCaseSearchCellV10", IntVec3.Invalid);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (Targets == null) Targets = new List<Pawn>();
@@ -189,6 +193,24 @@ namespace RaidersHaveFamilies
             operations.Add(operation);
             nextDecision = Math.Min(nextDecision, operation.SpawnTick);
             return true;
+        }
+
+        // Reuse a genuinely scheduled rescue for the disappeared VIP rather than
+        // spawning a duplicate expedition when the order already existed.
+        public RHFOperation FindRescueFor(string victimId)
+        {
+            if (string.IsNullOrEmpty(victimId)) return null;
+            for (int i=0;i<operations.Count;i++)
+            {
+                RHFOperation op=operations[i];
+                if (op==null || op.Finished || op.Type!=(int)RHFOperationType.Rescue ||
+                    !string.IsNullOrEmpty(op.CaseKeyV10)) continue;
+                if (op.Vip?.ThingID == victimId) return op;
+                if (op.Targets == null) continue;
+                for (int j=0;j<op.Targets.Count && j<MaxTargets;j++)
+                    if (op.Targets[j]?.ThingID == victimId) return op;
+            }
+            return null;
         }
 
         // Debug inspection is computed only when clicked, never per tick.
@@ -587,11 +609,13 @@ namespace RaidersHaveFamilies
                 {
                     if (!Deploy(op))
                     {
+                        RHFReprisalSystem.OnOperationFailed(op);
                         Messages.Message("RHF: фракции не удалось собрать рейд. Проверьте журнал ошибок и тип фракции.",
                             MessageTypeDefOf.RejectInput, false);
                         operations.RemoveAt(i);
                         continue;
                     }
+                    RHFReprisalSystem.OnOperationDeployed(op);
                 }
                 if (op.Type == (int)RHFOperationType.Vengeance)
                 {
@@ -616,7 +640,10 @@ namespace RaidersHaveFamilies
                     if (op.ExitCell == IntVec3.Invalid) op.ExitCell = ChooseExit(op.Squad[0].Position);
                 }
                 if (op.CombinedStrike) SplitRescueWing(op);
-                if (op.Phase == 1) Infiltrate(op, now);
+                if (!string.IsNullOrEmpty(op.CaseKeyV10) && op.Targets.Count == 0 &&
+                    op.Type == (int)RHFOperationType.Rescue && op.Phase == 1)
+                    SearchMissingVip(op, now);
+                else if (op.Phase == 1) Infiltrate(op, now);
                 else if (op.Phase == 2) Extract(op, now);
                 else if (op.Phase == 3) BuildAndLaunch(op, now);
                 else if (op.Phase == 4) { op.Finished = true; operations.RemoveAt(i); }
@@ -658,6 +685,39 @@ namespace RaidersHaveFamilies
             if(added>0)
                 Messages.Message(op.Executor.Name + " выводит боевых животных вместе с рейдерами ("+
                     added+").",leader,MessageTypeDefOf.ThreatSmall,false);
+        }
+
+        private void SearchMissingVip(RHFOperation op, int now)
+        {
+            // Searchers physically advance toward the dead VIP's last known prison
+            // position. No per-tick global room query, and at most 5 Goto orders.
+            bool reached = false;
+            int ordered = 0;
+            for (int i=0; i<op.Squad.Count && i<MaxSquad && ordered<5; i++)
+            {
+                Pawn p = op.Squad[i];
+                if (p == null || p.Dead || p.Downed || p.Map != map) continue;
+                if (!op.CaseSearchCellV10.IsValid || !op.CaseSearchCellV10.InBounds(map))
+                { reached = now >= op.SpawnTick + 2500; break; }
+                if ((p.Position-op.CaseSearchCellV10).LengthHorizontalSquared <= 25)
+                { reached = true; break; }
+                if (p.CanReach(op.CaseSearchCellV10, PathEndMode.OnCell, Danger.Deadly) &&
+                    p.jobs?.curJob?.def != JobDefOf.Goto)
+                {
+                    Lord oldLord = p.GetLord();
+                    if (oldLord != null) oldLord.Notify_PawnLost(p, PawnLostCondition.LeftVoluntarily);
+                    Order(p, JobDefOf.Goto, op.CaseSearchCellV10);
+                    ordered++;
+                }
+            }
+            // Fail-safe for surrounded/obliterated prison: an expedition eventually
+            // establishes that the named prisoner is not there, not endless reorders.
+            if (reached || now >= op.SpawnTick + 9000)
+            {
+                RHFReprisalSystem.OnSearchFailed(op);
+                op.Phase = 2;
+                op.PhaseStartTick = now;
+            }
         }
 
         private void Infiltrate(RHFOperation op, int now)

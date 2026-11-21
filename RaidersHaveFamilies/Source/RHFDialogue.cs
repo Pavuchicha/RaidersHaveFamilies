@@ -21,7 +21,8 @@ namespace RaidersHaveFamilies
             if (ledger?.Hostages == null) return false;
             foreach (RHFHostageRecord record in ledger.Hostages)
                 if (record?.OriginalFaction == faction && !record.Paid &&
-                    RHFHostageDiplomacy.HostageEligible(record.Pawn)) return true;
+                    (RHFHostageDiplomacy.HostageEligible(record.Pawn) ||
+                     (RHFHostageDiplomacy.IsDeadCase(record) && !record.DeathReportMade))) return true;
             return false;
         }
 
@@ -36,10 +37,13 @@ namespace RaidersHaveFamilies
                 foreach (RHFHostageRecord r in ledger.Hostages)
                 {
                     if (r?.OriginalFaction != faction || r.Paid ||
-                        !RHFHostageDiplomacy.HostageEligible(r.Pawn)) continue;
+                        !(RHFHostageDiplomacy.HostageEligible(r.Pawn) ||
+                          (RHFHostageDiplomacy.IsDeadCase(r) && !r.DeathReportMade))) continue;
                     RHFHostageRecord selected = r;
-                    node.options.Add(new DiaOption(r.Pawn.LabelShortCap + " — " +
-                        RHFRankResolver.RankLabel(r.Importance))
+                    node.options.Add(new DiaOption((RHFHostageDiplomacy.IsDeadCase(r) ? "† " : "") +
+                        (r.Pawn?.LabelShortCap ?? r.NameAtCapture) + " — " +
+                        RHFRankResolver.RankLabel(r.Importance) +
+                        (RHFHostageDiplomacy.IsDeadCase(r) ? " (смерть не сообщена)" : ""))
                     { linkLateBind = () => Person(negotiator, selected) });
                     count++;
                     if (count == 24) break;
@@ -50,12 +54,22 @@ namespace RaidersHaveFamilies
             return node;
         }
 
+        private static Pawn KnownRelative(RHFHostageRecord r)
+        {
+            if (r?.Pawn?.relations == null) return null;
+            foreach (Pawn relative in r.Pawn.relations.RelatedPawns)
+                if (relative != null && relative != r.Pawn && !relative.Dead &&
+                    relative.Faction == r.OriginalFaction)
+                    return relative;
+            return null;
+        }
+
         private static string Contact(RHFHostageRecord r)
         {
-            if (r?.Pawn?.relations != null)
-                foreach (Pawn relative in r.Pawn.relations.RelatedPawns)
-                    if (relative != null && relative.Faction == r.OriginalFaction && !relative.Dead)
-                        return "Родственник " + relative.LabelShortCap + " находится на линии вместе с представителем фракции";
+            Pawn relative = KnownRelative(r);
+            if (relative != null)
+                return "Родственник " + relative.LabelShortCap +
+                    " находится на линии вместе с представителем фракции";
             if (r != null && r.Importance >= 5)
                 return "На линии официальный представитель совета фракции";
             return "На линии уполномоченный представитель фракции";
@@ -63,6 +77,7 @@ namespace RaidersHaveFamilies
 
         private static DiaNode Person(Pawn negotiator, RHFHostageRecord r)
         {
+            if (RHFHostageDiplomacy.IsDeadCase(r)) return DeadPerson(negotiator, r);
             string introduction = Contact(r) + ".\n\n";
             introduction += "Сводное здоровье пленника: " +
                 Mathf.RoundToInt((r.Pawn.health?.summaryHealth?.SummaryHealthPercent ?? 1f)*100f) +
@@ -95,6 +110,51 @@ namespace RaidersHaveFamilies
                 { linkLateBind = () => Deny(negotiator, r) });
             node.options.Add(new DiaOption("К списку пленников")
             { linkLateBind = () => Captives(negotiator, r.OriginalFaction) });
+            return node;
+        }
+
+        // Deceased prisoner remains reachable until EXACTLY ONE disclosure / silence
+        // decision. No resurrection, no ransom and no misleading "alive" entry.
+        private static DiaNode DeadPerson(Pawn negotiator, RHFHostageRecord r)
+        {
+            string name = string.IsNullOrEmpty(r.NameAtCapture) ?
+                (r.Pawn?.LabelShortCap ?? "неизвестный пленник") : r.NameAtCapture;
+            string cause = r.Executed ? "зафиксирована казнь" : r.PlayerCausedDeath ?
+                "смерть наступила от действий колонистов" : "причина смерти не подтверждена";
+            string introduction = Contact(r) + ".\n\n«Что с " + name +
+                "? Мы уже не получаем от него известий. Скажите наконец, где он»." +
+                "\n\nПленник мёртв; " + cause + ". Ранг " + r.Importance +
+                "/8. Тело разделано: " + (r.BodyButchered ? "да" : "нет") +
+                "; поедание непосредственно трупа: " + (r.BodyConsumedDirectly ? "да" : "нет") + ".";
+            DiaNode node = new DiaNode(introduction);
+            node.options.Add(new DiaOption("Сообщить о смерти: " +
+                (r.Executed ? "казнили" : r.PlayerCausedDeath ? "убили" : "погиб") )
+            { linkLateBind = () => DeadResolution(negotiator, r, 1) });
+            if (!r.PlayerCausedDeath && !r.Executed)
+                node.options.Add(new DiaOption("Признать, что мы намеренно убили пленника")
+                { linkLateBind = () => DeadResolution(negotiator, r, 3) });
+            DiaOption cannibal = new DiaOption("Признаться в каннибализме: тело пленника съели")
+            { linkLateBind = () => DeadResolution(negotiator, r, 2) };
+            if (!RHFHostageDiplomacy.CanConfessCannibalism(r))
+                cannibal.Disable("нужна реально съеденная плоть тела либо разделка трупа и последующее поедание человеческого мяса/блюда");
+            node.options.Add(cannibal);
+            node.options.Add(new DiaOption("Отмолчаться; окончательно убрать из списка RHF")
+            { linkLateBind = () => DeadResolution(negotiator, r, 0) });
+            node.options.Add(new DiaOption("Вернуться к списку")
+            { linkLateBind = () => Captives(negotiator, r.OriginalFaction) });
+            return node;
+        }
+
+        private static DiaNode DeadResolution(Pawn negotiator, RHFHostageRecord r, int disposition)
+        {
+            // Resolving removes this pawn from Hostages; return directly to the
+            // remaining list, never to Person(r) for a now-closed record.
+            string result = RHFHostageDiplomacy.ResolveDeadHostage(r, disposition);
+            DiaNode node = new DiaNode(result);
+            node.options.Add(new DiaOption("К оставшимся делам")
+            { linkLateBind = () => Captives(negotiator, r.OriginalFaction) });
+            node.options.Add(new DiaOption("Завершить разговор")
+            { linkLateBind = () => FactionDialogMaker.FactionDialogFor(negotiator, r.OriginalFaction) });
             return node;
         }
 
@@ -177,12 +237,27 @@ namespace RaidersHaveFamilies
                     r.LastConfirmedOperation + ". Новых зарегистрированных операций: " + undisclosed + "." :
                     "Новых документированных умышленных операций в журнале RHF нет.") +
                 (missing > 0 ? "\nНовых отсутствующих частей тела: " + missing + "." : ""));
+            Pawn family = KnownRelative(r);
             if (RHFHostageDiplomacy.CanAdmitMutilation(r))
+            {
                 node.options.Add(new DiaOption("Признать: части тела намеренно удалены по нашему приказу")
                 { linkLateBind = () => ReturnNode(RHFHostageDiplomacy.AdmitMutilation(r), negotiator, r) });
+                if (family != null)
+                    node.options.Add(new DiaOption("Признаться лично родственнику " + family.LabelShortCap)
+                    { linkLateBind = () => ReturnNode("Родственник " + family.LabelShortCap +
+                        " слушает признание с другой стороны линии.\n\n" +
+                        RHFHostageDiplomacy.AdmitMutilation(r), negotiator, r) });
+            }
             if (RHFHostageDiplomacy.HasNewEvidence(r))
-                node.options.Add(new DiaOption("Передать медицинские сведения без признания умысла")
+            {
+                node.options.Add(new DiaOption("Сообщить представителю фракции о ранениях и операциях")
                 { linkLateBind = () => ReportResponse(negotiator, r) });
+                if (family != null)
+                    node.options.Add(new DiaOption("Сообщить лично родственнику " + family.LabelShortCap)
+                    { linkLateBind = () => ReturnNode("Родственник " + family.LabelShortCap +
+                        " получает ваши сведения лично. За спиной слышны встревоженные голоса.\n\n" +
+                        RHFHostageDiplomacy.ReportCondition(r), negotiator, r) });
+            }
             node.options.Add(new DiaOption("Вернуться к разговору")
             { linkLateBind = () => Person(negotiator, r) });
             return node;
