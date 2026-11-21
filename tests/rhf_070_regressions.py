@@ -21,7 +21,7 @@ assert 'QueueRetaliation(r, true)' in h
 assert 'ReportCondition(r)' in h
 assert 'HighDemandRejected' in source['RHFDialogue'] and 'negotiator' in source['RHFDialogue']
 assert 'report.Disable(' in source['RHFDialogue']
-assert 'Признать: части тела' in source['RHFDialogue']
+assert 'Признать: мы сознательно искалечили пленника' in source['RHFDialogue']
 patch=source['RHFPatches']
 assert 'typeof(BodyPartRecord)' in patch and 'typeof(Bill)' in patch
 ops=source['RHFOperations']
@@ -31,6 +31,6 @@ assert 'RHF: спасательная операция' not in ops or 'LetterDef
 assert 'ЦЕЛЬ ОПЕРАЦИИ' in ops and 'new LookTargets(map.Center, map)' in ops
 assert '01 — Спасение' in source['RHFDebugActions']
 assert '09 — Месть' in source['RHFDebugActions']
-assert 'Настроение (RHF)' in source['RHFPreceptNotes']
-assert '0.10.0' in (root/'.github/workflows/build.yml').read_text()
+assert 'RHFPreceptMoodEntry : PreceptComp_SelfTookMemoryThought' in source['RHFPreceptNotes']
+assert '0.12.1' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: 0.7 regression guards for social visibility, rank, diplomacy, WCE2, raid reports and localized dev menu')

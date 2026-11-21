@@ -1,4 +1,4 @@
-name: Build Raiders Have Families 0.10.0 (RimWorld 1.7, Harmony 3)
+name: Build Raiders Have Families 0.12.1 (RimWorld 1.7, Harmony 3)
 
 on:
   workflow_dispatch:
@@ -45,6 +45,10 @@ jobs:
           python3 tests/rhf_091_guest_api.py
           python3 tests/rhf_092_psychological_cruelty.py
           python3 tests/rhf_100_death_and_reprisals.py
+          python3 tests/rhf_101_native_precept_mood.py
+          python3 tests/rhf_110_family_escort_dialogue.py
+          python3 tests/rhf_120_conversion_campaigns.py
+          python3 tests/rhf_121_coherent_ops.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)
@@ -57,10 +61,10 @@ jobs:
           mkdir -p _release/RaidersHaveFamilies
           cp -a RaidersHaveFamilies/About RaidersHaveFamilies/Languages RaidersHaveFamilies/Defs RaidersHaveFamilies/Textures RaidersHaveFamilies/Assemblies _release/RaidersHaveFamilies/
           cd _release
-          zip -qr ../RaidersHaveFamilies_v0.10.0_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
+          zip -qr ../RaidersHaveFamilies_v0.12.1_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
       - name: Upload test build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: RaidersHaveFamilies-RimWorld-1.7-v0.10.0-REPRISALS-TEST
-          path: RaidersHaveFamilies_v0.10.0_RimWorld_1.7_INSTALL.zip
+          name: RaidersHaveFamilies-RimWorld-1.7-v0.12.1-TACTICAL-CAMPAIGNS-TEST
+          path: RaidersHaveFamilies_v0.12.1_RimWorld_1.7_INSTALL.zip
           if-no-files-found: error

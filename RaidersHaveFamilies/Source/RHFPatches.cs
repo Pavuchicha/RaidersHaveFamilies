@@ -111,7 +111,7 @@ namespace RaidersHaveFamilies
         {
             __state = null;
             if (RHFMod.Settings?.Enabled != true || __instance == null ||
-                !__instance.IsPrisonerOfColony) return;
+                !(__instance.IsPrisonerOfColony || __instance.IsSlaveOfColony)) return;
             __state = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(__instance);
             if (__state != null && __instance.Spawned)
                 __state.LastHeldCell = __instance.Position;
@@ -171,6 +171,24 @@ namespace RaidersHaveFamilies
             if (RHFMod.Settings?.Enabled != true || !__state.Released ||
                 __instance == null || __instance.Map != null) return;
             RHFHostageDiplomacy.OnPrisonerExit(__instance, __state.Map, true, __state.ExitCell);
+        }
+    }
+
+    // RimWorld 1.7 medical-change fallback: invoked on actual Hediff additions,
+    // not on every health tick and not on all damage. Other mods' surgical
+    // workers can bypass the expected RecipeWorker.ApplyOnPawn implementation.
+    [HarmonyPatch(typeof(Pawn_HealthTracker), nameof(Pawn_HealthTracker.AddHediff),
+        new Type[] { typeof(Hediff), typeof(BodyPartRecord), typeof(DamageInfo?),
+            typeof(DamageWorker.DamageResult) })]
+    public static class RHFMedicalMissingPartEvent
+    {
+        private static readonly FieldInfo PawnField = AccessTools.Field(typeof(Pawn_HealthTracker), "pawn");
+        [HarmonyPostfix]
+        public static void Postfix(Pawn_HealthTracker __instance, Hediff hediff, DamageInfo? dinfo)
+        {
+            if (!(hediff is Hediff_MissingPart) || dinfo.HasValue) return;
+            Pawn victim = PawnField?.GetValue(__instance) as Pawn;
+            RHFHostageDiplomacy.RecordMedicalMissingPart(victim, hediff, dinfo);
         }
     }
 

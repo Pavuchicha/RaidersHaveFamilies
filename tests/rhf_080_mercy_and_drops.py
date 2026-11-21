@@ -28,8 +28,8 @@ assert 'RHF_MercyTrade' in m and 'RHF_MercyFreedom' in m
 assert 'charity_' in m and 'mercy_' in m
 assert 'name.StartsWith("Charity_"' in notes
 assert 'parms.spawnCenter = nearPrison' in ops and 'RescueDropCenter' in ops
-assert 'TryFindDropSpotNear(prisoner.Position' in ops
+assert 'DropCellFinder.IsGoodDropSpot(cell,map,true,true)' in ops and 'cell.GetRoom(map) != prison' in ops
 assert 'Рейд отменён' in ops or 'рейд отменён' in ops
 assert '19 — Проверить бонусы идеологии и милосердия' in dbg
-assert '0.10.0' in (r/'.github/workflows/build.yml').read_text()
+assert '0.12.1' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: 0.8 mercy/charity, sale vs ransom, physical ransom pods, prison-side rescue drop, diagnostics.')

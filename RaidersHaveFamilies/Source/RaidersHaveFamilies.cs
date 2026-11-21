@@ -14,13 +14,13 @@ namespace RaidersHaveFamilies
     {
         // Existing Scribe keys retained: old 0.1.x settings and game saves remain readable.
         public bool Enabled = true;
-        public int SettingsSchema = 3;
+        public int SettingsSchema = 4;
         public float ParentChance = 0.92f;
         public float PartnerChance = 0.58f;
         public float RaidmatePartnerChance = 0.75f;
         public float SharedParentChance = 0.85f;
-        public int MaxPerWave = 8; // bounded generation attempts per arriving group
-        public int MaxPerSave = 384;
+        public int MaxPerWave = 16; // bounded generation attempts per arriving group
+        public int MaxPerSave = 768;
         public bool VerboseLogging = false;
         public bool Negotiations = true;
         public bool Retaliation = true;
@@ -34,8 +34,8 @@ namespace RaidersHaveFamilies
         public float FactionRelativeChance = 0.80f;
 
         // Hard safety ceilings also apply to previously saved settings.
-        public const int HardMaxPerCycle = 8;
-        public const int HardMaxPerSave = 512;
+        public const int HardMaxPerCycle = 16;
+        public const int HardMaxPerSave = 1024;
         public int DesiredLinks = 5; // best-effort density target for small arriving groups
 
         public void Clamp()
@@ -104,6 +104,15 @@ namespace RaidersHaveFamilies
                     if (MaxPerSave == 256 && MaxPerWave > 0) MaxPerSave = 384;
                     DesiredLinks = 5;
                     SettingsSchema = 3;
+                }
+                if (SettingsSchema < 4)
+                {
+                    // In older saves the 8-world-pawns cap ran out before even
+                    // one large raid could receive families. Preserve explicit
+                    // user-specified budgets (including zero).
+                    if (MaxPerWave == 8) MaxPerWave = 16;
+                    if (MaxPerSave == 384) MaxPerSave = 768;
+                    SettingsSchema = 4;
                 }
                 Clamp();
             }
@@ -255,14 +264,15 @@ namespace RaidersHaveFamilies
                 if (Find.WorldPawns == null || !Find.WorldPawns.Contains(kin) ||
                     Find.WorldPawns.GetSituation(kin) != WorldPawnSituation.Free)
                     continue;
-                bool activeRelative = false;
+                bool hasLivingRelative = false;
                 if (kin.relations != null)
                     foreach (Pawn p in kin.relations.RelatedPawns)
-                        if (p != null && (p.Spawned || p.IsColonist || p.IsPrisonerOfColony || p.IsSlaveOfColony ||
-                            (Find.WorldPawns != null && Find.WorldPawns.Contains(p) &&
-                             Find.WorldPawns.GetSituation(p) != WorldPawnSituation.Free)))
-                        { activeRelative = true; break; }
-                if (activeRelative) continue;
+                        // Free world pawns are STILL real, living relatives. Earlier
+                        // code discarded family members as soon as the entire raid
+                        // departed the map, destroying the family tree on old saves.
+                        if (p != null && !p.Dead && !p.Destroyed)
+                        { hasLivingRelative = true; break; }
+                if (hasLivingRelative) continue;
                 // Clear both sides before asking the world manager to discard this
                 // generated pawn. Avoid operations on relations owned by other mods.
                 try
@@ -419,6 +429,11 @@ namespace RaidersHaveFamilies
 
         // No new collections are allocated on empty MapComponentTick passes.
         private int nextScanTick;
+        private bool oneTimeBackfill = true;
+        private int totalQueued;
+        private int totalBatches;
+        private int totalFamiliesLinked;
+        private int failedBatches;
         private List<Pawn> pending = new List<Pawn>(48);
         private List<int> processedPawnIds = new List<int>();
         private HashSet<int> processed = new HashSet<int>();
@@ -430,6 +445,10 @@ namespace RaidersHaveFamilies
         {
             base.ExposeData();
             Scribe_Collections.Look(ref processedPawnIds, "rhfProcessedPawnIds", LookMode.Value);
+            Scribe_Values.Look(ref totalQueued, "rhfTotalQueuedV11", 0);
+            Scribe_Values.Look(ref totalBatches, "rhfTotalBatchesV11", 0);
+            Scribe_Values.Look(ref totalFamiliesLinked, "rhfFamilyLinksV11", 0);
+            Scribe_Values.Look(ref failedBatches, "rhfFailedBatchesV11", 0);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (processedPawnIds == null) processedPawnIds = new List<int>();
@@ -440,6 +459,7 @@ namespace RaidersHaveFamilies
                 // does not generate another family for a processed pawn.
                 nextScanTick = 0;
                 pending = new List<Pawn>(48);
+                oneTimeBackfill = true;
             }
         }
 
@@ -448,9 +468,25 @@ namespace RaidersHaveFamilies
         {
             if (!Eligible(pawn) || processed.Contains(pawn.thingIDNumber)) return;
             if (pending.Count >= MaxBatchSize) return;
-            Remember(pawn.thingIDNumber);
+            // Remember only AFTER successful processing, never before. Earlier
+            // releases marked incoming pawns as processed even if generation
+            // threw or the pawn left during the pending delay.
+            if (pending.Contains(pawn)) return;
             pending.Add(pawn);
+            totalQueued++;
             if (nextScanTick == 0) nextScanTick = Find.TickManager.TicksGame + FirstScanDelay;
+        }
+
+        public string FamilyAudit()
+        {
+            return "RHF: автоматическая генерация семей, карта " + map.Parent?.Label +
+                "\nВ очереди: " + pending.Count + "; входов в очередь: " + totalQueued +
+                "; обработанных партий: " + totalBatches +
+                "; подтверждённых RHF-связей: " + totalFamiliesLinked +
+                "; ошибок партий: " + failedBatches +
+                "\nОграничение на партию: " + (RHFMod.Settings?.MaxPerWave ?? 0) +
+                "; на сохранение: " + (RHFMod.Settings?.MaxPerSave ?? 0) +
+                ". Создание родства не гарантируется для не-человеческих рас.";
         }
 
         public override void MapComponentTick()
@@ -458,8 +494,32 @@ namespace RaidersHaveFamilies
             RHFSettings cfg = RHFMod.Settings;
             if (cfg == null || !cfg.Enabled) return;
 
-            if (pending.Count == 0) return;
             int now = Find.TickManager.TicksGame;
+            if (oneTimeBackfill && now > 120)
+            {
+                oneTimeBackfill = false;
+                // A ONE-TIME bounded recovery for normal raids already present
+                // in a game loaded from v0.6.1-v0.10.1. This is not a periodic scan.
+                // The spawn hook remains the normal source of arrivals.
+                int visited = 0;
+                var people = map.mapPawns.AllPawnsSpawned;
+                for (int i = 0; i < people.Count && visited < MaxBatchSize; i++)
+                {
+                    Pawn p = people[i];
+                    if (!Eligible(p)) continue;
+                    visited++;
+                    if (CurrentRelations(p) != 0 &&
+                        (Current.Game?.GetComponent<RHFGameLedger>()?.ConfirmedLinks(p) ?? 0) > 0)
+                        continue;
+                    if (processed.Contains(p.thingIDNumber))
+                    {
+                        processed.Remove(p.thingIDNumber);
+                        processedPawnIds.Remove(p.thingIDNumber);
+                    }
+                    Enqueue(p);
+                }
+            }
+            if (pending.Count == 0) return;
             if (now < nextScanTick) return;
             nextScanTick = 0;
             // Entire group is processed once, shortly after the arrival finishes.
@@ -467,8 +527,28 @@ namespace RaidersHaveFamilies
             pending = new List<Pawn>(48);
             batch.RemoveAll(p => p == null || !p.Spawned || p.Map != map || p.Dead);
             if (batch.Count == 0) return;
-            try { Enrich(batch); }
-            catch (Exception e) { Log.Warning("[Raiders Have Families] Arrival enrichment failed: " + e); }
+            try
+            {
+                int linked = Enrich(batch);
+                totalFamiliesLinked += linked;
+                totalBatches++;
+                for (int i = 0; i < batch.Count; i++)
+                {
+                    Pawn processedPawn = batch[i];
+                    // A failed/budget-starved family attempt must not permanently
+                    // blacklist a still-unrelated pawn from later arrival events.
+                    if (Eligible(processedPawn) &&
+                        (CurrentRelations(processedPawn) > 0 ||
+                         Current.Game?.GetComponent<RHFGameLedger>()?.ConfirmedLinks(processedPawn) > 0))
+                        Remember(processedPawn.thingIDNumber);
+                }
+            }
+            catch (Exception e)
+            {
+                failedBatches++;
+                Log.Warning("[Raiders Have Families] Family generation failed for arrival batch; " +
+                    "pawns will remain eligible for a later recovery: " + e);
+            }
         }
 
         private void Remember(int id)
@@ -510,12 +590,12 @@ namespace RaidersHaveFamilies
             return total;
         }
 
-        private static void Enrich(List<Pawn> newcomers)
+        private static int Enrich(List<Pawn> newcomers)
         {
             RHFSettings cfg = RHFMod.Settings;
-            if (cfg == null || !cfg.Enabled) return;
+            if (cfg == null || !cfg.Enabled) return 0;
             RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
-            if (ledger == null) return;
+            if (ledger == null) return 0;
 
             int created = 0;
             int generationAttempts = 0; // hard bound even when pawn generation fails
@@ -523,6 +603,27 @@ namespace RaidersHaveFamilies
             links += LinkGroupFamily(newcomers, ledger);
             // Reuse our existing retained relatives before generating another world pawn.
             links += ReuseExistingKin(newcomers, ledger, cfg);
+
+            // Guaranteed baseline for EACH eligible ordinary human (until the
+            // explicitly configured world-pawn budget runs out). Do not rely on
+            // four successive RNG rolls all succeeding. The other passes below
+            // continue enriching sibling/romantic/group networks.
+            for (int i = 0; i < newcomers.Count && CanCreate(ledger,cfg,created,generationAttempts); i++)
+            {
+                Pawn pawn = newcomers[i];
+                if (!Eligible(pawn) || pawn.def != ThingDefOf.Human || CurrentRelations(pawn) > 0 ||
+                    !HasMissingParent(pawn) || Age(pawn) >= 70f) continue;
+                Gender gender = MissingParentGender(pawn);
+                generationAttempts++;
+                Pawn parent = NewWorldPawn(pawn, gender, Age(pawn) + Rand.Range(23f,34f), true, true);
+                if (parent == null) continue;
+                ledger.RegisterGeneratedKin(parent);
+                created++;
+                if (gender == Gender.Male) pawn.SetFather(parent);
+                else pawn.SetMother(parent);
+                ledger.RegisterProvenance(pawn,parent,gender == Gender.Male ? "Отец" : "Мать");
+                links++;
+            }
 
             // All pair matching runs once per batch, not on repeated ticks.
             HashSet<Pawn> paired = new HashSet<Pawn>();
@@ -693,6 +794,7 @@ namespace RaidersHaveFamilies
                     ", world pawns=" + created + ", links=" + links +
                     ", total created=" + ledger.CreatedWorldPawns +
                     ", live generated=" + ledger.ActiveGeneratedKin);
+            return links;
         }
 
         // Reuse a bounded selection of stored world kin. This allows kinship between

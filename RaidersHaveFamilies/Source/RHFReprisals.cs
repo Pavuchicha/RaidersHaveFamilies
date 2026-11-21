@@ -163,12 +163,16 @@ namespace RaidersHaveFamilies
                 Type = (int)(search ? RHFOperationType.Rescue : RHFOperationType.Vengeance),
                 Targets = new List<Pawn>(),
                 CombinedStrike = !search,
+                Doctrine=(int)(search ? RHFDoctrine.PrisonBreakout :
+                    catastrophic ? RHFDoctrine.SiegeAndRaze : RHFDoctrine.PunitiveAssault),
+                SourceImportance=c.Importance,
                 ThreatPoints = points,
                 CaseKeyV10 = c.Key,
                 CaseSearchCellV10 = search ? c.SearchCell : IntVec3.Invalid,
                 CreatedTick = now, SpawnTick = now + 1200,
                 ExpiryTick = now + 90000
             };
+            RHFMissionProfiles.ConfigureCase(operation,c,search);
             if (search)
             {
                 operation.Parties.Add(new RHFStrikeParty(participants[0], RHFStrikeRole.Rescue, points,

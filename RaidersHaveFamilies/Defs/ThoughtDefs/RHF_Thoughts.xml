@@ -156,4 +156,95 @@
       </li>
     </stages>
   </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_PublicCannibalismDisgust</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>RHF: отвратительное признание в каннибализме</label>
+        <description>Наши люди сообщили чужой семье, что съели её пленника. Мне отвратительна не только сама жестокость, но и это хвастовство.</description>
+        <baseMoodEffect>-8</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_ConversionVictory1</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>RHF: торжество нашей веры</label>
+        <description>Колония объявила, что бывший пленник принял наши убеждения.</description>
+        <baseMoodEffect>2</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_ConversionVictory2</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>RHF: торжество нашей веры</label>
+        <description>Колония объявила, что бывший пленник принял наши убеждения.</description>
+        <baseMoodEffect>4</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_ConversionVictory3</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>RHF: торжество нашей веры</label>
+        <description>Колония объявила, что бывший пленник принял наши убеждения.</description>
+        <baseMoodEffect>8</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_ConversionLoss1</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>RHF: отступничество от нашей веры</label>
+        <description>Узнали, что человек отрёкся от нашей прежней веры в плену.</description>
+        <baseMoodEffect>-2</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_ConversionLoss2</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>RHF: отступничество от нашей веры</label>
+        <description>Узнали, что человек отрёкся от нашей прежней веры в плену.</description>
+        <baseMoodEffect>-5</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_ConversionLoss3</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>RHF: отступничество от нашей веры</label>
+        <description>Узнали, что человек отрёкся от нашей прежней веры в плену.</description>
+        <baseMoodEffect>-9</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
 </Defs>

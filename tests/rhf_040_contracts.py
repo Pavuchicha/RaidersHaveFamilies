@@ -12,7 +12,7 @@ assert {'RHF_SocialImportance','RHF_ConfirmedRelations'}<=defs.keys()
 assert 'RHFRankStatWorker' in ui and 'RHFProvenanceStatWorker' in ui
 assert 'ITab_Pawn_Character' in ui and 'ITab_Pawn_Prisoner' in ui
 assert 'RegisterProvenance' in source and 'rhfProvenanceV4' in source and 'LookMode.Deep' in source
-assert 'MaxPerWave = 8' in source and 'HardMaxPerCycle = 8' in source
+assert 'MaxPerWave = 16' in source and 'HardMaxPerCycle = 16' in source
 assert 'CurrentRelations(p) >= cfg.DesiredLinks' in source
 assert 'for (int pass = 0; pass < 2' in source
 assert '"Родство через общего родителя"' in source

@@ -266,6 +266,9 @@ namespace RaidersHaveFamilies
                 if (d > 625f || d >= nearest) continue;
                 // Do not direct fire through a captive in a tightly enclosed room.
                 if (captive != null && (possible.Position-captive.Position).LengthHorizontalSquared < 5) continue;
+                // A tactical spotter must actually see the target. This
+                // prevents issuing blind shots through sealed prison walls.
+                if (!GenSight.LineOfSight(fighter.Position, possible.Position, map)) continue;
                 enemy = possible; nearest = d;
             }
             if (enemy == null) return false;

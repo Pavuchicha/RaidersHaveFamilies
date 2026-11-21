@@ -25,7 +25,10 @@ namespace RaidersHaveFamilies
         CoalitionManyFactions,
         CoalitionHiredDiversion,
         CombinedMixedApproach,
-        DropRescueWithDiversion
+        DropRescueWithDiversion,
+        TraitorHunt,
+        FortifiedVipExtraction,
+        RescueThenRaze
     }
 
     public static class RHFDebugActions
@@ -126,6 +129,16 @@ namespace RaidersHaveFamilies
         [DebugAction(Category, "15 — Комбинированный: десант и отвлечение", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void DropRescue() { Start(RHFDebugScenario.DropRescueWithDiversion); }
+
+        [DebugAction(Category, "16 — VIP: десант, баррикады, полевая капсула", actionType=DebugActionType.Action,
+            allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void TestFortifiedVip(){Start(RHFDebugScenario.FortifiedVipExtraction);}
+        [DebugAction(Category, "17 — Спасение, затем карательный штурм", actionType=DebugActionType.Action,
+            allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void TestRescueThenRaze(){Start(RHFDebugScenario.RescueThenRaze);}
+        [DebugAction(Category, "18 — Месть: охота на завербованного VIP", actionType=DebugActionType.Action,
+            allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void TestTraitorHunt(){Start(RHFDebugScenario.TraitorHunt);}
 
         [DebugAction(PrisonersCategory, "Создать VIP ранга 6: другая враждебная фракция", actionType = DebugActionType.ToolMap,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
@@ -265,10 +278,17 @@ namespace RaidersHaveFamilies
                     int mercy = RHFMercy.PreceptLevel(colonist);
                     string trait = RHFMoralResponse.EligibleTraitReason(colonist, RHFPublicityKind.Torture);
                     bool ideology = RHFMoralResponse.EligibleIdeology(colonist, p, RHFPublicityKind.Torture);
+                    int visibleMoodEntries = 0;
+                    if (colonist.Ideo != null)
+                        foreach (Precept precept in colonist.Ideo.PreceptsListForReading)
+                            if (precept?.def?.comps != null)
+                                foreach (PreceptComp comp in precept.def.comps)
+                                    if (comp is RHFPreceptMoodEntry) visibleMoodEntries++;
                     sb.AppendLine(colonist.LabelShortCap + ": милосердие " + mercy +
                         "/3; жестокость RHF: черта=" + (trait ?? "нет") +
                         ", идеология=" + (ideology ? "да" : "нет") +
-                        "; получит бонус при новом докладе=" + (trait != null || ideology));
+                        "; получит бонус при новом докладе=" + (trait != null || ideology) +
+                        "; строк RHF в разделе Настроение: " + visibleMoodEntries);
                 }
             Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
         }
@@ -327,6 +347,74 @@ namespace RaidersHaveFamilies
                     ", неудачных попыток=" + c.FailedAttempts);
             }
             Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
+        }
+
+        [DebugAction(ChecksCategory, "26 — Аудит вербовки и смены идеологий", actionType=DebugActionType.Action,
+            allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void AuditConvertedRecruitment()
+        {
+            RHFGameLedger ledger=Current.Game?.GetComponent<RHFGameLedger>();
+            if(ledger==null)return;
+            var sb=new System.Text.StringBuilder(900);
+            sb.AppendLine("RHF v0.12 — события смены фракции/идеологии (только запись):");
+            int count=0;
+            foreach(RHFHostageRecord r in ledger.Hostages)
+            {
+                if(r==null || (!r.Recruited && !r.IdeologyConverted))continue;
+                if(++count>24){sb.AppendLine("...остальные записи не показаны");break;}
+                sb.AppendLine((r.NameAtCapture??"?")+" / "+r.Importance+"/8 / "+
+                    (r.OriginalFaction?.Name??"?")+": завербован="+r.Recruited+
+                    ", сообщение о вербовке="+r.RecruitmentReported+
+                    ", месть="+r.RecruitmentRevengeQueued+
+                    ", до начала мести тик="+r.NextRetaliationTick+
+                    ", обращён="+r.IdeologyConverted+
+                    ", новая идеология="+(r.ConvertedIdeo?.name??"нет")+
+                    ", старая="+(r.OriginalIdeo?.name??"нет")+
+                    ", сообщение об обращении="+r.IdeologyReported);
+            }
+            sb.AppendLine("Записей: "+count+". Отсутствие события означает, что Harmony hook не зарегистрировал смену.");
+            Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
+        }
+
+        [DebugAction(ChecksCategory, "27 — Аудит боевой доктрины / охоты / капсул", actionType=DebugActionType.Action,
+            allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void AuditMissionComposition()
+        {
+            RHFOperationController controller=Find.CurrentMap?.GetComponent<RHFOperationController>();
+            if(controller==null)return;
+            Find.WindowStack.Add(new Dialog_MessageBox(controller.DebugStatus()));
+        }
+
+        [DebugAction(ChecksCategory, "24 — Аудит автоматических семей и очереди", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void AuditAutomaticFamilies()
+        {
+            Map map=Find.CurrentMap;
+            var ledger=Current.Game?.GetComponent<RHFGameLedger>();
+            if(map==null || ledger==null) return;
+            string result=map.GetComponent<RHFMapComponent>()?.FamilyAudit() ??
+                "Компонент семей на карте не обнаружен.";
+            Pawn selected=Find.Selector?.SingleSelectedThing as Pawn;
+            if(selected!=null && selected.Faction!=null && !selected.Faction.IsPlayer)
+            {
+                int visible=0;
+                if(selected.relations!=null)
+                    foreach(Pawn related in selected.relations.RelatedPawns)
+                        if(related!=null && related!=selected && ++visible>=64) break;
+                result+="\n\nВыбран: "+selected.LabelShortCap+
+                    "; видимых родственных/социальных связей: "+visible+
+                    "; созданных RHF: "+ledger.ConfirmedLinks(selected);
+            }
+            Find.WindowStack.Add(new Dialog_MessageBox(result));
+        }
+
+        [DebugAction(ChecksCategory, "25 — Аудит эвакуации и сопровождающих", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void AuditEscorts()
+        {
+            RHFOperationController controller=Find.CurrentMap?.GetComponent<RHFOperationController>();
+            Find.WindowStack.Add(new Dialog_MessageBox(controller?.DebugStatus() ??
+                "На текущей карте нет контроллера специальных операций RHF."));
         }
 
         [DebugAction(ChecksCategory, "16 — Имитировать хирургическое увечье", actionType = DebugActionType.Action,
@@ -402,7 +490,8 @@ namespace RaidersHaveFamilies
             bool vengeance = scenario == RHFDebugScenario.Vengeance ||
                 scenario == RHFDebugScenario.TribalVengeance ||
                 scenario == RHFDebugScenario.HighTechDrop ||
-                scenario == RHFDebugScenario.HighTechSiege;
+                scenario == RHFDebugScenario.HighTechSiege ||
+                scenario == RHFDebugScenario.TraitorHunt;
             bool rescue = !vengeance;
             bool coalition = scenario == RHFDebugScenario.CoalitionRescue ||
                 scenario == RHFDebugScenario.CoalitionManyFactions ||
@@ -415,7 +504,22 @@ namespace RaidersHaveFamilies
                 scenario == RHFDebugScenario.HighTechSiege;
 
             List<Pawn> prisoners = Captives(map);
-            Faction sponsor = rescue ? (prisoners.Count>0 ? SourceFaction(prisoners[0]) : null) :
+            RHFHostageRecord traitorCase=null;
+            if(scenario==RHFDebugScenario.TraitorHunt)
+            {
+                RHFGameLedger ledger=Current.Game?.GetComponent<RHFGameLedger>();
+                if(ledger!=null)
+                    foreach(RHFHostageRecord record in ledger.Hostages)
+                        if(record!=null && record.Recruited && record.Importance>=6 &&
+                           record.Pawn!=null && record.Pawn.Map==map && !record.Pawn.Dead &&
+                           record.Pawn.Faction==Faction.OfPlayer && record.OriginalFaction!=null &&
+                           record.OriginalFaction.HostileTo(Faction.OfPlayer))
+                        {traitorCase=record;break;}
+                if(traitorCase==null)
+                {Notify(map,"Сначала завербуй настоящего VIP ранга 6–8, который находится на карте колонии.");return;}
+            }
+            Faction sponsor = scenario==RHFDebugScenario.TraitorHunt ?
+                traitorCase.OriginalFaction : rescue ? (prisoners.Count>0 ? SourceFaction(prisoners[0]) : null) :
                 FirstEnemy(null, tribal, industrial);
             if (sponsor == null)
             { Notify(map, rescue ? "Нужен реальный живой пленник. Сначала создай его в разделе RHF - ТЕСТЫ | ПЛЕННИКИ." :
@@ -442,6 +546,9 @@ namespace RaidersHaveFamilies
                     targets.Add(p);
                 }
                 if (targets.Count == 0) { Notify(map, "Нет пригодных целей для спасения."); return; }
+                if(scenario==RHFDebugScenario.FortifiedVipExtraction &&
+                   (targets[0]==null || RHFHostageDiplomacy.RankOf(targets[0])<6))
+                { Notify(map,"Нужен пленник не ниже ранга 6 и индустриальная фракция исполнителя."); return; }
                 if (scenario == RHFDebugScenario.MassRescue && targets.Count < 2)
                 { Notify(map, "Для массового освобождения необходимо как минимум два пленника."); return; }
                 if (scenario == RHFDebugScenario.CoalitionManyFactions && sponsors.Count < 3)
@@ -475,8 +582,23 @@ namespace RaidersHaveFamilies
                 Type = (int)(rescue ? RHFOperationType.Rescue : RHFOperationType.Vengeance),
                 CombinedStrike = combined,
                 Vip = scenario == RHFDebugScenario.VipRescue ||
-                      scenario == RHFDebugScenario.FieldPod ? targets[0] : null,
-                TryPod = scenario == RHFDebugScenario.FieldPod,
+                      scenario == RHFDebugScenario.FieldPod ||
+                      scenario == RHFDebugScenario.FortifiedVipExtraction ? targets[0] : null,
+                TryPod = scenario == RHFDebugScenario.FieldPod ||
+                    scenario == RHFDebugScenario.FortifiedVipExtraction,
+                FortifyPrison=scenario==RHFDebugScenario.FortifiedVipExtraction,
+                AssaultAfterObjective=scenario==RHFDebugScenario.RescueThenRaze,
+                HuntTarget=scenario==RHFDebugScenario.TraitorHunt ? traitorCase.Pawn : null,
+                SourceImportance=scenario==RHFDebugScenario.TraitorHunt ?
+                    traitorCase.Importance : targets.Count>0 ?
+                    RHFHostageDiplomacy.RankOf(targets[0]) : 0,
+                Doctrine=(int)(scenario==RHFDebugScenario.TraitorHunt ?
+                    RHFDoctrine.TargetedTraitorHunt :
+                    scenario==RHFDebugScenario.FortifiedVipExtraction ?
+                    RHFDoctrine.FortifiedVipExtraction :
+                    scenario==RHFDebugScenario.RescueThenRaze ?
+                    RHFDoctrine.RescueThenAssault :
+                    rescue ? RHFDoctrine.PrisonBreakout : RHFDoctrine.PunitiveAssault),
                 CreatedTick = now, SpawnTick = now,
                 ExpiryTick = now + 180000, ThreatPoints = total
             };
@@ -484,7 +606,9 @@ namespace RaidersHaveFamilies
             if (vengeance)
             {
                 op.Parties.Add(new RHFStrikeParty(executor, RHFStrikeRole.Vengeance, total,
-                    drop: scenario == RHFDebugScenario.HighTechDrop,
+                    drop: scenario == RHFDebugScenario.HighTechDrop ||
+                        (scenario==RHFDebugScenario.TraitorHunt &&
+                         executor.def.techLevel>=TechLevel.Industrial),
                     siege: scenario == RHFDebugScenario.HighTechSiege));
             }
             else if (scenario == RHFDebugScenario.DropRescueWithDiversion)
@@ -507,9 +631,12 @@ namespace RaidersHaveFamilies
                 op.Parties.Add(new RHFStrikeParty(sponsor, RHFStrikeRole.Diversion, total * .40f));
             }
             else if (scenario == RHFDebugScenario.MercenaryRescue ||
-                     scenario == RHFDebugScenario.FieldPod)
+                     scenario == RHFDebugScenario.FieldPod ||
+                     scenario == RHFDebugScenario.FortifiedVipExtraction)
             {
                 op.Parties.Add(new RHFStrikeParty(executor, RHFStrikeRole.Rescue, total,
+                    drop: scenario==RHFDebugScenario.FortifiedVipExtraction &&
+                       executor.def.techLevel>=TechLevel.Industrial,
                     breach: true));
             }
             else if (coalition)

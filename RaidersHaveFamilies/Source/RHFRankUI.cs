@@ -2,6 +2,7 @@
 // GUI-only Harmony postfixes; no work during ordinary game ticks.
 using System;
 using System.Reflection;
+using System.Collections.Generic;
 using System.Text;
 using HarmonyLib;
 using RimWorld;
@@ -62,7 +63,8 @@ namespace RaidersHaveFamilies
 
         public static string Short(Pawn p)
         {
-            if (p == null || p.RaceProps == null || !p.RaceProps.Humanlike) return "";
+            if (p == null || p.Faction == null || p.Faction.IsPlayer ||
+                p.RaceProps == null || !p.RaceProps.Humanlike) return "";
             int tick = Find.TickManager?.TicksGame ?? 0;
             if (p == cachePawn && cacheShort != null && tick - cacheTick < 120) return cacheShort;
             int rank = EffectiveRank(p);
@@ -124,7 +126,8 @@ namespace RaidersHaveFamilies
 
         public static void DrawStatus(Rect area, Pawn pawn)
         {
-            if (pawn == null || pawn.RaceProps == null || !pawn.RaceProps.Humanlike) return;
+            if (pawn == null || pawn.Faction == null || pawn.Faction.IsPlayer ||
+                pawn.RaceProps == null || !pawn.RaceProps.Humanlike) return;
             Widgets.DrawMenuSection(area);
             Text.Font = GameFont.Tiny;
             Rect lines = area.ContractedBy(7f);
@@ -178,25 +181,44 @@ namespace RaidersHaveFamilies
         }
     }
 
-    [HarmonyPatch(typeof(ITab_Pawn_Character), MethodType.Constructor)]
+    // The original implementation enlarged EVERY character tab, including
+    // player colonists. Apply extra space only while a non-player humanlike
+    // character is selected, and restore the vanilla size when selection changes.
     public static class RHFCharacterTabSize
     {
-        [HarmonyPostfix]
-        public static void Postfix(ITab_Pawn_Character __instance)
+        private static readonly HashSet<ITab_Pawn_Character> Expanded =
+            new HashSet<ITab_Pawn_Character>();
+
+        public static void SetExpanded(ITab_Pawn_Character tab, bool expand)
         {
-            if (RHFRankUI.GetSize(__instance) is Vector2 current && current.y > 0f)
-                RHFRankUI.SetSize(__instance, new Vector2(current.x, current.y + 97f));
+            if (tab == null) return;
+            bool already = Expanded.Contains(tab);
+            if (already == expand) return;
+            Vector2 size = RHFRankUI.GetSize(tab);
+            if (size.y <= 0f) return;
+            RHFRankUI.SetSize(tab, new Vector2(size.x, size.y + (expand ? 97f : -97f)));
+            if (expand) Expanded.Add(tab);
+            else Expanded.Remove(tab);
         }
     }
 
     [HarmonyPatch(typeof(ITab_Pawn_Character), "FillTab")]
     public static class RHFCharacterTabDisplay
     {
+        [HarmonyPrefix]
+        public static void Prefix(ITab_Pawn_Character __instance)
+        {
+            Pawn pawn = Find.Selector?.SingleSelectedThing as Pawn;
+            bool foreign = pawn != null && pawn.Faction != null &&
+                !pawn.Faction.IsPlayer && pawn.RaceProps != null && pawn.RaceProps.Humanlike;
+            RHFCharacterTabSize.SetExpanded(__instance, foreign);
+        }
+
         [HarmonyPostfix]
         public static void Postfix(ITab_Pawn_Character __instance)
         {
             Pawn p = Find.Selector?.SingleSelectedThing as Pawn;
-            if (p == null) return;
+            if (p == null || p.Faction == null || p.Faction.IsPlayer) return;
             Vector2 size = RHFRankUI.GetSize(__instance);
             if (size.x < 100f || size.y < 120f) return;
             RHFRankUI.DrawStatus(new Rect(17f, size.y - 96f, size.x - 34f, 87f), p);
@@ -229,6 +251,7 @@ namespace RaidersHaveFamilies
         {
             if (__instance?.stat?.defName != "RHF_SocialImportance" ||
                 !__instance.hasOptionalReq || !(__instance.optionalReq.Thing is Pawn pawn)) return;
+            if (pawn.Faction == null || pawn.Faction.IsPlayer) return;
             int rank = RHFRankUI.EffectiveRank(pawn);
             RHFHostageRecord r = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(pawn);
             string office = r != null && !string.IsNullOrEmpty(r.OfficeName) ?
@@ -241,7 +264,8 @@ namespace RaidersHaveFamilies
     {
         public override bool ShouldShowFor(StatRequest req)
         {
-            return req.Thing is Pawn p && p.RaceProps != null && p.RaceProps.Humanlike;
+            return req.Thing is Pawn p && p.RaceProps != null && p.RaceProps.Humanlike &&
+                p.Faction != null && !p.Faction.IsPlayer;
         }
         public override float GetValueUnfinalized(StatRequest req, bool applyPostProcess = true)
         {
@@ -261,7 +285,8 @@ namespace RaidersHaveFamilies
     {
         public override bool ShouldShowFor(StatRequest req)
         {
-            return req.Thing is Pawn p && p.RaceProps != null && p.RaceProps.Humanlike;
+            return req.Thing is Pawn p && p.RaceProps != null && p.RaceProps.Humanlike &&
+                p.Faction != null && !p.Faction.IsPlayer;
         }
         public override float GetValueUnfinalized(StatRequest req, bool applyPostProcess = true)
         {

@@ -11,11 +11,11 @@ assert 'EligibleTraitReason(p, kind) == null && !EligibleIdeology(p, victim, kin
 assert 'if (newCruelty <= 0 || RHFMod.Settings?.Enabled != true) return 0;' in s
 assert 'moods = RHFMoralResponse.GivePublicCrueltyThoughts' in s
 assert 'r.DisclosedCrueltyScore = r.CrueltyScore;' in s
-assert 'return ReportCondition(r);' in s
+assert 'ReportCondition(RHFHostageRecord r, bool reportToFamily = false)' in s
 assert 'EligibleTraitReason(colonist, RHFPublicityKind.Torture)' in d
 assert 'EligibleIdeology(colonist, p, RHFPublicityKind.Torture)' in d
 dialog=(p/'RaidersHaveFamilies/Source/RHFDialogue.cs').read_text()
-assert 'Сообщить лично родственнику' in dialog
-assert 'Сообщить представителю фракции о ранениях и операциях' in dialog
+assert 'Сообщить родственнику' in dialog or 'Признаться родственнику' in dialog
+assert 'Передать официальный медицинский отчёт фракции' in dialog
 assert x.count('RHF: злорадство от чужого горя') == 6
 print('PASS: reward is based on disclosure, OR of trait/ideology, one RHF memory, and Russian dev diagnostics')

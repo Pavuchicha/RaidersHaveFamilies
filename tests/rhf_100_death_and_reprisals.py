@@ -19,10 +19,10 @@ assert 'ReportExecution(' not in h
 assert 'PlayerCausedDeath = causedByPlayer || execution' in h
 assert 'if (r.Importance >= 2 && causedByPlayer) QueueRetaliation(r);' not in h
 assert 'CanConfessCannibalism(r)' in d
-assert 'Отмолчаться; окончательно убрать из списка RHF' in d
+assert 'Промолчать и закрыть дело RHF' in d
 assert 'if (RHFHostageDiplomacy.IsDeadCase(r)) return DeadPerson' in d
-assert 'Признать, что мы намеренно убили пленника' in d
-assert 'На другой стороне линии' in d
+assert 'Признаться, что мы умышленно убили пленника' in d
+assert 'На линии появляется' in d
 assert 'RHFDeadButcheredEvent' in p and 'Corpse.ButcherProducts' in p
 assert 'RHFDeadConsumedEvent' in p and 'Thing.Ingested' in p
 assert 'RecordHumanMeatConsumption' in p and 'CompIngredients' in h

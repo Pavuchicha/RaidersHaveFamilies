@@ -16,6 +16,15 @@ namespace RaidersHaveFamilies
             if (pawn == null) return 0;
             if (pawn.Faction != null && pawn.Faction.leader == pawn) return 8;
             if (pawn.kindDef != null && pawn.kindDef.factionLeader) return 8;
+            // Royalty: Imperial nobles already have a real title hierarchy.
+            // Use their actual title's seniority rather than inventing a rank
+            // from a generic pawn-kind label (and NEVER award a title here).
+            if (ModsConfig.RoyaltyActive && pawn.royalty != null && pawn.Faction != null)
+            {
+                RoyalTitleDef title = pawn.royalty.GetCurrentTitle(pawn.Faction);
+                if (title != null && title.seniority > 0)
+                    return Math.Max(1,Math.Min(7,title.seniority));
+            }
             string n = ((pawn.kindDef?.defName ?? "") + " " +
                 (pawn.kindDef?.label ?? "") + " " + (pawn.story?.title ?? "")).ToLowerInvariant();
             // English and Russian labels are recognized. DefName and the actual
@@ -64,23 +73,18 @@ namespace RaidersHaveFamilies
         {
             if (pawn?.Faction != null && pawn.Faction.leader == pawn)
                 return "глава фракции";
+            if (ModsConfig.RoyaltyActive && pawn?.royalty != null && pawn.Faction != null)
+            {
+                RoyalTitleDef actual = pawn.royalty.GetCurrentTitle(pawn.Faction);
+                if (actual != null)
+                    return "имперский титул: " +
+                        (pawn.gender == Gender.Female && !string.IsNullOrEmpty(actual.labelFemale) ?
+                         actual.labelFemale : actual.label);
+            }
             string title = pawn?.story?.title;
             if (!string.IsNullOrEmpty(title) && RankOf(pawn) >= rank && rank >= 2)
                 return title;
-            switch (rank)
-            {
-                case 1: return "известный житель или ополченец";
-                case 2: return "ветеран или ведущий специалист";
-                case 3: return "староста или младший офицер";
-                case 4: return "старейшина или командир гарнизона";
-                case 5: return "руководитель поселения или округа";
-                case 6:
-                    return pawn?.Faction?.def != null && pawn.Faction.def.techLevel >= TechLevel.Industrial
-                        ? "региональный координатор снабжения" : "наместник нескольких поселений";
-                case 7: return "главнокомандующий соединением";
-                case 8: return "верховный представитель фракции";
-                default: return "обычный житель или рядовой";
-            }
+            return RHFOfficeCatalog.Office(pawn,rank);
         }
 
         public static string OfficeStory(Pawn pawn, int rank, string office, bool debug)
@@ -99,7 +103,11 @@ namespace RaidersHaveFamilies
                 case 7: scope = "Управляет крупными воинскими соединениями или политическими объединениями. Решения такого лица затрагивают целые районы и стратегические операции."; break;
                 default: scope = "Лицо общегосударственного масштаба: его пленение затрагивает власть фракции и может вызвать организованное вмешательство. Этот рейтинг не меняет фактического лидера, назначенного самой игрой."; break;
             }
-            return "Должность: " + role + ".\n" + scope +
+            string duty = RHFOfficeCatalog.Responsibility(role,rank);
+            string imperial = ModsConfig.RoyaltyActive && pawn?.royalty != null && pawn.Faction != null &&
+                pawn.royalty.GetCurrentTitle(pawn.Faction) != null ?
+                "\nТитул подтверждён Royalty. Имперская иерархия имеет собственные требования, привилегии и наследование; RHF только переводит её в шкалу дипломатической важности." : "";
+            return "Должность: " + role + ".\n" + duty + "\n" + scope + imperial +
                 (debug ? "\nДолжность назначена командой разработчика для проверки сценария: это не замена действующего лидера фракции." :
                 "\nНазначение оценено по доступным игровым данным и роли пешки; не является самостоятельной карьерной симуляцией.");
         }

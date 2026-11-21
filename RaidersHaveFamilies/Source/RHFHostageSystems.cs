@@ -63,6 +63,8 @@ namespace RaidersHaveFamilies
         public bool DeathReportMade;
         public int DeathTick;
         public string LastConfirmedOperation = "";
+        public string LastResponsibleActor = ""; // real surgeon, or explicit self-admission
+        public int RecoveredMedicalEvents; // no polling, only medical event hook
         public int LastConfirmedOperationTick;
         public int LastConfirmedOperationSeverity;
         public int SurgicalCrueltyCount;
@@ -70,6 +72,9 @@ namespace RaidersHaveFamilies
         public bool DebugOffice;
         public int RefusalCount;
         public int HighDemandRejected;
+        // 0 normal, 1 frightened concessions, 2 punitive mobilisation.
+        // Decided ONCE when rejected ransom is followed by public cruelty.
+        public int NegotiationEscalation;
         public int LastRejectionTick;
         public int SelfAdmittedMutilations;
         public int LastAdmittedMissing;
@@ -81,6 +86,17 @@ namespace RaidersHaveFamilies
         public int ButcheredTick;
         public string NameAtCapture = "";
         public IntVec3 LastHeldCell = IntVec3.Invalid;
+        // v0.12: prisoner recruitment and actual ideological conversion.
+        public bool Recruited;
+        public int RecruitmentTick;
+        public bool RecruitmentReported;
+        public bool RecruitmentRevengeQueued;
+        public string RecruiterName = "";
+        public Ideo OriginalIdeo;
+        public Ideo ConvertedIdeo;
+        public bool IdeologyConverted;
+        public bool IdeologyReported;
+        public int IdeologyChangeTick;
 
         public RHFHostageRecord() { }
         public RHFHostageRecord(Pawn pawn)
@@ -91,6 +107,7 @@ namespace RaidersHaveFamilies
             OfficeName = RHFRankResolver.OfficeFor(pawn, Importance);
             CaptureTick = Find.TickManager.TicksGame;
             InitialIdeology = pawn.Ideo?.ToString() ?? "";
+            OriginalIdeo = pawn.Ideo;
             NameAtCapture = pawn.LabelShortCap;
             if (pawn.Spawned) LastHeldCell = pawn.Position;
             InitialMissing = RHFHostageDiplomacy.MissingParts(pawn);
@@ -129,6 +146,8 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref DeathReportMade, "deathReportMade", false);
             Scribe_Values.Look(ref DeathTick, "deathTick", 0);
             Scribe_Values.Look(ref LastConfirmedOperation, "lastConfirmedOperation", "");
+            Scribe_Values.Look(ref LastResponsibleActor, "rhfLastActorV11", "");
+            Scribe_Values.Look(ref RecoveredMedicalEvents, "rhfMedicalEventsV11", 0);
             Scribe_Values.Look(ref LastConfirmedOperationTick, "lastConfirmedOpTick", 0);
             Scribe_Values.Look(ref LastConfirmedOperationSeverity, "lastConfirmedSeverity", 0);
             Scribe_Values.Look(ref SurgicalCrueltyCount, "surgicalCrueltyCount", 0);
@@ -136,6 +155,7 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref DebugOffice, "rhfDebugOfficeV7", false);
             Scribe_Values.Look(ref RefusalCount, "rhfRefusalCountV7", 0);
             Scribe_Values.Look(ref HighDemandRejected, "rhfHighDemandRejectedV7", 0);
+            Scribe_Values.Look(ref NegotiationEscalation,"rhfNegotiationEscalationV11",0);
             Scribe_Values.Look(ref LastRejectionTick, "rhfLastRejectionTickV7", 0);
             Scribe_Values.Look(ref SelfAdmittedMutilations, "rhfSelfAdmittedV7", 0);
             Scribe_Values.Look(ref LastAdmittedMissing, "rhfLastAdmittedMissingV7", 0);
@@ -146,6 +166,16 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref ButcheredTick, "rhfButcheredTickV10", 0);
             Scribe_Values.Look(ref NameAtCapture, "rhfNameAtCaptureV10", "");
             Scribe_Values.Look(ref LastHeldCell, "rhfLastHeldCellV10", IntVec3.Invalid);
+            Scribe_Values.Look(ref Recruited, "rhfRecruitedV12", false);
+            Scribe_Values.Look(ref RecruitmentTick, "rhfRecruitmentTickV12", 0);
+            Scribe_Values.Look(ref RecruitmentReported, "rhfRecruitmentReportedV12", false);
+            Scribe_Values.Look(ref RecruitmentRevengeQueued, "rhfRecruitRevengeV12", false);
+            Scribe_Values.Look(ref RecruiterName, "rhfRecruiterNameV12", "");
+            Scribe_References.Look(ref OriginalIdeo, "rhfOriginalIdeoV12");
+            Scribe_References.Look(ref ConvertedIdeo, "rhfConvertedIdeoV12");
+            Scribe_Values.Look(ref IdeologyConverted, "rhfIdeologyConvertedV12", false);
+            Scribe_Values.Look(ref IdeologyReported, "rhfIdeologyReportedV12", false);
+            Scribe_Values.Look(ref IdeologyChangeTick, "rhfIdeologyChangeTickV12", 0);
             if (Scribe.mode==LoadSaveMode.PostLoadInit && RankSchema<3)
             { Importance=RHFRankResolver.RankOf(Pawn); RankSchema=3; }
         }
@@ -153,6 +183,110 @@ namespace RaidersHaveFamilies
 
     public static class RHFHostageDiplomacy
     {
+        // Called once when a real prisoner joins the player's faction.
+        public static void RecordRecruitment(Pawn pawn, Pawn recruiter)
+        {
+            RHFHostageRecord r=Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(pawn);
+            if (r==null || r.Recruited || r.OriginalFaction==null || r.Pawn!=pawn) return;
+            r.Recruited=true;
+            r.RecruitmentTick=Find.TickManager.TicksGame;
+            r.RecruiterName=recruiter?.LabelShortCap ?? "не установлен";
+            r.Negotiated=false; r.PendingSilver=0; r.PendingGoodwill=false;
+            // Not a guaranteed vengeance raid: high office, original faction
+            // hostility and its actual capacity determine the chance.
+            if (RHFMod.Settings?.Retaliation == true &&
+                r.OriginalFaction.HostileTo(Faction.OfPlayer) && r.Importance>=5)
+            {
+                float chance=r.Importance>=8 ? .95f : r.Importance==7 ? .76f :
+                    r.Importance==6 ? .57f : .32f;
+                if (Rand.Chance(chance))
+                {
+                    r.RecruitmentRevengeQueued=true;
+                    QueueRetaliation(r,true);
+                    r.NextRetaliationTick=Find.TickManager.TicksGame + Rand.Range(16000,95000);
+                }
+            }
+            Messages.Message("RHF: вербовка бывшего пленника «"+r.NameAtCapture+
+                "» зарегистрирована. Фракция может счесть это предательством.",
+                pawn, MessageTypeDefOf.NeutralEvent, false);
+        }
+
+        // Called by the Ideology event hook. Does not guess from the pawn's name
+        // or modify game beliefs; preserves the old Ideo reference for actual mood.
+        public static void RecordConversion(Pawn pawn, Ideo before, Ideo after)
+        {
+            if (!ModsConfig.IdeologyActive || before==null || after==null || before==after) return;
+            RHFHostageRecord r=Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(pawn);
+            if (r==null || (!pawn.IsPrisonerOfColony && !pawn.IsSlaveOfColony && !r.Recruited)) return;
+            if (r.OriginalIdeo==null) r.OriginalIdeo=before;
+            r.ConvertedIdeo=after;
+            r.IdeologyConverted=(r.OriginalIdeo != after);
+            r.IdeologyReported=false;
+            r.IdeologyChangeTick=Find.TickManager.TicksGame;
+            if (r.IdeologyConverted && r.Importance>=6 && r.NextRetaliationTick==0 &&
+                RHFMod.Settings?.Retaliation == true &&
+                r.OriginalFaction!=null && r.OriginalFaction.HostileTo(Faction.OfPlayer) &&
+                Rand.Chance(r.Importance>=8 ? .5f : .22f))
+                QueueRetaliation(r,true);
+        }
+
+        public static string ReportConversion(RHFHostageRecord r)
+        {
+            if (r==null || !r.IdeologyConverted || r.IdeologyReported ||
+                r.OriginalIdeo==null || r.ConvertedIdeo==null ||
+                r.OriginalIdeo==r.ConvertedIdeo)
+                return "Это обращение уже обсуждалось либо не имеет подтверждения.";
+            // Only an explicit radio report gives the thoughts. Before disclosure,
+            // colonists of either ideology receive no extra RHF memory.
+            r.IdeologyReported=true;
+            int stage=r.Importance>=7 ? 3 : r.Importance>=4 ? 2 : 1;
+            ThoughtDef joy=DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_ConversionVictory"+stage);
+            ThoughtDef grief=DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_ConversionLoss"+stage);
+            int gained=0,lost=0;
+            for(int mi=0;mi<Find.Maps.Count;mi++)
+            {
+                Map home=Find.Maps[mi]; if (!home.IsPlayerHome)continue;
+                foreach(Pawn p in home.mapPawns.FreeColonistsSpawned)
+                {
+                    if (p?.needs?.mood?.thoughts?.memories==null)continue;
+                    if (p.Ideo==r.ConvertedIdeo && joy!=null)
+                    {
+                        for(int i=1;i<=3;i++)
+                        {
+                            ThoughtDef old=DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_ConversionVictory"+i);
+                            if(old!=null)p.needs.mood.thoughts.memories.RemoveMemoriesOfDef(old);
+                        }
+                        p.needs.mood.thoughts.memories.TryGainMemory(joy); gained++;
+                    }
+                    else if (p.Ideo==r.OriginalIdeo && grief!=null)
+                    {
+                        for(int i=1;i<=3;i++)
+                        {
+                            ThoughtDef old=DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_ConversionLoss"+i);
+                            if(old!=null)p.needs.mood.thoughts.memories.RemoveMemoriesOfDef(old);
+                        }
+                        p.needs.mood.thoughts.memories.TryGainMemory(grief); lost++;
+                    }
+                }
+            }
+            RHFPoliticalReputation.Change(r.OriginalFaction,-Mathf.Clamp(2+r.Importance*2,2,20));
+            return "Отчёт об обращении передан. Новая идеология: «"+r.ConvertedIdeo.name+
+                "», прежняя: «"+r.OriginalIdeo.name+"». Приверженцев новой идеологии с воспоминанием: "+
+                gained+"; прежней — "+lost+". Все эффекты длятся пять дней.";
+        }
+
+        public static string ReportRecruitment(RHFHostageRecord r)
+        {
+            if (r==null || !r.Recruited || r.RecruitmentReported)
+                return "По этому делу нет нового подтверждения вербовки.";
+            r.RecruitmentReported=true;
+            RHFPoliticalReputation.Change(r.OriginalFaction,-Mathf.Clamp(5+r.Importance*3,5,32));
+            return "Фракции официально сообщили, что бывший пленник добровольно вступил в колонию. " +
+                (r.RecruitmentRevengeQueued ? "Штаб фракции уже готовит ответ. " :
+                    "Официального приказа о силовой операции пока не перехвачено. ")+
+                "Вербовка не считается выкупом, пленник остаётся у игрока.";
+        }
+
         public static bool IsDeadCase(RHFHostageRecord record)
         { return record != null && (record.DeathTick > 0 || record.Pawn?.Dead == true); }
 
@@ -238,6 +372,12 @@ namespace RaidersHaveFamilies
             float tension = 1f + Math.Min(.32f,
                 r.HighDemandRejected * .04f + r.RefusalCount * .06f +
                 Math.Max(0, r.CrueltyScore - r.DisclosedCrueltyScore) * .003f);
+            // Families sometimes agree to pay more AFTER a failed negotiation
+            // followed by public abuse; a furious faction mobilises instead.
+            if (r.NegotiationEscalation == 1)
+                tension += Mathf.Min(.48f,.16f + r.DisclosedCrueltyScore * .008f);
+            else if (r.NegotiationEscalation == 2)
+                tension *= .90f;
             return Math.Max(50, Mathf.RoundToInt(SilverPrice(r) * social * tension));
         }
 
@@ -250,6 +390,8 @@ namespace RaidersHaveFamilies
             float priorHistory = r.HighDemandRejected * .055f + r.RefusalCount * .075f;
             float cruelty = Math.Min(.33f, r.CrueltyScore * .004f);
             float anger = Math.Min(.24f, Math.Max(0,-RHFPoliticalReputation.Pressure(r.OriginalFaction)) * .0005f);
+            if (r.NegotiationEscalation == 1) skill += .16f;
+            if (r.NegotiationEscalation == 2) anger += .28f;
             float fearOfLoss = Mathf.Min(.18f, r.Importance * .027f +
                 (1f-health) * .10f);
             // Some factions may pay more under duress, but failed talks and public
@@ -275,6 +417,53 @@ namespace RaidersHaveFamilies
                 Rand.Chance(Mathf.Clamp(.16f + r.Importance*.035f + r.RefusalCount*.08f, .1f,.8f)))
                 QueueRetaliation(r, true);
             return false;
+        }
+
+        // Medical change-event fallback for WCE2 workers that do NOT call the
+        // expected RecipeWorker.ApplyOnPawn. Unlike a periodic MissingParts scan,
+        // this runs only when a medical change actually adds a MissingPart.
+        // DamageInfo != null is excluded: battle injuries are NOT RHF surgery.
+        public static void RecordMedicalMissingPart(Pawn victim, Hediff added, DamageInfo? dinfo)
+        {
+            if (RHFMod.Settings?.Enabled != true || RHFMod.Settings.WCE2Events != true ||
+                victim == null || victim.Dead || !victim.IsPrisonerOfColony ||
+                !(added is Hediff_MissingPart) || dinfo.HasValue) return;
+            RHFHostageRecord r = Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(victim);
+            if (r == null) return;
+            int total = MissingParts(victim);
+            int newParts = total - Math.Max(r.InitialMissing, r.LastAdmittedMissing);
+            if (newParts <= 0) return;
+            r.LastAdmittedMissing = total;
+            r.RecoveredMedicalEvents++;
+            r.WceOperations = Math.Min(1000, r.WceOperations + 1);
+            r.SurgicalCrueltyCount = Math.Min(1000, r.SurgicalCrueltyCount + newParts);
+            r.CrueltyScore = Math.Min(500, r.CrueltyScore + 8 * newParts);
+            string anatomy = added.Part == null ? "неуточнённая часть тела" : added.Part.Label;
+            r.LastConfirmedOperation = "Медицинское событие RHF: утрата «" + anatomy + "»";
+            r.LastConfirmedOperationSeverity = Mathf.Clamp(6 + newParts * 2, 1, 12);
+            r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;
+            // The medical API does not report the surgeon. Only make an
+            // attribution when a REAL nearby player pawn is performing DoBill.
+            Pawn clinician = null;
+            if (victim.Map != null)
+            {
+                var colonists = victim.Map.mapPawns.FreeColonistsSpawned;
+                for (int i = 0; i < colonists.Count && i < 64; i++)
+                {
+                    Pawn c = colonists[i];
+                    if (c == null || c.Dead || c.Downed ||
+                        (c.Position-victim.Position).LengthHorizontalSquared > 9 ||
+                        c.CurJobDef?.defName != "DoBill") continue;
+                    clinician = c;
+                    break;
+                }
+            }
+            r.LastResponsibleActor = clinician == null ?
+                "медицинский журнал не установил исполнителя" :
+                clinician.LabelShortCap + " (обнаружен выполняющим операцию рядом с пленником)";
+            if (RHFMod.Settings.VerboseLogging)
+                Log.Message("[RHF] MissingPart event " + anatomy + " on " + victim.LabelShortCap +
+                    "; actor=" + r.LastResponsibleActor + "; registered as medical evidence");
         }
 
         // Compatibility with RimWorld 1.7 prisoner interaction mode storage.
@@ -341,6 +530,7 @@ namespace RaidersHaveFamilies
             int severity = Math.Min(12, 6 + newMissing * 2);
             r.CrueltyScore = Math.Min(500, r.CrueltyScore + severity * newMissing);
             r.LastConfirmedOperation = "Утрата частей тела в режиме увечий пленника (вероятное вмешательство WCE2)";
+            r.LastResponsibleActor = "В режиме WCE2 установлен приказ увечья; исполнитель не подтверждён";
             r.LastConfirmedOperationSeverity = severity;
             r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;
             if (RHFMod.Settings.VerboseLogging)
@@ -371,7 +561,7 @@ namespace RaidersHaveFamilies
 
         // Explicitly self-report deliberate injury when a third-party medical mod
         // bypasses our recipe hooks. No automatic criminal attribution for battle wounds.
-        public static string AdmitMutilation(RHFHostageRecord r)
+        public static string AdmitMutilation(RHFHostageRecord r, bool reportToFamily = false)
         {
             if (!CanAdmitMutilation(r))
                 return "Новых увечий, совершение которых вы можете подтвердить, не найдено.";
@@ -380,13 +570,14 @@ namespace RaidersHaveFamilies
             r.SelfAdmittedMutilations += missing;
             r.CrueltyScore = Math.Min(500, r.CrueltyScore + missing * (10 + r.Importance * 2));
             r.LastConfirmedOperation = "Признанное игроком умышленное увечье (" + missing + " частей тела)";
+            r.LastResponsibleActor = "Колония игрока: официальный приказ, признанный в радиопереговорах";
             r.LastConfirmedOperationSeverity = Math.Min(12, 6 + missing * 2);
             r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;
             // ReportCondition applies diplomatic and mood consequences exactly once.
-            return ReportCondition(r);
+            return ReportCondition(r, reportToFamily);
         }
 
-        public static string ReportCondition(RHFHostageRecord r)
+        public static string ReportCondition(RHFHostageRecord r, bool reportToFamily = false)
         {
             AuditInteractionMutilation(r);
             if (r?.OriginalFaction == null || r.Pawn == null)
@@ -422,15 +613,24 @@ namespace RaidersHaveFamilies
                 newCruelty > 0 ? "«Мы услышали вас. Это обращение с пленником будет иметь последствия»." :
                 extraMissing > 0 ? "«У него отсутствуют части тела. Мы требуем медицинскую выписку и объяснений»." :
                 "«Мы приняли сведения о ранениях. Нам нужно знать, кто их нанёс».";
-            string evidence = newCrimes > 0 ? "\nДокументированная операция: " +
+            if (reportToFamily)
+                crime = newCrimes > 0 ?
+                    "«Вы сами приказали искалечить его? Я узнаю его голос с детства... " +
+                    "Не смейте говорить мне, что это была просто операция. Я хочу, чтобы он вернулся домой»." :
+                    extraMissing > 0 ?
+                    "«Подождите. Чего у него больше нет? Он хотя бы знает, что мы его ищем?»" :
+                    "«Я слышу вас. Пожалуйста, передайте ему, что его не забыли».";
+            string evidence = newCrimes > 0 ? "\n\n[Сведения RHF — медицинская запись]\nДокументированная операция: " +
                 (string.IsNullOrEmpty(r.LastConfirmedOperation) ? "умышленное хирургическое вмешательство" : r.LastConfirmedOperation) +
-                ". Зафиксировано вредоносных операций: " + r.SurgicalCrueltyCount + "." :
+                ". Зафиксировано вредоносных операций: " + r.SurgicalCrueltyCount +
+                ". Ответственный: " + (string.IsNullOrEmpty(r.LastResponsibleActor) ?
+                "не удалось определить" : r.LastResponsibleActor) + "." :
                 extraMissing > 0 ? "\nПосле захвата обнаружены дополнительные отсутствующие части тела; исполнитель операции НЕ подтверждён журналом." :
                 (r.InitialMissing > 0 && !r.ReportedInitialInjuries ?
                     "\nПри захвате уже отсутствовали части тела: " + r.InitialMissing +
                     ". Такие травмы НЕ считаются пыткой без подтверждения их происхождения." :
                     "\nНового подтверждённого хирургического вреда нет.");
-            string result = "\nИзменение обычной репутации RimWorld: " +
+            string result = "\n\n[Сведения RHF — результаты сообщения]\nИзменение обычной репутации RimWorld: " +
                 (actualGoodwill > 0 ? "+" : "") + actualGoodwill + "." +
                 (r.OriginalFaction.def.permanentEnemy ?
                     " Постоянно враждебная фракция: goodwill изменить невозможно." :
@@ -440,6 +640,18 @@ namespace RaidersHaveFamilies
                 (actualPressure > 0 ? "+" : "") + actualPressure +
                 " (отрицательные значения означают большую враждебность; учитываются в переговорах)." +
                 "\nДополнительное настроение RHF получили: " + moods + " колонистов.";
+            if (r.HighDemandRejected > 0 && newCruelty > 0 && r.NegotiationEscalation == 0)
+            {
+                // A live, genuinely consequential branch. Recorded once: opening
+                // and closing the radio dialog never rerolls the faction's mind.
+                bool frightened = Rand.Chance(Mathf.Clamp(.43f + r.Importance * .035f -
+                    r.RefusalCount * .07f, .18f, .76f));
+                r.NegotiationEscalation = frightened ? 1 : 2;
+                if (!frightened) QueueRetaliation(r, true);
+                result += frightened ?
+                    "\nПосле прежнего провала переговоров фракция согласилась пересмотреть сумму: её страх потерять пленника увеличивает возможный выкуп." :
+                    "\nПосле прежнего провала переговоров фракция отказалась от новых уступок и ускорила подготовку силовой операции.";
+            }
             r.DisclosedOperations = r.WceOperations;
             r.DisclosedCrueltyScore = r.CrueltyScore;
             r.LastReportedMissing = MissingParts(r.Pawn);
@@ -594,7 +806,14 @@ namespace RaidersHaveFamilies
 
         private static void QueueRetaliation(RHFHostageRecord r, bool provoked = false)
         {
-            if (RHFMod.Settings?.Retaliation != true || r.RetaliationIssued || r.NextRetaliationTick > 0) return;
+            if (RHFMod.Settings?.Retaliation != true || r.RetaliationIssued) return;
+            if (r.NextRetaliationTick > 0)
+            {
+                if (provoked)
+                    r.NextRetaliationTick = Math.Min(r.NextRetaliationTick,
+                        Find.TickManager.TicksGame + Rand.Range(15000,75000));
+                return;
+            }
             // A direct public humiliation or repeat refusal can prompt a near-term
             // response; otherwise the faction has to assemble an expedition.
             r.NextRetaliationTick = Find.TickManager.TicksGame +
@@ -607,14 +826,26 @@ namespace RaidersHaveFamilies
             {
                 RHFHostageRecord r = ledger.Hostages[i];
                 if (r == null || (r.Pawn == null && !IsDeadCase(r)) || r.Paid ||
-                    (r.Pawn != null && r.Pawn.Map == null && !r.Pawn.IsPrisonerOfColony && !r.Negotiated && !r.Pawn.Dead &&
-                     (r.NextRetaliationTick <= 0 || r.RetaliationIssued)))
+                    (r.Pawn != null && !r.Pawn.IsPrisonerOfColony && !r.Pawn.IsSlaveOfColony &&
+                     !r.Negotiated && !r.Pawn.Dead &&
+                     (r.NextRetaliationTick <= 0 || r.RetaliationIssued) &&
+                     (!r.Recruited || (r.Pawn.Faction != Faction.OfPlayer &&
+                        r.RecruitmentReported &&
+                        (!r.IdeologyConverted || r.IdeologyReported)))))
                 {
                     // Discard stale tracking; never alter relationships belonging to other mods.
                     ledger.Hostages.RemoveAt(i);
                     continue;
                 }
                 if (IsDeadCase(r)) continue; // deceased cases remain for an actual radio decision
+                // A recruited pawn is no longer a hostage; offer/rescue logic
+                // must not treat it as a still-confined prisoner.
+                if (r.Recruited)
+                {
+                    if (r.NextRetaliationTick>0 && tick>=r.NextRetaliationTick &&
+                        !r.RetaliationIssued) StartRetaliation(r);
+                    continue;
+                }
                 if (r.Pawn.IsSlaveOfColony && !r.Enslaved)
                 {
                     r.Enslaved = true;
@@ -658,7 +889,7 @@ namespace RaidersHaveFamilies
             {
                 RHFHostageRecord item=ledger.Hostages[i];
                 if(item?.OriginalFaction==null || item.Pawn==null || item.Pawn.Dead ||
-                    !item.Pawn.IsPrisonerOfColony || item.Pawn.Map==null)continue;
+                    !(item.Pawn.IsPrisonerOfColony || item.Pawn.IsSlaveOfColony) || item.Pawn.Map==null)continue;
                 int old;
                 heldByFaction.TryGetValue(item.OriginalFaction,out old);
                 heldByFaction[item.OriginalFaction]=old+1;
@@ -700,7 +931,7 @@ namespace RaidersHaveFamilies
                 {
                     RHFHostageRecord candidate=ledger.Hostages[i];
                     if (candidate?.Pawn==null || candidate.Pawn.Dead ||
-                        candidate.Pawn.Map!=map || !candidate.Pawn.IsPrisonerOfColony ||
+                        candidate.Pawn.Map!=map || !(candidate.Pawn.IsPrisonerOfColony || candidate.Pawn.IsSlaveOfColony) ||
                         candidate.Importance<5 || candidate.OriginalFaction==null ||
                         !candidate.OriginalFaction.HostileTo(Faction.OfPlayer) ||
                         sponsors.Contains(candidate.OriginalFaction)) continue;
@@ -710,12 +941,12 @@ namespace RaidersHaveFamilies
                 {
                     RHFHostageRecord candidate=ledger.Hostages[i];
                     if(candidate?.Pawn==null || candidate.Pawn.Dead ||
-                       candidate.Pawn.Map!=map || !candidate.Pawn.IsPrisonerOfColony ||
+                       candidate.Pawn.Map!=map || !(candidate.Pawn.IsPrisonerOfColony || candidate.Pawn.IsSlaveOfColony) ||
                        !sponsors.Contains(candidate.OriginalFaction)) continue;
                     targets.Add(candidate.Pawn);
                 }
             }
-            bool revenge = r.Pawn == null || r.Pawn.Dead || r.CrueltyScore >= 28 ||
+            bool revenge = r.Recruited || r.Pawn == null || r.Pawn.Dead || r.CrueltyScore >= 28 ||
                 (r.Refused && r.Importance >= 6 && Rand.Chance(.50f));
             RHFOperationType type = revenge || targets.Count==0 ||
                 RHFMod.Settings.EnableRescueOperations == false ?
@@ -759,16 +990,46 @@ namespace RaidersHaveFamilies
                     Rand.Chance(.28f),
                 CreatedTick = now, SpawnTick = fireTick,
                 ThreatPoints = points, ExpiryTick = fireTick + 180000,
+                HuntTarget = r.Recruited && r.Pawn?.Faction==Faction.OfPlayer ? r.Pawn : null,
+                SourceImportance = r.Importance,
                 CombinedStrike = type == RHFOperationType.Rescue &&
                     (sponsors.Count>1 || hired!=null || Rand.Chance(.44f))
             };
+            RHFMissionProfiles.Configure(op, r);
             if (type == RHFOperationType.Vengeance)
             {
                 Faction attacker = ChooseExecutor(r.OriginalFaction);
                 op.Executor = attacker;
-                op.Parties.Add(new RHFStrikeParty(attacker,RHFStrikeRole.Vengeance,points,
-                    drop: attacker.def.techLevel>=TechLevel.Industrial && Rand.Chance(.35f),
-                    siege: attacker.def.techLevel>=TechLevel.Industrial && Rand.Chance(.30f)));
+                // A recruited VIP may provoke a focused hunter wing plus a
+                // separate destructive diversion, including genuine compatible
+                // mercenaries. Total combat budget is split, never multiplied.
+                bool multi=op.HuntTarget!=null || (r.Importance>=6 && Rand.Chance(.45f));
+                Faction hiredRevenge=null;
+                if (multi)
+                {
+                    foreach(Faction other in Find.FactionManager.AllFactionsListForReading)
+                    {
+                        if(other==null || other==attacker || other==r.OriginalFaction ||
+                           other.IsPlayer || other.def==null || other.def.hidden ||
+                           other.def.techLevel<TechLevel.Industrial ||
+                           !other.HostileTo(Faction.OfPlayer) ||
+                           other.HostileTo(attacker) || attacker.HostileTo(other))continue;
+                        hiredRevenge=other; break;
+                    }
+                }
+                int wings=multi?2:1;
+                float wingPoints=Mathf.Max(350f,points/wings);
+                op.Parties.Add(new RHFStrikeParty(attacker,RHFStrikeRole.Vengeance,
+                    multi?wingPoints:points,
+                    drop: attacker.def.techLevel>=TechLevel.Industrial &&
+                          op.Doctrine==(int)RHFDoctrine.TargetedTraitorHunt,
+                    siege: attacker.def.techLevel>=TechLevel.Industrial &&
+                        op.Doctrine==(int)RHFDoctrine.SiegeAndRaze));
+                if(multi)
+                    op.Parties.Add(new RHFStrikeParty(hiredRevenge??attacker,
+                        RHFStrikeRole.Diversion,wingPoints,
+                        drop:(hiredRevenge??attacker).def.techLevel>=TechLevel.Industrial &&
+                            Rand.Chance(.35f)));
             }
             else
             {
@@ -782,7 +1043,7 @@ namespace RaidersHaveFamilies
                 {
                     Faction member = sponsors[i];
                     bool podAssault=member.def.techLevel>=TechLevel.Industrial &&
-                        !op.TryPod && Rand.Chance(.18f);
+                        (op.TryPod || Rand.Chance(.20f));
                     op.Parties.Add(new RHFStrikeParty(member,RHFStrikeRole.Rescue,
                         singleSplit ? points*.62f : perParty,
                         drop: podAssault, breach: !podAssault));
@@ -804,6 +1065,7 @@ namespace RaidersHaveFamilies
                     if (member != null && sponsors.Contains(member.OriginalFaction))
                         member.RetaliationIssued=true;
                 }
+            string doctrine=RHFMissionProfiles.Label(op);
             string intent=type == RHFOperationType.Rescue ?
                 "начинает подготовку спасательной операции" :
                 "готовит карательный удар по вашей колонии";
@@ -813,7 +1075,7 @@ namespace RaidersHaveFamilies
             string split = op.CombinedStrike ?
                 " Возможны одновременные удары по тюрьме и основным оборонительным позициям." : "";
             Find.LetterStack.ReceiveLetter("Реакция фракций: " + r.OriginalFaction.Name,
-                r.OriginalFaction.Name + " " + intent + "." + allies + contract + split,
+                r.OriginalFaction.Name + " " + intent + ". План: " + doctrine + "." + allies + contract + split,
                 LetterDefOf.ThreatBig, r.Pawn);
         }
 
@@ -953,6 +1215,17 @@ namespace RaidersHaveFamilies
             if (r == null) return;
             int severity = severityOverride > 0 ? severityOverride : RHFWCERegistry.SeverityOf(recipe);
             if (severity <= 0) return; // Removing a torture implant is not another torture event.
+            int now = Find.TickManager?.TicksGame ?? 0;
+            // A MissingPart event often fires DURING RecipeWorker.ApplyOnPawn.
+            // Merge that provisional medical record with the authoritative
+            // recipe's name/doctor, rather than inventing a second surgery.
+            bool provisional = r.LastConfirmedOperationTick == now &&
+                r.LastConfirmedOperation.StartsWith("Медицинское событие RHF", StringComparison.Ordinal);
+            if (provisional)
+            {
+                r.WceOperations = Math.Max(0, r.WceOperations - 1);
+                r.SurgicalCrueltyCount = Math.Max(0, r.SurgicalCrueltyCount - 1);
+            }
             r.WceOperations = Math.Min(1000, r.WceOperations + 1);
             float pain = victim.health?.hediffSet?.PainTotal ?? 0f;
             int painBonus = Mathf.Clamp(Mathf.CeilToInt(pain * 5f), 0, 6);
@@ -966,6 +1239,7 @@ namespace RaidersHaveFamilies
             // Do not count the same severed limb a second time on the next dialogue.
             r.LastAdmittedMissing = Math.Max(r.LastAdmittedMissing, MissingParts(victim));
             r.LastConfirmedOperation = string.IsNullOrEmpty(label) ? recipe : label;
+            r.LastResponsibleActor = doctor.LabelShortCap + " (пешка, применившая рецепт " + recipe + ")";
             r.LastConfirmedOperationSeverity = severity;
             r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;
             if (RHFMod.Settings.VerboseLogging)
@@ -1065,6 +1339,8 @@ namespace RaidersHaveFamilies
             ThoughtDef memory = DefDatabase<ThoughtDef>.GetNamedSilentFail(
                 "RHF_PublicCruelty" + MemoryLevel(newCruelty, importance));
             if (memory == null) return 0;
+            ThoughtDef cannibalDisgust = kind == RHFPublicityKind.Cannibalism ?
+                DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_PublicCannibalismDisgust") : null;
             int awarded = 0;
             foreach (Map map in Find.Maps)
             {
@@ -1072,6 +1348,20 @@ namespace RaidersHaveFamilies
                 foreach (Pawn p in map.mapPawns.FreeColonistsSpawned)
                 {
                     if (p?.needs?.mood == null) continue;
+                    // Ideological revulsion is independent from a sympathetic
+                    // trait. One can feel morbid delight while also violating
+                    // a deeply held principle; separate thought memories model it.
+                    if (cannibalDisgust != null && ModsConfig.IdeologyActive && p.Ideo != null)
+                    {
+                        foreach (Precept precept in p.Ideo.PreceptsListForReading)
+                            if ((precept?.def?.defName ?? "").Equals("Cannibalism_Abhorrent",
+                                StringComparison.OrdinalIgnoreCase))
+                            {
+                                p.needs.mood.thoughts.memories.RemoveMemoriesOfDef(cannibalDisgust);
+                                p.needs.mood.thoughts.memories.TryGainMemory(cannibalDisgust);
+                                break;
+                            }
+                    }
                     if (EligibleTraitReason(p, kind) == null && !EligibleIdeology(p, victim, kind))
                         continue;
                     for (int old = 1; old <= 6; old++)

@@ -14,6 +14,15 @@ namespace RaidersHaveFamilies
 {
     public enum RHFOperationType { Rescue = 1, Vengeance = 2 }
     public enum RHFStrikeRole { Rescue = 1, Diversion = 2, Vengeance = 3 }
+    // Components are orthogonal: entry via drop/breach/edge, objective rescue/
+    // hunt/punish, exit by foot/pod, aftermath withdrawal/punitive assault.
+    // Persist the resolved mission so reloading never rerolls its purpose.
+    public enum RHFDoctrine
+    {
+        PrisonBreakout = 0, InfiltrationAndExit = 1, FortifiedVipExtraction = 2,
+        RescueAndReprisal = 3, PunitiveAssault = 4, TargetedTraitorHunt = 5,
+        SiegeAndRaze = 6, RescueThenAssault = 7
+    }
 
     // One actual vanilla raid per force/role. The operation owns all groups;
     // unrelated map raids are never enlisted. Capped at five parties for TPS.
@@ -58,6 +67,22 @@ namespace RaidersHaveFamilies
         }
     }
 
+    // Persistent, REAL escort assignments; liberated prisoners are not left
+    // to the vanilla hostile pawn think tree after opening the prison door.
+    public sealed class RHFEscortLink : IExposable
+    {
+        public Pawn Captive;
+        public Pawn Escort;
+        public RHFEscortLink() { }
+        public RHFEscortLink(Pawn captive, Pawn escort)
+        { Captive = captive; Escort = escort; }
+        public void ExposeData()
+        {
+            Scribe_References.Look(ref Captive, "captive");
+            Scribe_References.Look(ref Escort, "escort");
+        }
+    }
+
     public sealed class RHFOperation : IExposable
     {
         public Faction Sponsor;
@@ -66,6 +91,8 @@ namespace RaidersHaveFamilies
         public List<Pawn> Targets = new List<Pawn>();
         public List<Pawn> Squad = new List<Pawn>();
         public List<Pawn> Freed = new List<Pawn>();
+        public List<RHFEscortLink> Escorts = new List<RHFEscortLink>();
+        public int EscapedWithEscort;
         public List<Pawn> Diversion = new List<Pawn>();
         public List<Faction> Sponsors = new List<Faction>();
         public List<RHFStrikeParty> Parties = new List<RHFStrikeParty>();
@@ -100,6 +127,25 @@ namespace RaidersHaveFamilies
         public bool DebugForced; // developer-mode test; does not change player settings
         public string CaseKeyV10 = ""; // sealed victim disappearance or public atrocity
         public IntVec3 CaseSearchCellV10 = IntVec3.Invalid;
+        // v0.12 campaign operation specification.
+        public int Doctrine = (int)RHFDoctrine.PrisonBreakout;
+        public Pawn HuntTarget;
+        // Last actual line-of-sight confirmation, not omniscient pawn tracking.
+        public IntVec3 HuntLastSeenCell = IntVec3.Invalid;
+        public int HuntLastSeenTick;
+        public int SourceImportance;
+        public bool AssaultAfterObjective;
+        public bool FortifyPrison;
+        public int BarricadesBuilt;
+        public int FortifyStartedTick;
+        public IntVec3 BarricadeCell = IntVec3.Invalid;
+        public List<IntVec3> CompletedBarricades = new List<IntVec3>();
+        public int LastHuntOrderTick;
+        public int LastInfrastructureOrderTick;
+        public int RoofRemovalStartTick;
+        public bool PodLaunchCompleted;
+        public bool PodBudgetPaid;
+        public float PodSupplyCost;
 
         public RHFOperation() { }
         public void ExposeData()
@@ -110,6 +156,8 @@ namespace RaidersHaveFamilies
             Scribe_Collections.Look(ref Targets, "targets", LookMode.Reference);
             Scribe_Collections.Look(ref Squad, "squad", LookMode.Reference);
             Scribe_Collections.Look(ref Freed, "freed", LookMode.Reference);
+            Scribe_Collections.Look(ref Escorts, "rhfEscortsV11", LookMode.Deep);
+            Scribe_Values.Look(ref EscapedWithEscort, "rhfEvacuatedV11", 0);
             Scribe_Collections.Look(ref Diversion, "diversion", LookMode.Reference);
             Scribe_Collections.Look(ref Sponsors, "sponsors", LookMode.Reference);
             Scribe_Collections.Look(ref Parties, "strikeParties", LookMode.Deep);
@@ -144,15 +192,34 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref DebugForced, "debugForced", false);
             Scribe_Values.Look(ref CaseKeyV10, "rhfCaseKeyV10", "");
             Scribe_Values.Look(ref CaseSearchCellV10, "rhfCaseSearchCellV10", IntVec3.Invalid);
+            Scribe_Values.Look(ref Doctrine, "rhfDoctrineV12", (int)RHFDoctrine.PrisonBreakout);
+            Scribe_References.Look(ref HuntTarget, "rhfHuntTargetV12");
+            Scribe_Values.Look(ref HuntLastSeenCell, "rhfHuntLastSeenCellV121", IntVec3.Invalid);
+            Scribe_Values.Look(ref HuntLastSeenTick, "rhfHuntLastSeenTickV121", 0);
+            Scribe_Values.Look(ref SourceImportance, "rhfSourceImportanceV12", 0);
+            Scribe_Values.Look(ref AssaultAfterObjective, "rhfAftermathAssaultV12", false);
+            Scribe_Values.Look(ref FortifyPrison, "rhfFortifyPrisonV12", false);
+            Scribe_Values.Look(ref BarricadesBuilt, "rhfBarricadesBuiltV12", 0);
+            Scribe_Values.Look(ref FortifyStartedTick, "rhfFortifyStartedV12", 0);
+            Scribe_Values.Look(ref BarricadeCell, "rhfBarricadeCellV12", IntVec3.Invalid);
+            Scribe_Collections.Look(ref CompletedBarricades, "rhfFinishedBarricadesV12", LookMode.Value);
+            Scribe_Values.Look(ref LastHuntOrderTick, "rhfLastHuntOrderV12", 0);
+            Scribe_Values.Look(ref LastInfrastructureOrderTick,"rhfLastInfrastructureOrderV12",0);
+            Scribe_Values.Look(ref RoofRemovalStartTick, "rhfRoofRemovalTickV12", 0);
+            Scribe_Values.Look(ref PodLaunchCompleted, "rhfPodLaunchV12", false);
+            Scribe_Values.Look(ref PodBudgetPaid, "rhfPodBudgetPaidV12", false);
+            Scribe_Values.Look(ref PodSupplyCost, "rhfPodSupplyCostV12", 0f);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (Targets == null) Targets = new List<Pawn>();
                 if (Squad == null) Squad = new List<Pawn>();
                 if (Freed == null) Freed = new List<Pawn>();
+                if (Escorts == null) Escorts = new List<RHFEscortLink>();
                 if (Diversion == null) Diversion = new List<Pawn>();
                 if (Sponsors == null) Sponsors = new List<Faction>();
                 if (Parties == null) Parties = new List<RHFStrikeParty>();
                 if (TacticalMembers == null) TacticalMembers = new List<RHFTacticalMember>();
+                if (CompletedBarricades == null) CompletedBarricades = new List<IntVec3>();
                 // Existing v0.3.x operations were already queued through the storyteller.
                 // Do not create a duplicate raid when upgrading a saved game.
                 if (Parties.Count == 0) Deployed = true;
@@ -227,7 +294,14 @@ namespace RaidersHaveFamilies
                     "; подготовка=" + (op.Deployed?"завершена":"ожидание") +
                     "; группы=" + op.SuccessfulParties + "/" + op.Parties.Count +
                     "; спасатели=" + op.Squad.Count + "; отвлекающие=" + op.Diversion.Count +
-                    "; цели=" + op.Targets.Count + "; фракции-заявители=" + op.Sponsors.Count);
+                    "; цели=" + op.Targets.Count + "; сопровождающие пары=" + op.Escorts.Count +
+                    "; успешно выведено=" + op.EscapedWithEscort +
+                    "; доктрина=" + (RHFDoctrine)op.Doctrine +
+                    "; охотятся за=" + (op.HuntTarget?.LabelShortCap ?? "нет") +
+                    "; баррикады=" + op.BarricadesBuilt +
+                    "; капсула запущена=" + op.PodLaunchCompleted +
+                    "; бюджет полевой капсулы=" + op.PodSupplyCost +
+                    "; фракции-заявители=" + op.Sponsors.Count);
                 for (int k=0;k<op.Parties.Count && k<MaxStrikeParties;k++)
                 {
                     RHFStrikeParty party=op.Parties[k];
@@ -367,25 +441,67 @@ namespace RaidersHaveFamilies
         private IntVec3 RescueDropCenter(RHFOperation op, RHFStrikeParty party)
         {
             if (op?.Targets == null || party == null) return IntVec3.Invalid;
-            // One bounded search per deployed drop squad, never per tick.
-            for (int i = 0; i < op.Targets.Count && i < 24; i++)
+            // Choose a real, physically valid cell IN the prison room first.
+            // Vanilla TryFindDropSpotNear picks a random reachable cell; that
+            // often lands an "RHF rescue drop" in the colony's central yard.
+            // This bounded 11x11 local search runs ONCE per landing party.
+            for (int i = 0; i < op.Targets.Count && i < MaxTargets; i++)
             {
-                Pawn prisoner = op.Targets[i];
-                if (prisoner == null || !prisoner.Spawned || prisoner.Map != map ||
-                    !prisoner.IsPrisonerOfColony) continue;
-                RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(prisoner);
-                Faction owner = record?.OriginalFaction ?? prisoner.Faction;
-                // In a coalition, a sponsoring faction aims at its OWN hostage.
-                // A hired rescue contractor may target any listed sponsor's hostage.
-                bool partyHasOwnCaptive = op.Sponsors != null &&
-                    op.Sponsors.Contains(party.Faction);
+                Pawn captive = op.Targets[i];
+                if (captive == null || !captive.Spawned || captive.Map != map ||
+                    !(captive.IsPrisonerOfColony || captive.IsSlaveOfColony)) continue;
+                RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(captive);
+                Faction owner = record?.OriginalFaction ?? captive.Faction;
+                bool partyHasOwnCaptive = op.Sponsors != null && op.Sponsors.Contains(party.Faction);
                 if (partyHasOwnCaptive && owner != party.Faction) continue;
-                IntVec3 cell;
-                if (DropCellFinder.TryFindDropSpotNear(prisoner.Position, map,
-                    out cell, true, true) && cell.IsValid && cell.InBounds(map))
-                    return cell;
+                if (captive.IsSlaveOfColony)
+                {
+                    // Slaves may be working anywhere; do not look for a prison room.
+                    // Landing radius is strictly <= 5, then nearest physically
+                    // possible cell (only fallback if the immediate area is blocked).
+                    for (int radius = 0; radius <= 5; radius++)
+                    for (int dx = -radius; dx <= radius; dx++)
+                    for (int dz = -radius; dz <= radius; dz++)
+                    {
+                        if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius) continue;
+                        IntVec3 c = new IntVec3(captive.Position.x + dx, 0, captive.Position.z + dz);
+                        if (c.InBounds(map) && DropCellFinder.IsGoodDropSpot(c,map,true,true))
+                            return c;
+                    }
+                    // If there is no legal drop in 5 tiles, the shared perimeter
+                    // search below still runs. Never silently drop in map center.
+                }
+                Room prison = captive.Position.GetRoom(map);
+                IntVec3 selected = IntVec3.Invalid;
+                int best = int.MaxValue;
+                for (int radius = 0; radius <= 5; radius++)
+                for (int dx = -radius; dx <= radius; dx++)
+                for (int dz = -radius; dz <= radius; dz++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius) continue;
+                    IntVec3 cell = new IntVec3(captive.Position.x+dx, 0, captive.Position.z+dz);
+                    if (!cell.InBounds(map) || !DropCellFinder.IsGoodDropSpot(cell,map,true,true) ||
+                        map.roofGrid.RoofAt(cell)==RoofDefOf.RoofRockThick) continue;
+                    // Prefer the actual detention room, even when it is roofed
+                    // with a destructible roof. Thick overhead rock cannot be
+                    // breached by ordinary drop pods and must not be faked.
+                    if (prison != null && cell.GetRoom(map) != prison) continue;
+                    int score = dx*dx + dz*dz;
+                    if (score < best) { best = score; selected = cell; }
+                }
+                if (selected.IsValid) return selected;
+                // No internal insertion cell: prefer a nearby exterior cell,
+                // with the raid described truthfully as a perimeter landing.
+                for (int radius = 1; radius <= 10; radius++)
+                for (int dx=-radius;dx<=radius;dx++)
+                for (int dz=-radius;dz<=radius;dz++)
+                {
+                    if (Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius) continue;
+                    IntVec3 cell=new IntVec3(captive.Position.x+dx,0,captive.Position.z+dz);
+                    if (cell.InBounds(map) && DropCellFinder.IsGoodDropSpot(cell,map,true,true))
+                        return cell;
+                }
             }
-            // Do not fake a successful prison landing on an unsuitable map.
             return IntVec3.Invalid;
         }
 
@@ -409,9 +525,31 @@ namespace RaidersHaveFamilies
                     // twelve percent and never multiply cost by coalition size.
                     party.SupplyBudget = RHFMod.Settings?.RoleEquipment == true ?
                         Mathf.Min(300f, Mathf.Max(0f, party.Points * 0.12f)) : 0f;
+                    float effectivePoints = party.Points - party.SupplyBudget;
+                    if (op.TryPod && party.Role==(int)RHFStrikeRole.Rescue &&
+                        !op.PodBudgetPaid)
+                    {
+                        // A field launcher and its steel are funded from the SAME
+                        // threat budget as the fighters, not duplicated for free.
+                        float steelUnits=op.FortifyPrison ? 110f : 90f;
+                        float cost=steelUnits * ThingDefOf.Steel.BaseMarketValue;
+                        if (effectivePoints >= cost+350f)
+                        {
+                            effectivePoints-=cost;
+                            op.PodSupplyCost=cost;
+                            op.PodBudgetPaid=true;
+                        }
+                        else
+                        {
+                            // No affordable technology/logistics: perform ordinary
+                            // escort extraction rather than spawning unpaid steel.
+                            op.TryPod=false;
+                            op.FortifyPrison=false;
+                        }
+                    }
                     var parms = new IncidentParms
                     { target = map, faction = party.Faction,
-                      points = Mathf.Clamp(party.Points - party.SupplyBudget, 300f, 15000f) };
+                      points = Mathf.Clamp(effectivePoints, 300f, 15000f) };
                     parms.raidStrategy = party.Siege ?
                         PickStrategy("Siege", "ImmediateAttackSmart", "ImmediateAttack") :
                         party.Breach ? PickStrategy("Breaching", "ImmediateAttackSmart", "ImmediateAttack") :
@@ -440,8 +578,10 @@ namespace RaidersHaveFamilies
                     // retry a plain immediate assault only when no pawns spawned.
                     if (!accepted && party.Members == 0)
                     {
+                        // A refused prison drop is NOT an ordinary center raid.
+                        // Keep the selected arrival mode and insertion point.
                         parms.raidStrategy = RaidStrategyDefOf.ImmediateAttack;
-                        parms.raidArrivalMode = null;
+                        if (!party.Drop) parms.raidArrivalMode = null;
                         accepted = IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
                     }
                 }
@@ -526,6 +666,11 @@ namespace RaidersHaveFamilies
             if (success > 0)
             {
                 var report = new System.Text.StringBuilder(500);
+                report.AppendLine("План операции: " + RHFMissionProfiles.Label(op) + ".");
+                report.AppendLine("После основной задачи: " +
+                    (op.AssaultAfterObjective ? "штурм и разрушение обороны" : "отход" ) + ".");
+                if (op.HuntTarget!=null) report.AppendLine("Приоритетная цель: " +
+                    op.HuntTarget.LabelShortCap + " (предполагаемый перебежчик).");
                 report.AppendLine(op.Type == (int)RHFOperationType.Rescue ?
                     "ЦЕЛЬ ОПЕРАЦИИ: добраться до удерживаемых пленников, освободить их и вывести. " +
                     "Ударная группа не обязана грабить или разрушать всё поселение." :
@@ -533,8 +678,9 @@ namespace RaidersHaveFamilies
                 if (op.Type == (int)RHFOperationType.Rescue && op.Targets != null)
                 {
                     report.AppendLine("Целевых пленников: " + op.Targets.Count + ".");
-                    report.AppendLine("Для спасателей предусмотрены прорыв к тюрьме, вывод пленников и отход; " +
-                        "отвлекающие группы ведут отдельный бой.");
+                    report.AppendLine("Спасатели обязаны создать пары сопровождения и вместе " +
+                        "с освобождёнными отойти к доступному краю карты. " +
+                        "Отвлекающая группа остаётся под управлением штурмового ИИ.");
                 }
                 for (int i=0; i<op.Parties.Count && i<MaxStrikeParties; i++)
                 {
@@ -622,8 +768,17 @@ namespace RaidersHaveFamilies
                     if (now >= op.SpawnTick && (op.Diversion.Count>0 || op.Squad.Count>0) && !op.SupportUsed)
                         DeployVengeanceSupport(op);
                     if (RHFMod.Settings?.TacticalCombat == true)
+                    {
                         RHFTactical.PressureAssault(map, op, now);
-                    if (now > op.SpawnTick + 7200) operations.RemoveAt(i);
+                        if (op.HuntTarget != null) PursuePriorityTarget(op, now);
+                        if (op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ||
+                            op.Doctrine==(int)RHFDoctrine.PunitiveAssault ||
+                            (op.HuntTarget != null && op.AssaultAfterObjective))
+                            AssaultStrategicStructures(op, now);
+                    }
+                    int vengeanceDuration=op.HuntTarget!=null ||
+                        op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ? 48000 : 18000;
+                    if (now > op.SpawnTick + vengeanceDuration) operations.RemoveAt(i);
                     continue; // vanilla Lord still controls ordinary assault formations
                 }
                 if (now < op.SpawnTick) continue;
@@ -646,6 +801,7 @@ namespace RaidersHaveFamilies
                 else if (op.Phase == 1) Infiltrate(op, now);
                 else if (op.Phase == 2) Extract(op, now);
                 else if (op.Phase == 3) BuildAndLaunch(op, now);
+                else if (op.Phase == 5) PostExtractionAssault(op, now);
                 else if (op.Phase == 4) { op.Finished = true; operations.RemoveAt(i); }
             }
         }
@@ -729,6 +885,10 @@ namespace RaidersHaveFamilies
             {
                 op.Phase = 2; op.PhaseStartTick = now; return;
             }
+            // If we already liberated another prisoner, hold that person with
+            // an escort until the rest of the group is ready. Otherwise the
+            // vanilla released-pawn AI can walk into combat or escape alone.
+            HoldFreedUntilExtraction(op);
             for (int i = op.Squad.Count-1; i>=0 && orders < MaxOrdersPerDecision; i--)
             {
                 Pawn rescuer = op.Squad[i];
@@ -793,15 +953,49 @@ namespace RaidersHaveFamilies
             }
         }
 
+        private void HoldFreedUntilExtraction(RHFOperation op)
+        {
+            int issued=0;
+            for(int i=0;i<op.Freed.Count && i<MaxTargets && issued<3;i++)
+            {
+                Pawn captive=op.Freed[i];
+                if(captive==null || captive.Dead || captive.Downed ||
+                    !captive.Spawned || captive.Map!=map)continue;
+                RHFEscortLink link=EnsureEscort(op,captive);
+                Pawn escort=link?.Escort;
+                if(escort==null || escort.Downed || !escort.Spawned ||
+                    escort.Map!=map)continue;
+                int gap=(captive.Position-escort.Position).LengthHorizontalSquared;
+                if(gap>49)
+                {
+                    OrderGotoIfNeeded(captive,escort.Position,9);
+                    issued++;
+                }
+                else if(gap<=49 && captive.jobs?.curJob?.def!=JobDefOf.Wait)
+                {
+                    // Do not let an old flee-to-edge Goto pull a prisoner
+                    // away before the other cells have been cleared.
+                    Job job=captive.jobs?.curJob;
+                    bool leaving=job==null || job.def!=JobDefOf.Goto ||
+                        (job.targetA.Cell-escort.Position).LengthHorizontalSquared>100;
+                    if(leaving)
+                    {
+                        Order(captive,JobDefOf.Wait,captive.Position);
+                        issued++;
+                    }
+                }
+            }
+        }
+
         private Pawn FindCaptive(RHFOperation op)
         {
             // Priority target first, unless already freed or off-map.
             if (op.Vip != null && !op.Vip.Dead && op.Vip.Map == map &&
-                op.Vip.IsPrisonerOfColony && !op.Freed.Contains(op.Vip)) return op.Vip;
+                (op.Vip.IsPrisonerOfColony || op.Vip.IsSlaveOfColony) && !op.Freed.Contains(op.Vip)) return op.Vip;
             for (int i=0;i<op.Targets.Count && i<MaxTargets;i++)
             {
                 Pawn p = op.Targets[i];
-                if (p != null && !p.Dead && p.Map == map && p.IsPrisonerOfColony &&
+                if (p != null && !p.Dead && p.Map == map && (p.IsPrisonerOfColony || p.IsSlaveOfColony) &&
                     !op.Freed.Contains(p)) return p;
             }
             return null;
@@ -809,16 +1003,37 @@ namespace RaidersHaveFamilies
 
         private void FreeTarget(RHFOperation op, Pawn p)
         {
-            if (p == null || p.guest == null || !p.IsPrisonerOfColony) return;
+            if (p == null || p.guest == null ||
+                !(p.IsPrisonerOfColony || p.IsSlaveOfColony)) return;
+            bool wasSlave = p.IsSlaveOfColony;
             // A breakout cancels ransom conditions. The player cannot collect payment.
             RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
             if (record != null) { record.Negotiated = false; record.PendingSilver = 0; record.PendingGoodwill = false; }
             p.guest.SetGuestStatus(null);
+            // In RimWorld player slaves belong to the colony's faction; a
+            // successful rescue restores their pre-enslavement allegiance.
+            if (wasSlave && record?.OriginalFaction != null &&
+                p.Faction == Faction.OfPlayer && !record.OriginalFaction.IsPlayer)
+                p.SetFaction(record.OriginalFaction);
             if (!op.Freed.Contains(p)) op.Freed.Add(p);
-            if (op.Freed.Count >= op.Targets.Count)
+            // Establish the escort BEFORE the former prisoner receives a free
+            // think-tree decision. A still-active enemy lord must not commandeer it.
+            EnsureEscort(op,p);
+            Pawn next = FindCaptive(op);
+            if (next == null) // dead/escaped/invalid targets do not block extraction
             {
                 op.Phase = op.TryPod && op.Vip != null && op.Vip.Map == map ? 3 : 2;
                 op.PhaseStartTick = Find.TickManager.TicksGame;
+                if (!op.ExitCell.IsValid && op.Squad.Count > 0)
+                    op.ExitCell = ChooseExit(op.Squad[0].Position);
+                // Take an initial step together immediately instead of waiting
+                // another 450 ticks while vanilla AI sends them different ways.
+                if (!p.Downed)
+                {
+                    RHFEscortLink link=FindEscort(op,p);
+                    if (link?.Escort != null)
+                        OrderGotoIfNeeded(p,link.Escort.Position,9);
+                }
             }
         }
 
@@ -899,43 +1114,160 @@ namespace RaidersHaveFamilies
             return selected;
         }
 
+        private RHFEscortLink FindEscort(RHFOperation op, Pawn captive)
+        {
+            if (op?.Escorts == null || captive == null) return null;
+            for (int i=0;i<op.Escorts.Count;i++)
+                if (op.Escorts[i]?.Captive == captive) return op.Escorts[i];
+            return null;
+        }
+
+        private RHFEscortLink EnsureEscort(RHFOperation op, Pawn captive)
+        {
+            if (op == null || captive == null) return null;
+            RHFEscortLink current=FindEscort(op,captive);
+            if (current?.Escort != null && !current.Escort.Dead &&
+                !current.Escort.Downed && current.Escort.Map == map) return current;
+            Pawn chosen=null;
+            int best=int.MaxValue;
+            for (int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            {
+                Pawn rescuer=op.Squad[i];
+                if (rescuer == null || rescuer.Dead || rescuer.Downed || rescuer.Map != map ||
+                    rescuer.Faction == null || captive.Faction == null ||
+                    rescuer.Faction.HostileTo(captive.Faction)) continue;
+                RHFTacticalMember member=RHFTactical.Member(op,rescuer);
+                int dist=(rescuer.Position-captive.Position).LengthHorizontalSquared;
+                int score=dist + (member?.Role == (int)RHFCombatRole.Escort ? -36 : 0);
+                // Prefer a dedicated escort and avoid assigning the same escort
+                // to several living prisoners when alternatives exist.
+                for (int k=0;k<op.Escorts.Count;k++)
+                    if (op.Escorts[k]?.Escort==rescuer && op.Escorts[k].Captive!=captive)
+                        score+=25000;
+                if (score>=best) continue;
+                best=score; chosen=rescuer;
+            }
+            if (chosen==null) return null;
+            if (current == null)
+            { current=new RHFEscortLink(captive,chosen); op.Escorts.Add(current); }
+            else current.Escort=chosen;
+            Lord lord = chosen.GetLord();
+            if (lord != null) lord.Notify_PawnLost(chosen,PawnLostCondition.LeftVoluntarily);
+            return current;
+        }
+
+        private static void OrderGotoIfNeeded(Pawn pawn, IntVec3 cell, int toleranceSquared=4)
+        {
+            if (pawn?.jobs == null || !pawn.Spawned || !cell.IsValid || pawn.Downed) return;
+            if ((pawn.Position-cell).LengthHorizontalSquared <= toleranceSquared) return;
+            if (pawn.jobs.curJob?.def == JobDefOf.Goto &&
+                (pawn.jobs.curJob.targetA.Cell-cell).LengthHorizontalSquared <= toleranceSquared)
+                return;
+            Order(pawn,JobDefOf.Goto,cell);
+        }
+
         private void Extract(RHFOperation op, int now)
         {
-            int orderBudget = MaxOrdersPerDecision;
-            for (int i=0;i<op.Freed.Count && orderBudget>0;i++)
+            int orderBudget=MaxOrdersPerDecision;
+            int stillOnMap=0;
+            bool waitingForAny=false;
+            if (!op.ExitCell.IsValid || !op.ExitCell.InBounds(map))
+                op.ExitCell = ChooseExit(op.Squad.Count>0 && op.Squad[0]!=null ?
+                    op.Squad[0].Position : map.Center);
+            for (int i=0;i<op.Freed.Count && i<MaxTargets;i++)
             {
-                Pawn p=op.Freed[i];
-                if (p == null || p.Dead || p.MapHeld != map || !p.Spawned) continue;
-                if (p.Downed)
+                Pawn captive=op.Freed[i];
+                // FlyShipLeaving keeps its real cargo in a ThingOwner while the
+                // pod is still visible on THIS map. MapHeld==map is therefore
+                // not proof the VIP remains available for a ground escort.
+                if (op.PodLaunchCompleted && captive == op.Vip) continue;
+                if (captive == null || captive.Dead || captive.MapHeld != map) continue;
+                stillOnMap++;
+                RHFEscortLink assigned=EnsureEscort(op,captive);
+                Pawn escort=assigned?.Escort;
+                if (captive.Downed)
                 {
-                    // An unconscious captive cannot obey a Goto order. An RHF
-                    // escort must approach, carry and physically exit with them.
-                    if (orderBudget > 0 && TryAssignCarrier(op, p)) orderBudget--;
+                    if (captive.Spawned && orderBudget>0 && TryAssignCarrier(op,captive))
+                        orderBudget--;
+                    waitingForAny=true;
                     continue;
                 }
-                if ((p.Position-op.ExitCell).LengthHorizontalSquared <= 10)
-                { p.ExitMap(false, Rot4.Invalid); continue; }
-                if (p.jobs?.curJob?.def != JobDefOf.Goto)
-                { Order(p, JobDefOf.Goto, op.ExitCell); orderBudget--; }
+                if (!captive.Spawned) { waitingForAny=true; continue; }
+                if (escort == null || !escort.Spawned)
+                {
+                    // No valid rescuer: NEVER show this as a successful escorted
+                    // extraction. Let the captive seek the exit but keep the
+                    // operation active for a possible replacement escort.
+                    if (orderBudget>0) { OrderGotoIfNeeded(captive,op.ExitCell); orderBudget--; }
+                    waitingForAny=true;
+                    continue;
+                }
+                int separation=(escort.Position-captive.Position).LengthHorizontalSquared;
+                if ((captive.Position-op.ExitCell).LengthHorizontalSquared<=10 &&
+                    (escort.Position-op.ExitCell).LengthHorizontalSquared<=36 && separation<=64)
+                {
+                    captive.ExitMap(false,Rot4.Invalid);
+                    op.EscapedWithEscort++;
+                    // The assigned rescuer leaves only after the prisoner is
+                    // physically off the map. Other rescuers form a rear guard.
+                    if (escort.Spawned) escort.ExitMap(false,Rot4.Invalid);
+                    continue;
+                }
+                if (separation > 144)
+                {
+                    // Prisoner and escort were separated by their vanilla AI.
+                    // Both must rendezvous before the escape continues.
+                    if (orderBudget>0) { OrderGotoIfNeeded(captive,escort.Position,16); orderBudget--; }
+                    if (orderBudget>0 && escort.jobs != null)
+                    { Order(escort,JobDefOf.Wait,escort.Position); orderBudget--; }
+                    waitingForAny=true;
+                }
+                else
+                {
+                    if (orderBudget>0) { OrderGotoIfNeeded(captive,op.ExitCell); orderBudget--; }
+                    // An escort stays alongside the released prisoner instead
+                    // of sprinting ahead, fighting and abandoning their charge.
+                    if (orderBudget>0)
+                    {
+                        if (separation > 49)
+                            Order(escort,JobDefOf.Wait,escort.Position);
+                        else OrderGotoIfNeeded(escort,op.ExitCell);
+                        orderBudget--;
+                    }
+                }
+                op.LastProgressTick=now;
             }
-            // Keep a rearguard until living captives have crossed the map edge.
-            bool allFree = true;
-            for (int i=0;i<op.Freed.Count;i++)
-                if (op.Freed[i] != null && !op.Freed[i].Dead && op.Freed[i].MapHeld == map)
-                { allFree=false; break; }
-            if (allFree || now - op.PhaseStartTick > 45000)
+            // Rear guard moves only when ALL living freed prisoners have departed.
+            bool allFree=stillOnMap==0;
+            if (allFree)
             {
+                if (op.AssaultAfterObjective)
+                {
+                    op.Phase=5; op.PhaseStartTick=now;
+                    Messages.Message("RHF: спасённые покинули карту. Оставшиеся штурмовики " +
+                        "переходят к карательной фазе.",MessageTypeDefOf.ThreatSmall,false);
+                    return;
+                }
                 for(int i=0;i<op.Squad.Count && orderBudget>0;i++)
                 {
                     Pawn rescuer=op.Squad[i];
-                    if (rescuer == null || rescuer.Map != map || rescuer.Dead || rescuer.Downed) continue;
-                    if ((rescuer.Position-op.ExitCell).LengthHorizontalSquared <= 10)
-                        rescuer.ExitMap(false, Rot4.Invalid);
-                    else if (rescuer.jobs?.curJob?.def != JobDefOf.Goto)
-                    { Order(rescuer, JobDefOf.Goto, op.ExitCell); orderBudget--; }
+                    if (rescuer==null || rescuer.Dead || rescuer.Downed || rescuer.Map!=map) continue;
+                    if ((rescuer.Position-op.ExitCell).LengthHorizontalSquared<=10)
+                        rescuer.ExitMap(false,Rot4.Invalid);
+                    else { OrderGotoIfNeeded(rescuer,op.ExitCell); orderBudget--; }
                 }
             }
-            if (now - op.PhaseStartTick > 70000) op.Phase = 4;
+            else if (waitingForAny && now-op.PhaseStartTick>30000 && op.ExitCell.IsValid)
+            {
+                // A blocked/unreachable map exit must not strand liberated
+                // pawns indefinitely. Recompute a physically reachable edge.
+                Pawn point=null;
+                for(int i=0;i<op.Freed.Count;i++)
+                    if(op.Freed[i]!=null && op.Freed[i].Spawned && op.Freed[i].Map==map)
+                    { point=op.Freed[i]; break; }
+                if(point!=null) op.ExitCell=ChooseExit(point.Position);
+            }
+            if (now-op.PhaseStartTick>90000) op.Phase=4;
         }
 
         private bool TryAssignCarrier(RHFOperation op, Pawn captive)
@@ -968,11 +1300,240 @@ namespace RaidersHaveFamilies
             return true;
         }
 
+        // A small self-contained building phase: choose a real doorway-adjacent
+        // standable tile in the prison room, send an actual breacher there,
+        // spend ten units of field-delivered steel, and only then spawn a wall.
+        // No global construction AI override; at most 2 tiles and ~100 probes.
+        private void TryBuildPrisonBarricade(RHFOperation op, Pawn vip, int now)
+        {
+            if(op.PodSteel==null || op.PodSteel.Destroyed || op.PodSteel.Map!=map ||
+               op.PodSteel.stackCount < 90+10 || vip==null || !vip.Spawned)return;
+            if(!op.BarricadeCell.IsValid)
+            {
+                Room room=vip.Position.GetRoom(map);
+                if(room==null)return;
+                for(int dx=-5;dx<=5 && !op.BarricadeCell.IsValid;dx++)
+                for(int dz=-5;dz<=5 && !op.BarricadeCell.IsValid;dz++)
+                {
+                    IntVec3 doorCell=new IntVec3(vip.Position.x+dx,0,vip.Position.z+dz);
+                    if(!doorCell.InBounds(map) || !(doorCell.GetEdifice(map) is Building_Door))continue;
+                    for(int direction=0;direction<4;direction++)
+                    {
+                        IntVec3 adjacent=doorCell+(direction==0?IntVec3.North:
+                            direction==1?IntVec3.East:direction==2?IntVec3.South:IntVec3.West);
+                        if(!adjacent.InBounds(map) || !adjacent.Standable(map) ||
+                           adjacent.GetRoom(map)!=room ||
+                           adjacent.GetEdifice(map)!=null ||
+                           adjacent.GetFirstBuilding(map)!=null ||
+                           (adjacent-vip.Position).LengthHorizontalSquared<=2 ||
+                           (adjacent-op.PodCell).LengthHorizontalSquared<=2)continue;
+                        bool used=false;
+                        for(int x=0;x<op.CompletedBarricades.Count;x++)
+                            if(op.CompletedBarricades[x]==adjacent){used=true;break;}
+                        if(used)continue;
+                        op.BarricadeCell=adjacent;
+                        op.FortifyStartedTick=0;
+                        break;
+                    }
+                }
+                if(!op.BarricadeCell.IsValid)return; // No door, no invented wall.
+            }
+            Pawn engineer=null;
+            for(int i=0;i<op.Squad.Count && i<32;i++)
+            {
+                Pawn p=op.Squad[i];
+                if(p==null || p.Dead || p.Downed || p.Map!=map || p.jobs==null ||
+                   p.health?.capacities==null ||
+                   RHFTactical.Member(op,p)?.Role != (int)RHFCombatRole.Breacher ||
+                   !p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
+                   !p.CanReach(op.BarricadeCell,PathEndMode.Touch,Danger.Deadly))continue;
+                if(engineer==null || (p.Position-op.BarricadeCell).LengthHorizontalSquared<
+                    (engineer.Position-op.BarricadeCell).LengthHorizontalSquared)engineer=p;
+            }
+            if(engineer==null) return;
+            if((engineer.Position-op.BarricadeCell).LengthHorizontalSquared>4)
+            {
+                OrderGotoIfNeeded(engineer,op.BarricadeCell,2);
+                op.FortifyStartedTick=0;
+                return;
+            }
+            if(op.FortifyStartedTick==0)op.FortifyStartedTick=now;
+            if(now-op.FortifyStartedTick<1350)
+            {
+                if(engineer.jobs?.curJob?.def!=JobDefOf.Wait)
+                    Order(engineer,JobDefOf.Wait,engineer.Position);
+                return;
+            }
+            // Abort if the tile was filled during construction. Do not destroy
+            // player structures or spawn through a prisoner.
+            if(!op.BarricadeCell.Standable(map) ||
+               op.BarricadeCell.GetFirstBuilding(map)!=null ||
+               (vip.Position-op.BarricadeCell).LengthHorizontalSquared<=2)
+            { op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;return; }
+            try
+            {
+                Thing wall=ThingMaker.MakeThing(ThingDefOf.Wall,ThingDefOf.Steel);
+                wall.SetFaction(engineer.Faction);
+                GenSpawn.Spawn(wall,op.BarricadeCell,map);
+                op.PodSteel.stackCount-=10;
+                op.CompletedBarricades.Add(op.BarricadeCell);
+                op.BarricadesBuilt++;
+                Messages.Message("RHF: сапёр возвёл стальную баррикаду у тюремного входа.",
+                    wall,MessageTypeDefOf.ThreatSmall,false);
+            }
+            catch(Exception e){Log.Warning("[RHF] Fortification aborted: "+e.Message);}
+            op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;
+        }
+
+        // The faction is hunting a *known person*, but does not have permanent
+        // vision through walls, fog and mountains. An RHF scout has to observe
+        // the target; only then can the squad attack or pursue its last sighting.
+        private void PursuePriorityTarget(RHFOperation op,int now)
+        {
+            Pawn target=op.HuntTarget;
+            if(target==null || target.Dead || target.Map!=map ||
+                target.Faction!=Faction.OfPlayer || now-op.LastHuntOrderTick<900) return;
+            List<Pawn> attackers=op.Diversion.Count>0?op.Diversion:op.Squad;
+            int huntLimit=op.Diversion.Count==0 && attackers.Count>=6 ?
+                attackers.Count/2 : attackers.Count;
+            int scoutsChecked=0;
+            bool contact=false;
+            for(int i=0;i<huntLimit && i<MaxSquad && scoutsChecked<16;i++)
+            {
+                Pawn scout=attackers[i];
+                if(scout==null || scout.Dead || scout.Downed || scout.Map!=map)continue;
+                scoutsChecked++;
+                if((scout.Position-target.Position).LengthHorizontalSquared>900)continue;
+                if(target.Position.Fogged(map))continue;
+                if(!GenSight.LineOfSight(scout.Position,target.Position,map))continue;
+                contact=true;
+                op.HuntLastSeenCell=target.Position;
+                op.HuntLastSeenTick=now;
+                break;
+            }
+            // Stale last-known information expires. No magical pursuit of a
+            // teleported target; absent contact squads search the settlement.
+            bool freshContact=op.HuntLastSeenCell.IsValid &&
+                now-op.HuntLastSeenTick<=9000;
+            IntVec3 waypoint=freshContact ? op.HuntLastSeenCell : map.Center;
+            int issued=0;
+            for(int i=0;i<huntLimit && i<MaxSquad && issued<4;i++)
+            {
+                Pawn hunter=attackers[i];
+                if(hunter==null || hunter.Dead || hunter.Downed || hunter.Map!=map ||
+                   hunter.jobs==null || hunter==target)continue;
+                int d=(hunter.Position-target.Position).LengthHorizontalSquared;
+                bool hunterSees=contact && d<=900 && !target.Position.Fogged(map) &&
+                    GenSight.LineOfSight(hunter.Position,target.Position,map);
+                if(hunterSees && d<400 &&
+                    hunter.equipment?.Primary?.def?.IsRangedWeapon==true)
+                {
+                    Order(hunter,JobDefOf.AttackStatic,target);
+                    issued++;
+                }
+                else if(hunterSees && hunter.CanReach(target,PathEndMode.Touch,Danger.Deadly))
+                {
+                    Order(hunter,JobDefOf.Goto,target);
+                    issued++;
+                }
+                else if((hunter.Position-waypoint).LengthHorizontalSquared>64 &&
+                    hunter.CanReach(waypoint,PathEndMode.OnCell,Danger.Deadly))
+                {
+                    OrderGotoIfNeeded(hunter,waypoint,16);
+                    issued++;
+                }
+            }
+            if(issued>0)op.LastHuntOrderTick=now;
+        }
+
+        // Assault orders come from a bounded shortlist of ACTUAL player
+        // infrastructure. Targeting power/defences/production makes vengeance
+        // meaningfully different from a standard hostile raid; no fabricated
+        // demolition or generic colony-wide search on every pawn tick.
+        private void AssaultStrategicStructures(RHFOperation op, int now)
+        {
+            if (op == null || now - op.LastInfrastructureOrderTick < 1250) return;
+            Building objective=null;
+            int bestScore=int.MinValue;
+            int inspected=0;
+            var buildings=map.listerBuildings.allBuildingsColonist;
+            for(int i=0;i<buildings.Count && inspected<48;i++)
+            {
+                Building b=buildings[i];
+                if(b==null || !b.Spawned || b.Destroyed || b.Faction!=Faction.OfPlayer)continue;
+                inspected++;
+                string name=b.def.defName.ToLowerInvariant();
+                int value=name.Contains("turret")?1000:
+                    name.Contains("power") || name.Contains("generator")?850:
+                    name.Contains("battery") || name.Contains("comms")?750:
+                    name.Contains("workbench") || name.Contains("fabricator")?500:100;
+                if(value>bestScore){objective=b;bestScore=value;}
+            }
+            if(objective==null)return;
+            // The specialist diversion pursues the traitor; other fighters
+            // separately dismantle the colony. Share actual force/budget.
+            List<Pawn> attackers=op.Squad.Count>0?op.Squad:op.Diversion;
+            int first=op.HuntTarget!=null && op.Diversion.Count==0 &&
+                attackers.Count>=6 ? attackers.Count/2 : 0;
+            int ordered=0;
+            for(int i=first;i<attackers.Count && ordered<3;i++)
+            {
+                Pawn fighter=attackers[i];
+                if(fighter==null || fighter.Dead || fighter.Downed || fighter.Map!=map ||
+                   fighter.jobs==null)continue;
+                int d=(fighter.Position-objective.Position).LengthHorizontalSquared;
+                if(d>900)continue;
+                if(d<420 && fighter.equipment?.Primary?.def?.IsRangedWeapon==true)
+                    Order(fighter,JobDefOf.AttackStatic,objective);
+                else if(fighter.CanReach(objective,PathEndMode.Touch,Danger.Deadly))
+                    Order(fighter,JobDefOf.AttackMelee,objective);
+                else continue;
+                ordered++;
+            }
+            if(ordered>0)op.LastInfrastructureOrderTick=now;
+        }
+
+        private void PostExtractionAssault(RHFOperation op,int now)
+        {
+            if(now-op.PhaseStartTick>24000){op.Phase=4;return;}
+            // Existing rescued soldiers, not extra free enemies, now attack.
+            // Cap target orders and let the rest use original CE/vanilla verbs.
+            int orders=0;
+            for(int i=0;i<op.Squad.Count && i<MaxSquad && orders<5;i++)
+            {
+                Pawn fighter=op.Squad[i];
+                if(fighter==null || fighter.Map!=map || fighter.Dead || fighter.Downed ||
+                   fighter.jobs==null)continue;
+                Pawn enemy=null;int best=625;int seen=0;
+                foreach(Pawn candidate in map.mapPawns.FreeColonistsSpawned)
+                {
+                    if(seen++>=24)break;
+                    if(candidate==null || candidate.Dead || candidate.Downed)continue;
+                    int d=(fighter.Position-candidate.Position).LengthHorizontalSquared;
+                    if(d<best){best=d;enemy=candidate;}
+                }
+                if(enemy!=null)
+                {
+                    if(best<400 && fighter.equipment?.Primary?.def?.IsRangedWeapon==true)
+                        Order(fighter,JobDefOf.AttackStatic,enemy);
+                    else if(fighter.CanReach(enemy,PathEndMode.Touch,Danger.Deadly))
+                        Order(fighter,JobDefOf.Goto,enemy);
+                    orders++;
+                }
+            }
+            if(op.Doctrine==(int)RHFDoctrine.RescueAndReprisal ||
+               op.Doctrine==(int)RHFDoctrine.RescueThenAssault)
+                AssaultStrategicStructures(op,now);
+            if(orders==0 && now-op.PhaseStartTick>8000)op.Phase=4;
+        }
+
         // VIP rescue option: a field launcher is actually placed on the map; no free
         // out-of-nowhere teleport. Engineers must hold the area for several hours.
         // If the game cannot accept the cell/roof/resources, fall back to a breakout.
         private void BuildAndLaunch(RHFOperation op, int now)
         {
+            if (!op.PodBudgetPaid)
+            { op.Phase=2; op.PhaseStartTick=now; return; }
             Pawn vip=op.Vip;
             if (vip == null || vip.Dead || vip.Map != map || vip.Downed || op.Squad.Count < 2)
             { op.Phase=2; op.PhaseStartTick=now; return; }
@@ -984,14 +1545,28 @@ namespace RaidersHaveFamilies
                 // Supplies are part of the special raid's strategic points budget.
                 // Explicit physical materials can be taken by the colony.
                 Thing materials=ThingMaker.MakeThing(ThingDefOf.Steel);
-                materials.stackCount=90;
-                Thing placed;
-                // Keep a reference to the supplied stack: never silently consume
-                // unrelated colony steel when a cell is occupied or the stack moves.
-                if (!GenPlace.TryPlaceThing(materials, op.PodCell, map,
-                    ThingPlaceMode.Near, out placed))
-                { op.Phase=2; op.PhaseStartTick=now; return; }
-                op.PodSteel=placed;
+                // Ninety steel for launcher/pod plus at most two actual
+                // steel walls at ten units each. No colony stock consumed.
+                materials.stackCount=op.FortifyPrison ? 110 : 90;
+                IntVec3 supplyCell=IntVec3.Invalid;
+                for(int dx=-2;dx<=2 && !supplyCell.IsValid;dx++)
+                for(int dz=-2;dz<=2;dz++)
+                {
+                    IntVec3 c=op.PodCell+new IntVec3(dx,0,dz);
+                    if(!c.InBounds(map) || !c.Standable(map) || c.GetEdifice(map)!=null)
+                        continue;
+                    // Avoid merging with pre-existing player steel (or any
+                    // existing item), which would make ownership unknowable.
+                    bool occupied=false;
+                    foreach(Thing item in map.thingGrid.ThingsListAt(c))
+                        if(item.def.category==ThingCategory.Item)
+                        {occupied=true;break;}
+                    if(!occupied){supplyCell=c;break;}
+                }
+                if(!supplyCell.IsValid)
+                { op.Phase=2;op.PhaseStartTick=now;return; }
+                GenSpawn.Spawn(materials,supplyCell,map);
+                op.PodSteel=materials;
                 op.PodSuppliesIssued=true;
                 op.PhaseStartTick=now;
                 Find.LetterStack.ReceiveLetter("Полевой эвакуационный комплекс",
@@ -1003,7 +1578,13 @@ namespace RaidersHaveFamilies
             for(int i=0;i<op.Squad.Count;i++)
                 if (op.Squad[i]!=null && op.Squad[i].Map==map && !op.Squad[i].Downed &&
                     !op.Squad[i].Dead) active++;
-            if(active<2 || now-op.PhaseStartTick<16500) return;
+            if (active<2) return;
+            // Construction occurs in actual pulses next to the prison door,
+            // not by spawning walls for free or taking player-owned steel.
+            if (op.FortifyPrison && op.BarricadesBuilt < 2 &&
+                now-op.PhaseStartTick < 16000)
+                TryBuildPrisonBarricade(op,vip,now);
+            if(now-op.PhaseStartTick<16500) return;
             if(op.PodReady)
             {
                 // Boarding is physical; cannot launch a prisoner on the other side of the map.
@@ -1015,17 +1596,48 @@ namespace RaidersHaveFamilies
                     { op.Phase=2;op.PhaseStartTick=now; }
                     return;
                 }
-                vip.ExitMap(false,Rot4.Invalid);
+                if (!TryLaunchPhysicalVipPod(op, vip))
+                {
+                    // Never fake a launched capsule or disappear the pawn when
+                    // RimWorld rejected the actual transport-container operation.
+                    op.Phase=2; op.PhaseStartTick=now;
+                    Messages.Message("RHF: эвакуационная капсула недоступна; " +
+                        "отряд переходит к выводу пленников по земле.",
+                        MessageTypeDefOf.ThreatSmall, false);
+                    return;
+                }
+                op.PodLaunchCompleted=true;
                 Find.LetterStack.ReceiveLetter("Эвакуация важного пленника",
-                    "Полевой комплекс запущен: " + vip.LabelShortCap + " эвакуирован.",
-                    LetterDefOf.ThreatBig,vip);
+                    "Полевой комплекс действительно запущен: " + vip.LabelShortCap +
+                    " находится в контейнере улетающей капсулы.",
+                    LetterDefOf.ThreatBig,new LookTargets(op.PodCell,map));
                 op.Phase=2; op.PhaseStartTick=now;
                 return;
             }
             RoofDef roof=map.roofGrid.RoofAt(op.PodCell);
-            if(roof == RoofDefOf.RoofRockThick)
-            { op.Phase=2; op.PhaseStartTick=now; return; }
-            if(roof!=null) map.roofGrid.SetRoof(op.PodCell,null);
+            if(roof!=null)
+            {
+                // No instant removal of the colony's roof. A capable raider
+                // must reach the site and work on a *constructed* roof.
+                if(roof!=RoofDefOf.RoofConstructed)
+                {op.Phase=2;op.PhaseStartTick=now;return;}
+                Pawn engineer=null;
+                for(int i=0;i<op.Squad.Count && i<32;i++)
+                {
+                    Pawn p=op.Squad[i];
+                    if(p==null || p.Map!=map || p.Downed || p.Dead ||
+                       p.health?.capacities==null ||
+                       !p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
+                       !p.CanReach(op.PodCell,PathEndMode.Touch,Danger.Deadly))continue;
+                    engineer=p;break;
+                }
+                if(engineer==null)return;
+                if((engineer.Position-op.PodCell).LengthHorizontalSquared>9)
+                {OrderGotoIfNeeded(engineer,op.PodCell,6);op.RoofRemovalStartTick=0;return;}
+                if(op.RoofRemovalStartTick==0)op.RoofRemovalStartTick=now;
+                if(now-op.RoofRemovalStartTick<2100)return;
+                map.roofGrid.SetRoof(op.PodCell,null);
+            }
             ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("RHF_ExtractionPod");
             ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("RHF_FieldLauncher");
             if(pod==null || launcher==null || !op.PodCell.Standable(map))
@@ -1052,6 +1664,69 @@ namespace RaidersHaveFamilies
             // reaches the physical pod. The same plan survives save/load.
         }
 
+        // A real Skyfaller and ThingOwner transport. No teleport and no free
+        // disappearance of a VIP: the launch only succeeds if the pawn was
+        // actually added to the skyfaller cargo container.
+        private bool TryLaunchPhysicalVipPod(RHFOperation op, Pawn vip)
+        {
+            if (vip == null || !vip.Spawned || vip.Map != map ||
+                !op.PodCell.IsValid || (vip.Position-op.PodCell).LengthHorizontalSquared > 2)
+                return false;
+            // ThingOwner.TryAdd does NOT automatically despawn spawned Things.
+            // Despawn the pawn before loading to avoid the same VIP existing on
+            // the map and in the cargo at once. Roll back on every failure.
+            ActiveTransporter transporter=null;
+            bool departed=false;
+            IntVec3 previous=vip.Position;
+            try
+            {
+                transporter=ThingMaker.MakeThing(ThingDefOf.ActiveDropPod) as ActiveTransporter;
+                if(transporter==null) return false;
+                transporter.Contents=new ActiveTransporterInfo();
+                vip.DeSpawn();
+                if(!transporter.Contents.innerContainer.TryAdd(vip)) return false;
+                FlyShipLeaving skyfaller=SkyfallerMaker.MakeSkyfaller(
+                    ThingDefOf.DropPodLeaving,transporter) as FlyShipLeaving;
+                if(skyfaller==null) return false;
+                skyfaller.createWorldObject = false;
+                // Spawn the genuine departing vehicle before removing the
+                // decorative built shell; a failed launch must not erase it.
+                GenSpawn.Spawn(skyfaller,op.PodCell,map);
+                departed=skyfaller.Spawned;
+                if(departed)
+                {
+                    Thing structure=op.PodCell.GetFirstBuilding(map);
+                    if(structure!=null && structure.def.defName=="RHF_ExtractionPod")
+                        structure.Destroy();
+                }
+                return departed;
+            }
+            catch(Exception e)
+            {
+                Log.Warning("[RHF] Could not load/launch VIP transporter: "+e);
+                return false;
+            }
+            finally
+            {
+                if(!departed && !vip.Spawned && !vip.Destroyed)
+                {
+                    try
+                    {
+                        if(vip.holdingOwner!=null && transporter?.Contents!=null)
+                        {
+                            Thing dropped;
+                            transporter.Contents.innerContainer.TryDrop(vip,previous,
+                                map,ThingPlaceMode.Near,out dropped);
+                        }
+                        if(!vip.Spawned && vip.holdingOwner==null)
+                            GenSpawn.Spawn(vip,previous,map);
+                    }
+                    catch(Exception rollback)
+                    { Log.Error("[RHF] Critical VIP boarding rollback: "+rollback); }
+                }
+            }
+        }
+
         private IntVec3 FindLandingCell(IntVec3 origin)
         {
             for (int radius=1; radius<=6; radius++)
@@ -1060,7 +1735,8 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 c=new IntVec3(origin.x+x,0,origin.z+z);
                 if(!c.InBounds(map) || !c.Standable(map))continue;
-                if(map.roofGrid.RoofAt(c)==RoofDefOf.RoofRockThick)continue;
+                RoofDef roof=map.roofGrid.RoofAt(c);
+                if(roof!=null && roof!=RoofDefOf.RoofConstructed)continue;
                 return c;
             }
             return IntVec3.Invalid;
@@ -1068,15 +1744,30 @@ namespace RaidersHaveFamilies
 
         private IntVec3 ChooseExit(IntVec3 from)
         {
-            int left=from.x, right=map.Size.x-from.x;
-            int top=from.z, bottom=map.Size.z-from.z;
-            if(left<=right && left<=top && left<=bottom)
-                return new IntVec3(0,0,Mathf.Clamp(from.z,1,map.Size.z-2));
-            if(right<=top && right<=bottom)
-                return new IntVec3(map.Size.x-1,0,Mathf.Clamp(from.z,1,map.Size.z-2));
-            if(top<=bottom)
-                return new IntVec3(Mathf.Clamp(from.x,1,map.Size.x-2),0,0);
-            return new IntVec3(Mathf.Clamp(from.x,1,map.Size.x-2),0,map.Size.z-1);
+            // Check only a handful of nearby border cells, in distance order.
+            // The previous version could choose an impassable cell behind a
+            // cliff or fortified wall; rescued pawns then marched elsewhere.
+            IntVec3 fallback = IntVec3.Invalid;
+            int best=int.MaxValue;
+            for (int edge=0;edge<4;edge++)
+            for (int offset=-24;offset<=24;offset+=6)
+            {
+                int x = edge==0 ? 0 : edge==1 ? map.Size.x-1 :
+                    Mathf.Clamp(from.x+offset,1,map.Size.x-2);
+                int z = edge==2 ? 0 : edge==3 ? map.Size.z-1 :
+                    Mathf.Clamp(from.z+offset,1,map.Size.z-2);
+                IntVec3 cell=new IntVec3(x,0,z);
+                if (!cell.InBounds(map) || !cell.Standable(map)) continue;
+                int dist=(cell-from).LengthHorizontalSquared;
+                if(dist>=best)continue;
+                if(!map.reachability.CanReach(from,cell,PathEndMode.OnCell,
+                    TraverseMode.PassDoors,Danger.Deadly))continue;
+                best=dist;fallback=cell;
+            }
+            if (fallback.IsValid) return fallback;
+            // A real edge must still be attempted when the map is walled off,
+            // but NEVER claim that this fallback was path-verified.
+            return new IntVec3(0,0,Mathf.Clamp(from.z,1,map.Size.z-2));
         }
 
         private static void Order(Pawn pawn, JobDef def, LocalTargetInfo target)

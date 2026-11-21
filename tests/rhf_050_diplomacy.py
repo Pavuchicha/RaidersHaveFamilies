@@ -7,8 +7,8 @@ assert 'FactionDialogMaker.FactionDialogFor' in patch
 assert 'RHFDialogue.HasCaptives(faction)' in patch
 assert 'Building_CommsConsole), "GetFloatMenuOptions"' not in patch
 assert 'Обсудить возвращение наших пленников' in patch
-assert 'linkLateBind' in dlg and 'ReturnNode' in dlg and 'Постоянная вражда' in dlg
-assert 'Суммы указаны в серебре' in dlg and 'CounterOfferChancePercent' in dlg
+assert 'linkLateBind' in dlg and 'ReturnNode' in dlg and 'OriginalFaction' in dlg
+assert 'серебра' in dlg and 'CounterOfferChancePercent' in dlg
 assert 'AgreeRelease' in host and 'ReportCondition' in host
 assert 'LastConfirmedOperation' in host and 'Scribe_Values.Look(ref LastConfirmedOperation' in host
 assert 'DropPodUtility.DropThingsNear' in host and 'new LookTargets(dropCenter, previousMap)' in host
