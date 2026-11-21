@@ -1,4 +1,6 @@
-"""Static contracts for v0.10.0. Does NOT replace GitHub DLL/game tests."""
+"""Static contracts for v0.10+ dead-hostage and reprisal features.
+Updated for v0.12.2 remote family communication (no local teleportation).
+"""
 from pathlib import Path
 r=Path(__file__).resolve().parents[1]
 src=r/'RaidersHaveFamilies/Source'
@@ -22,7 +24,8 @@ assert 'CanConfessCannibalism(r)' in d
 assert 'Промолчать и закрыть дело RHF' in d
 assert 'if (RHFHostageDiplomacy.IsDeadCase(r)) return DeadPerson' in d
 assert 'Признаться, что мы умышленно убили пленника' in d
-assert 'На линии появляется' in d
+# Actual remote connection via faction operator, not kin standing in an office.
+assert 'Оператор фракции устанавливает удалённую связь' in d
 assert 'RHFDeadButcheredEvent' in p and 'Corpse.ButcherProducts' in p
 assert 'RHFDeadConsumedEvent' in p and 'Thing.Ingested' in p
 assert 'RecordHumanMeatConsumption' in p and 'CompIngredients' in h
@@ -47,7 +50,6 @@ assert 'kind == RHFPublicityKind.Cannibalism' in h
 assert 'MemoryLevel(newCruelty, importance)' in h
 assert '22 — Аудит смерти' in (src/'RHFDebugActions.cs').read_text()
 assert '23 — Аудит тайных дел' in (src/'RHFDebugActions.cs').read_text()
-# Meaningful threshold spread across rank & harm.
 def memory(cruelty, rank):
     score = max(0,cruelty) * (1+min(max(rank,0),8)*.20)
     return next((i for i,threshold in enumerate((18,40,85,170,310),start=1) if score < threshold),6)
@@ -58,4 +60,4 @@ assert memory(30,8)==3
 assert memory(60,8)==4
 assert memory(135,8)==6
 assert memory(340,0)==6
-print('PASS: dead hostage dialogue, exclusive resolution, cannibal proof, bounded VIP search, reprisal coalition, non-saturated mood tiers')
+print('PASS: dead hostage dialogue, exclusive resolution, cannibal proof, and remote family communication')

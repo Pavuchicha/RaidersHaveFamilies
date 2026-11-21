@@ -1,3 +1,4 @@
+"""Disclosure and dialogue regression contracts; v0.12.2 uses office/rank-driven routing."""
 from pathlib import Path
 p=Path(__file__).resolve().parents[1]
 s=(p/'RaidersHaveFamilies/Source/RHFHostageSystems.cs').read_text()
@@ -15,7 +16,10 @@ assert 'ReportCondition(RHFHostageRecord r, bool reportToFamily = false)' in s
 assert 'EligibleTraitReason(colonist, RHFPublicityKind.Torture)' in d
 assert 'EligibleIdeology(colonist, p, RHFPublicityKind.Torture)' in d
 dialog=(p/'RaidersHaveFamilies/Source/RHFDialogue.cs').read_text()
-assert 'Сообщить родственнику' in dialog or 'Признаться родственнику' in dialog
-assert 'Передать официальный медицинский отчёт фракции' in dialog
+# Disclosure recipient now depends on importance instead of four duplicated UI choices.
+assert 'bool viaFamily=r.Importance<5 && family!=null' in dialog
+assert 'Оператор фракции устанавливает удалённую связь' in dialog
+assert 'Передать фактический медицинский отчёт (без признания умысла)' in dialog
+assert 'Признать умышленное увечье и ответственность колонии' in dialog
 assert x.count('RHF: злорадство от чужого горя') == 6
-print('PASS: reward is based on disclosure, OR of trait/ideology, one RHF memory, and Russian dev diagnostics')
+print('PASS: disclosure, mood, and rank-dependent remote-family dialog')
