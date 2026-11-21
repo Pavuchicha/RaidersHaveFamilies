@@ -17,7 +17,7 @@ assert 'SeverityOf(RecipeDef recipe)' in patch and 'recipe.isViolation' in patch
 assert 'RHFWCERegistry.SeverityOf(recipe.defName)' in patch
 assert 'RHF - ТЕСТЫ | РЕЙДЫ' in debug and 'RHF - ТЕСТЫ | ПЛЕННИКИ' in debug
 assert 'DebugActionType.ToolMap' in debug and 'UI.MouseCell()' in debug
-assert debug.count('public static void Rank') == 8
+assert debug.count('public static void Rank') == 10  # original eight ranks + two industrial VIP creation tools
 assert 'RHFHostageDiplomacy.RecordWceOperation' in debug
 assert 'record.Importance = Mathf.Clamp(rank, 0, 8)' in debug
 assert 'return awarded;' in host

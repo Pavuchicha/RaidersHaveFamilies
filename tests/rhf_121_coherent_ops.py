@@ -12,14 +12,14 @@ assert 'GenSight.LineOfSight(fighter.Position, possible.Position, map)' in tacti
 assert 'MaxSquad = 96' in ops and 'DecisionInterval = 90' in ops
 assert 'SafeRansomDrop' in (root/'RaidersHaveFamilies/Source/RHFHostageSystems.cs').read_text('utf-8')
 assert 'arrivalStillPending' in ops and 'EdgeWalkIn' in ops
-assert 'private Thing FindBarrier(' in ops and 'bestDoor ?? bestWall' in ops
+assert 'private Thing FindBarrier(' in ops and 'RHFCombatPlannerV125.BreachWorkCost(edifice)' in ops
 for key in ['Scribe_References.Look(ref HuntTarget', 'Scribe_Collections.Look(ref Escorts',
             'PodLaunchCompleted', 'PodBudgetPaid', 'RHFReprisalSystem.OnOperationDeployed']:
     assert key in ops, 'missing persistence/missions: '+key
 wf=(root/'.github/workflows/build.yml').read_text()
-assert 'Build Raiders Have Families 0.12.5' in wf  # current build must be titled correctly
+assert 'Build Raiders Have Families 0.12.7' in wf  # current build must be titled correctly
 assert 'tests/rhf_121_coherent_ops.py' in wf
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.12.5-COMBAT-TACTICS-TEST' in wf
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.12.7-UNIVERSAL-STRUCTURES-AND-FACTIONS-TEST' in wf
 assert 'tests/rhf_123_rescue_control.py' in wf
 assert 'REQUIREMENTS_AUDIT_MASTER_RU.md' in {x.name for x in root.iterdir()}
-print('PASS: v0.12.1 mission persistence retained; v0.12.5 CI packaging contract')
+print('PASS: v0.12.1 mission persistence retained; v0.12.6 CI packaging contract')

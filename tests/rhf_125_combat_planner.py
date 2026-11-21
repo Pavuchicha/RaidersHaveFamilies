@@ -38,11 +38,11 @@ for disallowed in ('HarmonyPatch(typeof(Pawn_JobTracker)', 'HarmonyPatch(typeof(
                    'HarmonyPatch(typeof(Pawn), nameof(Pawn.Tick))'):
     assert disallowed not in tactics, f'global per-tick patch: {disallowed}'
 assert 'int score = (prisonEdge ? 0 : 8000)' in rescue
-assert 'generators' in tactics.lower() and 'batteries' in tactics.lower()
+assert 'generators' in tactics.lower() and 'machinery' in tactics.lower()
 assert 'RHFCombatPlannerV125.IsBreachableStructure(edifice)' in rescue
-assert 'if(extraction && op.Escorts != null)' in tactics
-assert 'if(assignedEscort)continue' in tactics
-assert 'RaidersHaveFamilies_v0.12.5_RimWorld_1.7_INSTALL.zip' in workflow
+assert 'AssignedEscort(op,fighter,map)' in tactics
+assert 'if(extraction && AssignedEscort(op,fighter,map))continue' in tactics
+assert 'RaidersHaveFamilies_v0.12.7_RimWorld_1.7_INSTALL.zip' in workflow
 assert 'tests/rhf_125_combat_planner.py' in workflow
 assert tactics.count('{') == tactics.count('}')
 assert rescue.count('{') == rescue.count('}')

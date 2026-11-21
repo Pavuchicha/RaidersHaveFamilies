@@ -310,7 +310,16 @@ namespace RaidersHaveFamilies
             state.BarrierForCaptive = captive.Position;
             // First check the actual destructible path to the hostage. The
             // old nearest-door search sometimes chose the storage/battery room.
-            Thing goalObstacle = RHFCombatPlannerV125.FirstObjectiveObstacle(leader,captive);
+            bool clearCorridor;
+            Thing goalObstacle = RHFCombatPlannerV125.FirstObjectiveObstacle(
+                leader,captive,out clearCorridor);
+            if (clearCorridor)
+            {
+                // The weighted route reaches the prisoner via genuine open
+                // passages. Do not fall back to a nearby irrelevant wall/door.
+                state.CurrentBarrier=null;
+                return null;
+            }
             if (goalObstacle != null && !goalObstacle.Destroyed &&
                 leader.CanReach(goalObstacle.Position,PathEndMode.Touch,Danger.Deadly))
             { state.CurrentBarrier=goalObstacle; return goalObstacle; }

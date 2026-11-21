@@ -1146,8 +1146,8 @@ namespace RaidersHaveFamilies
             // away). Prefer its door over any wall, even if the wall is closer.
             // Called at most once per 90-tick decision, not once per soldier.
             Room prison = captive.Position.GetRoom(map);
-            Building bestDoor = null, bestWall = null;
-            int bestDoorScore = int.MaxValue, bestWallScore = int.MaxValue;
+            Building bestBarrier = null;
+            long bestScore = long.MaxValue;
             IntVec3 center = captive.Position;
             for (int dx=-16; dx<=16; dx++)
             for (int dz=-16; dz<=16; dz++)
@@ -1155,9 +1155,7 @@ namespace RaidersHaveFamilies
                 IntVec3 c = new IntVec3(center.x+dx,0,center.z+dz);
                 if (!c.InBounds(map)) continue;
                 Building edifice = c.GetEdifice(map);
-                if (edifice == null || edifice.Destroyed || edifice.Faction != Faction.OfPlayer ||
-                    (edifice.def.passability != Traversability.Impassable &&
-                     !(edifice is Building_Door))) continue;
+                if (!RHFCombatPlannerV125.IsBreachableStructure(edifice)) continue;
                 if (!rescuer.CanReach(c, PathEndMode.Touch, Danger.Deadly)) continue;
                 bool touchesPrison = prison == null || c.GetRoom(map) == prison;
                 if (!touchesPrison)
@@ -1170,16 +1168,12 @@ namespace RaidersHaveFamilies
                         (west.InBounds(map) && west.GetRoom(map)==prison);
                 }
                 if (!touchesPrison) continue;
-                int score=(rescuer.Position-c).LengthHorizontalSquared +
+                long score=(long)RHFCombatPlannerV125.BreachWorkCost(edifice) * 4 +
+                    (rescuer.Position-c).LengthHorizontalSquared +
                     (center-c).LengthHorizontalSquared;
-                if (edifice is Building_Door)
-                {
-                    if (score<bestDoorScore) {bestDoorScore=score;bestDoor=edifice;}
-                }
-                else if(score<bestWallScore)
-                {bestWallScore=score;bestWall=edifice;}
+                if (score < bestScore) { bestScore=score; bestBarrier=edifice; }
             }
-            return bestDoor ?? bestWall;
+            return bestBarrier;
         }
 
         private RHFEscortLink FindEscort(RHFOperation op, Pawn captive)

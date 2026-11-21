@@ -43,8 +43,8 @@ assert not re.search(r'HarmonyPatch\(typeof\(Pawn_JobTracker\)',source)
 assert 'if(op.PodLaunchCompleted && pawn==op.Vip)return true;' in source
 assert 'RHFRescueMissionDiagnosticsV123' in old, 'v0.12.3 diagnostics retained'
 assert 'tests/rhf_124_rescue_command.py' in workflow
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.12.5-COMBAT-TACTICS-TEST' in workflow
-assert 'RaidersHaveFamilies_v0.12.5_RimWorld_1.7_INSTALL.zip' in workflow
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.12.7-UNIVERSAL-STRUCTURES-AND-FACTIONS-TEST' in workflow
+assert 'RaidersHaveFamilies_v0.12.7_RimWorld_1.7_INSTALL.zip' in workflow
 assert source.count('{') == source.count('}')
 assert source.count('(') == source.count(')')
 print('PASS: v0.12.4 persistent Lord, group extraction, safe escort, job stability, bounded access scans & CI packaging')

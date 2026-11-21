@@ -21,8 +21,13 @@ namespace RaidersHaveFamilies
         public readonly Dictionary<int, int> LastCombatOrder = new Dictionary<int, int>();
         public readonly Dictionary<int, int> BreachReadyAt = new Dictionary<int, int>();
         public readonly Dictionary<int, Thing> BreachTarget = new Dictionary<int, Thing>();
+        // A covering shooter retains the assigned target and firing position
+        // while moving. Otherwise the 90-tick rescue loop overwrites Goto and
+        // sends the shooter into the turret at melee range.
+        public readonly Dictionary<int, Thing> CoverTarget = new Dictionary<int, Thing>();
+        public readonly Dictionary<int, IntVec3> CoverWaypoint = new Dictionary<int, IntVec3>();
+        public readonly Dictionary<int, int> LastFlankPerPawn = new Dictionary<int, int>();
         public int LastScanTick = -9000;
-        public int LastFlankTick = -9000;
         public int LastApproachTick = -9000;
         public int ScannedPawns;
         public int ScannedBuildings;
@@ -55,31 +60,202 @@ namespace RaidersHaveFamilies
                    !pawn.Downed && pawn.jobs != null;
         }
 
+        // Def-agnostic obstruction identification. This works for modded walls,
+        // doors, materials and modded human-scale fortifications; no string search
+        // for "wall" or any assumed material name. Furniture and machinery which
+        // do not serve as an impassable edifice are excluded.
         internal static bool IsBreachableStructure(Thing obstacle)
         {
             if (!(obstacle is Building building) || obstacle.Destroyed ||
-                obstacle.def == null || obstacle.Faction != Faction.OfPlayer) return false;
+                obstacle.def == null || obstacle.Faction != Faction.OfPlayer ||
+                !obstacle.def.destroyable || !obstacle.def.useHitPoints ||
+                obstacle.HitPoints <= 0) return false;
             if (building is Building_Door) return true;
-            string name = obstacle.def.defName ?? "";
-            // Do not demolish generators, batteries, furniture or production equipment
-            // merely because they are impassable and happen to be near a prison.
-            return obstacle.def.passability == Traversability.Impassable &&
-                (name.IndexOf("wall", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                 name.IndexOf("bulkhead", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                 name.IndexOf("embrasure", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                 name.IndexOf("barricade", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                 name.IndexOf("fence", StringComparison.OrdinalIgnoreCase) >= 0);
+            return obstacle.def.IsEdifice() &&
+                obstacle.def.passability == Traversability.Impassable;
         }
 
-        // This is the actual first obstruction on a destructible path to the captive,
-        // not the nearest unrelated door. Re-evaluate after EACH layer is breached.
-        internal static Thing FirstObjectiveObstacle(Pawn rescuer, Pawn captive)
+        // A single universal HP-based break cost shared by walls and doors.
+        // Actual HitPoints already reflects stuff/material multipliers and damage.
+        // No arbitrary per-type weight, name, or cap that makes 3000 HP look
+        // the same as 500 HP. Fixed overhead covers switching to a breach job.
+        internal static int BreachWorkCost(Thing obstacle)
         {
+            if (!IsBreachableStructure(obstacle)) return -1;
+            return 16 + Math.Min(1000000, obstacle.HitPoints) * 2;
+        }
+
+        // A budgeted A* route with a combat-appropriate STRUCTURAL cost model.
+        // The vanilla PassAllDestroyableThings pathfinder can prefer a straight
+        // line through three stone walls over a slightly longer corridor with
+        // two doors. We compare the TOTAL cost of getting to the prisoner.
+        // No global pawn tick, no artificial damage and no arbitrary door scan.
+        private struct RouteFrontier
+        {
+            internal int Index;
+            internal int Priority;
+            internal RouteFrontier(int index, int priority)
+            { Index=index; Priority=priority; }
+        }
+        private static void PushRoute(List<RouteFrontier> queue, int index, int priority)
+        {
+            RouteFrontier node=new RouteFrontier(index,priority);
+            queue.Add(node);
+            int i=queue.Count-1;
+            while(i>0)
+            {
+                int parent=(i-1)/2;
+                if(queue[parent].Priority<=priority)break;
+                queue[i]=queue[parent];i=parent;
+            }
+            queue[i]=node;
+        }
+        private static RouteFrontier PopRoute(List<RouteFrontier> queue)
+        {
+            RouteFrontier first=queue[0];
+            RouteFrontier last=queue[queue.Count-1];
+            queue.RemoveAt(queue.Count-1);
+            if(queue.Count==0)return first;
+            int i=0;
+            while(true)
+            {
+                int child=i*2+1;
+                if(child>=queue.Count)break;
+                if(child+1<queue.Count && queue[child+1].Priority<queue[child].Priority)
+                    child++;
+                if(queue[child].Priority>=last.Priority)break;
+                queue[i]=queue[child];i=child;
+            }
+            queue[i]=last;
+            return first;
+        }
+        private static int StructuralStep(Map map, IntVec3 cell, List<IntVec3> turrets)
+        {
+            Building block=cell.GetEdifice(map);
+            int breachCost=0;
+            if (block != null)
+            {
+                int damageWork=BreachWorkCost(block);
+                if (damageWork>=0) breachCost=damageWork;
+                else if (block is Building_Door && block.Faction!=Faction.OfPlayer)
+                    breachCost=12; // accessible allied/neutral door, not a hostile breach
+                else if (block.def.passability==Traversability.Impassable)
+                    return -1; // non-destroyable infrastructure is not a breach route
+            }
+            else if(!cell.Standable(map))return -1;
+            int danger=0;
+            // Approximate static suppression envelopes without any expensive
+            // per-cell LoS calls. Exact LoS is used later for shooting orders.
+            for(int i=0;i<turrets.Count;i++)
+            {
+                int d=(cell-turrets[i]).LengthHorizontalSquared;
+                if(d<169)danger+=40;
+                else if(d<625)danger+=22;
+                else if(d<1225)danger+=8;
+            }
+            return 10+breachCost+danger;
+        }
+        private static Thing WeightedObjectiveObstacle(Pawn rescuer, Pawn captive, out bool routeFound)
+        {
+            routeFound=false;
+            Map map=rescuer.Map;
+            IntVec3 origin=rescuer.Position, end=captive.Position;
+            if(!origin.InBounds(map)||!end.InBounds(map))return null;
+            // Spatially bound exploration around the actual approach. Long-map
+            // routes fall back to vanilla rather than causing a TPS spike.
+            int minX=Math.Max(0,Math.Min(origin.x,end.x)-20);
+            int maxX=Math.Min(map.Size.x-1,Math.Max(origin.x,end.x)+20);
+            int minZ=Math.Max(0,Math.Min(origin.z,end.z)-20);
+            int maxZ=Math.Min(map.Size.z-1,Math.Max(origin.z,end.z)+20);
+            int width=maxX-minX+1,height=maxZ-minZ+1;
+            if(width*height>24000)return null;
+            int count=width*height;
+            var distance=new int[count];
+            var parent=new int[count];
+            for(int i=0;i<count;i++){distance[i]=int.MaxValue;parent[i]=-1;}
+            int from=(origin.z-minZ)*width+origin.x-minX;
+            int goal=(end.z-minZ)*width+end.x-minX;
+            var turrets=new List<IntVec3>(12);
+            int inspected=0;
+            foreach(Building building in map.listerBuildings.allBuildingsColonist)
+            {
+                if(++inspected>MaxStructureScan || turrets.Count>=12)break;
+                if(IsTurret(building))turrets.Add(building.Position);
+            }
+            var queue=new List<RouteFrontier>(64);
+            distance[from]=0;
+            PushRoute(queue,from,(Math.Abs(origin.x-end.x)+Math.Abs(origin.z-end.z))*10);
+            int visited=0;
+            int[] offsets={1,-1,width,-width};
+            while(queue.Count>0 && visited++<12000)
+            {
+                RouteFrontier current=PopRoute(queue);
+                int at=current.Index;
+                int x=at%width+minX,z=at/width+minZ;
+                int heuristic=(Math.Abs(x-end.x)+Math.Abs(z-end.z))*10;
+                if(current.Priority!=distance[at]+heuristic)continue;
+                if(at==goal)break;
+                for(int direction=0;direction<4;direction++)
+                {
+                    int nx=x+(direction==0?1:direction==1?-1:0);
+                    int nz=z+(direction==2?1:direction==3?-1:0);
+                    if(nx<minX||nx>maxX||nz<minZ||nz>maxZ)continue;
+                    int next=at+offsets[direction];
+                    IntVec3 cell=new IntVec3(nx,0,nz);
+                    int step=StructuralStep(map,cell,turrets);
+                    if(step<0||distance[at]>int.MaxValue-step)continue;
+                    int value=distance[at]+step;
+                    if(value>=distance[next])continue;
+                    distance[next]=value;parent[next]=at;
+                    int remaining=(Math.Abs(nx-end.x)+Math.Abs(nz-end.z))*10;
+                    PushRoute(queue,next,value+remaining);
+                }
+            }
+            if(distance[goal]==int.MaxValue)return null;
+            routeFound=true; // skip destructive vanilla fallback on a clear corridor
+            // Follow the CHEAPEST complete route. Its first blocked element is
+            // necessarily relevant to reaching the captive; an adjacent power
+            // room's door cannot win just by being nearest to the prisoner.
+            var chain=new List<int>(96);
+            int cursor=goal;
+            while(cursor!=from && cursor>=0 && chain.Count<1200)
+            {chain.Add(cursor);cursor=parent[cursor];}
+            if(cursor!=from)return null;
+            for(int i=chain.Count-1;i>=0;i--)
+            {
+                int n=chain[i];
+                IntVec3 cell=new IntVec3(n%width+minX,0,n/width+minZ);
+                Building barrier=cell.GetEdifice(map);
+                if(!IsBreachableStructure(barrier))continue;
+                if(rescuer.CanReach(barrier.Position,PathEndMode.Touch,Danger.Deadly))
+                    return barrier;
+                // A geometrically planned wall is not proof it is physically
+                // accessible to the breacher. Allow the guarded fallback.
+                routeFound=false;
+                return null;
+            }
+            return null;
+        }
+
+        // This is the first obstacle on a weighted route; vanilla destructible
+        // pathfinding remains a bounded fallback when the search has no solution.
+        internal static Thing FirstObjectiveObstacle(Pawn rescuer, Pawn captive, out bool clearRoute)
+        {
+            clearRoute=false;
             if (rescuer == null || captive == null || rescuer.Map == null ||
                 rescuer.Map != captive.Map || !rescuer.Spawned || !captive.Spawned) return null;
             try
             {
                 Map map = rescuer.Map;
+                bool planned;
+                Thing weighted = WeightedObjectiveObstacle(rescuer,captive,out planned);
+                if(planned)
+                {
+                    // A complete open corridor is a valid answer: do not
+                    // overwrite it with vanilla's shorter destroyable-wall path.
+                    clearRoute=weighted==null;
+                    return weighted;
+                }
                 using (PawnPath path = map.pathFinder.FindPathNow(
                     rescuer.Position, captive,
                     TraverseParms.For(rescuer, Danger.Deadly, TraverseMode.PassAllDestroyableThings),
@@ -106,6 +282,11 @@ namespace RaidersHaveFamilies
         {
             if (building == null || building.Destroyed || !building.Spawned ||
                 building.Faction != Faction.OfPlayer) return false;
+            // Prefer actual combat capabilities over faction-specific names.
+            if (building is Building_TurretGun ||
+                building.def?.building?.turretGunDef != null) return true;
+            // Compatibility fallback for modded turret classes that do not
+            // expose vanilla building.turretGunDef.
             string typeName = building.GetType().Name;
             string defName = building.def?.defName ?? "";
             return typeName.IndexOf("Turret", StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -133,7 +314,7 @@ namespace RaidersHaveFamilies
             {
                 Pawn fighter = fighters[j];
                 if (Active(fighter, map) &&
-                    (fighter.Position - position).LengthHorizontalSquared <= 1225)
+                    (fighter.Position - position).LengthHorizontalSquared <= 4225)
                     return true;
             }
             return false;
@@ -223,8 +404,9 @@ namespace RaidersHaveFamilies
         {
             if (fighter == null || enemy == null) return IntVec3.Invalid;
             float range = WeaponRange(fighter);
-            int desired = Mathf.RoundToInt(range > 0f ? Mathf.Min(range*0.7f, 14f) : 4f);
-            desired = Math.Max(4, desired);
+            // Use the gun's effective distance instead of a fixed 14-cell ring.
+            // A 30-cell rifle must not be ordered to hug a turret at 14 cells.
+            int desired=Mathf.Clamp(Mathf.FloorToInt(range>0f?range*0.85f:4f),4,38);
             IntVec3 best = IntVec3.Invalid;
             float bestScore = float.MaxValue;
             int checks = 0;
@@ -232,7 +414,7 @@ namespace RaidersHaveFamilies
             for (int side = 0; side < 8 && checks < MaxFlankCandidates; side++)
             {
                 checks++;
-                int radius = desired + r*3;
+                int radius = Math.Max(3,desired-r*4);
                 int dx = side==0 ? radius : side==1 ? -radius :
                     side==2 || side==3 ? 0 : side==4 || side==5 ? radius : -radius;
                 int dz = side==2 ? radius : side==3 ? -radius :
@@ -253,8 +435,10 @@ namespace RaidersHaveFamilies
                 // Prefer firing lines that are NOT simultaneously exposed to all
                 // enemy turrets; do not simply run straight into overlapping arcs.
                 float score = otherThreats * 1000f +
-                    (c-fighter.Position).LengthHorizontalSquared * 0.6f +
-                    (c-enemy.Position).LengthHorizontalSquared * 0.1f;
+                    (c-fighter.Position).LengthHorizontalSquared * 0.45f +
+                    (c-enemy.Position).LengthHorizontalSquared * 0.08f;
+                if(range>0f && (c-enemy.Position).LengthHorizontalSquared<
+                    range*range*0.45f)score+=450f; // reject needlessly close positions
                 if (score < bestScore) {bestScore=score;best=c;}
             }
             return best;
@@ -282,6 +466,18 @@ namespace RaidersHaveFamilies
             return total;
         }
 
+        private static bool AssignedEscort(RHFOperation op,Pawn fighter,Map map)
+        {
+            if(op?.Escorts==null)return false;
+            for(int e=0;e<op.Escorts.Count;e++)
+            {
+                RHFEscortLink link=op.Escorts[e];
+                if(link?.Escort==fighter && link.Captive!=null &&
+                    link.Captive.MapHeld==map && !link.Captive.Dead)return true;
+            }
+            return false;
+        }
+
         // Returns the support subset. Remaining mission pawns MUST continue
         // breaching / reaching / escorting rather than standing around in defence.
         internal static HashSet<Pawn> Response(RHFOperation op, Map map, Pawn captive,
@@ -297,9 +493,48 @@ namespace RaidersHaveFamilies
             int alive=AliveCount(fighters,map);
             int maxSupport=alive<=2 ? 1 : Mathf.Clamp(Math.Max(state.Threats.Count,alive/3),1,alive-2);
             maxSupport=Math.Min(maxSupport,MaxTacticalOrders);
-            var assignments = new Dictionary<Thing,int>();
-            // Preference for covering shooters; other armed members can respond
-            // to fire if a nominal specialist has been killed or lacks ammunition.
+            var assignments=new Dictionary<Thing,int>();
+            // Keep previously assigned shooters on their standoff movement job.
+            // Without this persistence the main rescue planner overwrites their
+            // movement 90 ticks later and they charge a turret instead.
+            for(int i=0;i<fighters.Count && i<MaxSquad && state.Engaged.Count<maxSupport;i++)
+            {
+                Pawn pawn=fighters[i];
+                if(!Active(pawn,map))continue;
+                int id=pawn.thingIDNumber;
+                if(!state.CoverTarget.TryGetValue(id,out Thing assigned) ||
+                    assigned==null || assigned.Destroyed || !assigned.Spawned ||
+                    !state.Threats.Contains(assigned))
+                {state.CoverTarget.Remove(id);state.CoverWaypoint.Remove(id);continue;}
+                if(extraction && AssignedEscort(op,pawn,map))continue;
+                bool onTarget=SafelyEngage(pawn,assigned,map,captive);
+                if(onTarget)
+                {
+                    JobDef def=WeaponRange(pawn)>0f?JobDefOf.AttackStatic:JobDefOf.AttackMelee;
+                    if(GiveCombat(pawn,def,assigned,state,now))state.ShotsOrdered++;
+                    state.Engaged.Add(pawn);
+                }
+                else if(state.CoverWaypoint.TryGetValue(id,out IntVec3 point) &&
+                    point.IsValid && point.InBounds(map) &&
+                    pawn.CanReach(point,PathEndMode.OnCell,Danger.Deadly))
+                {
+                    // Resume the waypoint if the Lord temporarily replaced it.
+                    // Keep the fighter reserved even during the order cooldown.
+                    if((pawn.Position-point).LengthHorizontalSquared<=5)
+                    {
+                        // An arrived shooter with no firing line must replan.
+                        // Never reserve an idle cover slot forever.
+                        state.CoverTarget.Remove(id);
+                        state.CoverWaypoint.Remove(id);
+                        continue;
+                    }
+                    GiveCombat(pawn,JobDefOf.Goto,point,state,now);
+                    state.Engaged.Add(pawn);
+                }
+                else
+                {state.CoverTarget.Remove(id);state.CoverWaypoint.Remove(id);continue;}
+                assignments[assigned]=assignments.TryGetValue(assigned,out int used)?used+1:1;
+            }
             int evaluated=0;
             int evaluationBudget=Math.Min(32,Math.Max(12,maxSupport*3));
             for(int pass=0;pass<2 && state.Engaged.Count<maxSupport && evaluated<evaluationBudget;pass++)
@@ -314,18 +549,7 @@ namespace RaidersHaveFamilies
                 if((pass==0)!=specialist)continue;
                 if(WeaponRange(fighter)<=0f && pass==0)continue;
                 evaluated++;
-                if(extraction && op.Escorts != null)
-                {
-                    bool assignedEscort=false;
-                    for(int e=0;e<op.Escorts.Count;e++)
-                    {
-                        RHFEscortLink link=op.Escorts[e];
-                        if(link?.Escort==fighter && link.Captive!=null &&
-                            link.Captive.MapHeld==map && !link.Captive.Dead)
-                        {assignedEscort=true;break;}
-                    }
-                    if(assignedEscort)continue; // never steal an assigned VIP escort
-                }
+                if(extraction && AssignedEscort(op,fighter,map))continue;
                 Thing best=null;int score=int.MinValue;
                 for(int j=0;j<state.Threats.Count && j<MaxThreats;j++)
                 {
@@ -338,24 +562,31 @@ namespace RaidersHaveFamilies
                 bool ordered=false;
                 if(SafelyEngage(fighter,best,map,captive))
                 {
-                    JobDef attack=WeaponRange(fighter)>0f ? JobDefOf.AttackStatic : JobDefOf.AttackMelee;
+                    JobDef attack=WeaponRange(fighter)>0f?JobDefOf.AttackStatic:JobDefOf.AttackMelee;
                     ordered=GiveCombat(fighter,attack,best,state,now);
                     if(ordered)state.ShotsOrdered++;
                 }
-                else if(now-state.LastFlankTick>=FlankRefreshTicks &&
-                        (fighter.Position-best.Position).LengthHorizontalSquared<=1600)
+                else if((fighter.Position-best.Position).LengthHorizontalSquared<=4225 &&
+                        (!state.LastFlankPerPawn.TryGetValue(fighter.thingIDNumber,out int lastFlank) ||
+                          now-lastFlank>=FlankRefreshTicks))
                 {
                     IntVec3 flank=FlankCell(fighter,best,map,state);
                     if(flank.IsValid)
                     {
                         ordered=GiveCombat(fighter,JobDefOf.Goto,flank,state,now);
-                        if(ordered){state.ManeuversOrdered++;state.LastFlankTick=now;}
+                        if(ordered)
+                        {
+                            state.ManeuversOrdered++;
+                            state.LastFlankPerPawn[fighter.thingIDNumber]=now;
+                            state.CoverWaypoint[fighter.thingIDNumber]=flank;
+                        }
                     }
                 }
-                // Do not reserve a useless 'support' pawn: if it cannot shoot,
-                // flank or hold a meaningful fighting job it returns to rescue.
+                // A stationary shooter or a soldier moving toward a firing line
+                // remains allocated to cover. Other soldiers pursue the hostage.
                 if(!ordered)continue;
                 assignments[best]=assignments.TryGetValue(best,out int used)?used+1:1;
+                state.CoverTarget[fighter.thingIDNumber]=best;
                 state.Engaged.Add(fighter);
             }
             state.Decision="угроз="+state.Threats.Count+", прикрытие="+
@@ -554,6 +785,8 @@ namespace RaidersHaveFamilies
                     ", угроз="+s.Threats.Count+", бойцов прикрытия="+s.Engaged.Count);
                 result.AppendLine("План: "+s.Decision+"; безопасный заход="+
                     (s.Approach.IsValid?s.Approach.ToString():"пока не найден"));
+                result.AppendLine("Закреплённых огневых задач="+s.CoverTarget.Count+
+                    ", огневых позиций="+s.CoverWaypoint.Count);
                 result.AppendLine("Приказы огня="+s.ShotsOrdered+", обхода="+
                     s.ManeuversOrdered+", использование сапёрного средства="+
                     s.BreachToolsUsed+", осмотрено пешек/строений="+

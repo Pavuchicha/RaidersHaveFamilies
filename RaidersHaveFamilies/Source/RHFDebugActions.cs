@@ -39,6 +39,39 @@ namespace RaidersHaveFamilies
         private const int MaxDebugTargets = 24;
         // Direct developer actions execute incidents synchronously (no wait queue).
         private const int MaxCoalitionParties = 5;
+        // Developer-only faction selector: opt-in pinning, otherwise round-robin.
+        // Neither world state nor ordinary raids depend on this cursor.
+        private static int nextTestFaction;
+        private static Faction pinnedTestFaction;
+
+        [DebugAction(PrisonersCategory, "Фракция пленников: выбрать следующую", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void CyclePrisonerFaction()
+        {
+            List<Faction> factions = EligibleTestFactions(false);
+            if (factions.Count == 0)
+            { Notify(Find.CurrentMap, "Нет доступных враждебных фракций с человекоподобными членами."); return; }
+            int index = factions.IndexOf(pinnedTestFaction);
+            pinnedTestFaction = factions[(index + 1) % factions.Count];
+            Notify(Find.CurrentMap, "RHF: выбрана фракция «" + pinnedTestFaction.Name +
+                "». Новые пленники любого ранга будут принадлежать ей до сброса выбора.");
+        }
+
+        [DebugAction(PrisonersCategory, "Фракция пленников: автоматическое чередование", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ResetPrisonerFaction()
+        {
+            pinnedTestFaction = null;
+            Notify(Find.CurrentMap, "RHF: фракции пленников снова автоматически чередуются.");
+        }
+
+        [DebugAction(PrisonersCategory, "Создать пленника: ранг 6 (индустриальная фракция)", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void Rank6Industrial() { PrepareAt(UI.MouseCell(), 6, false, true); }
+
+        [DebugAction(PrisonersCategory, "Создать пленника: ранг 8 (индустриальная фракция)", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void Rank8Industrial() { PrepareAt(UI.MouseCell(), 8, false, true); }
 
         // All commands are explicitly developer mode only and are deliberately
         // split into independent menu entries for reproducible testing.
@@ -436,21 +469,25 @@ namespace RaidersHaveFamilies
                 MessageTypeDefOf.NeutralEvent, false);
         }
 
-        private static void PrepareAt(IntVec3 requested, int rank, bool nextFaction = false)
+        private static void PrepareAt(IntVec3 requested, int rank, bool nextFaction = false,
+            bool industrialOnly = false)
         {
             Map map = Find.CurrentMap;
             if (map == null || !map.IsPlayerHome)
             { Notify(map, "Открой карту своей колонии, чтобы создать тестового пленника."); return; }
-            Faction faction = nextFaction ? FirstUnusedEnemy(map) : FirstEnemy(null, false, false);
+            Faction faction = nextFaction ? FirstUnusedEnemy(map) : ChooseTestFaction(industrialOnly);
             if (faction == null)
             { Notify(map, nextFaction ?
-                "Все доступные враждебные фракции уже представлены пленниками. Для коалиции нужны дополнительные фракции." :
-                "Нет подходящей враждебной фракции. Создай её в сценарии и повтори."); return; }
+                "Все подходящие враждебные фракции уже представлены пленниками. Для коалиции нужны дополнительные фракции." :
+                industrialOnly ? "Нет доступной индустриальной враждебной фракции с человекоподобными членами." :
+                "Нет подходящей враждебной фракции. Проверь список фракций мира."); return; }
             try
             {
-                PawnKindDef basic = DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist");
+                // Preserve the selected faction's own race, equipment, culture and
+                // modded member kind. Never force all factions to spawn a Colonist.
+                PawnKindDef basic = DebugMemberKind(faction);
                 if (basic == null)
-                { Notify(map, "Не найден базовый PawnKind 'Colonist' в этой сборке."); return; }
+                { Notify(map, "Фракция «" + faction.Name + "» не имеет подходящего человекоподобного PawnKind."); return; }
                 Pawn test = PawnGenerator.GeneratePawn(basic, faction);
                 if (test == null || test.guest == null)
                 { Notify(map, "Игра не смогла создать тестового персонажа."); return; }
@@ -467,8 +504,9 @@ namespace RaidersHaveFamilies
                     record.OfficeName = RHFRankResolver.AssignTestOffice(test, rank);
                     record.DebugOffice = true;
                 }
-                Notify(map, "Создан тестовый пленник с рангом RHF " + rank + "/8 фракции " + faction.Name +
-                    ". При желании добавь VIP другой фракции для коалиции.");
+                Notify(map, "Создан пленник RHF " + rank + "/8: " + test.LabelShortCap +
+                    "; фракция: «" + faction.Name + "» (" + faction.def.techLevel +
+                    "). Следующую фракцию можно выбрать в разделе RHF — пленники.");
             }
             catch (Exception e)
             {
@@ -504,6 +542,26 @@ namespace RaidersHaveFamilies
                 scenario == RHFDebugScenario.HighTechSiege;
 
             List<Pawn> prisoners = Captives(map);
+            // VIP missions must target the MOST important eligible hostage,
+            // not whichever hostage happened to spawn first.
+            bool vipMission = scenario == RHFDebugScenario.VipRescue ||
+                scenario == RHFDebugScenario.FieldPod ||
+                scenario == RHFDebugScenario.FortifiedVipExtraction;
+            Pawn selectedVip = null;
+            int selectedRank = -1;
+            if (vipMission)
+            {
+                foreach (Pawn candidate in prisoners)
+                {
+                    int rank = HostageRank(candidate);
+                    if (rank > selectedRank)
+                    { selectedVip = candidate; selectedRank = rank; }
+                }
+                if (selectedVip == null)
+                { Notify(map, "Сначала создай живого пленника RHF для VIP-операции."); return; }
+                if (scenario == RHFDebugScenario.FortifiedVipExtraction && selectedRank < 6)
+                { Notify(map, "Для операции 16 нужен пленник ранга 6–8. Создай его командой «Создать пленника: ранг 8»."); return; }
+            }
             RHFHostageRecord traitorCase=null;
             if(scenario==RHFDebugScenario.TraitorHunt)
             {
@@ -519,7 +577,9 @@ namespace RaidersHaveFamilies
                 {Notify(map,"Сначала завербуй настоящего VIP ранга 6–8, который находится на карте колонии.");return;}
             }
             Faction sponsor = scenario==RHFDebugScenario.TraitorHunt ?
-                traitorCase.OriginalFaction : rescue ? (prisoners.Count>0 ? SourceFaction(prisoners[0]) : null) :
+                traitorCase.OriginalFaction : rescue ?
+                (selectedVip != null ? SourceFaction(selectedVip) :
+                 prisoners.Count>0 ? SourceFaction(prisoners[0]) : null) :
                 FirstEnemy(null, tribal, industrial);
             if (sponsor == null)
             { Notify(map, rescue ? "Нужен реальный живой пленник. Сначала создай его в разделе RHF - ТЕСТЫ | ПЛЕННИКИ." :
@@ -529,7 +589,8 @@ namespace RaidersHaveFamilies
             List<Pawn> targets = new List<Pawn>();
             if (rescue)
             {
-                for (int i=0;i<prisoners.Count && targets.Count<MaxDebugTargets;i++)
+                if (selectedVip != null) targets.Add(selectedVip);
+                for (int i=0;i<prisoners.Count && targets.Count<MaxDebugTargets && !vipMission;i++)
                 {
                     Pawn p = prisoners[i];
                     Faction f = SourceFaction(p);
@@ -546,9 +607,8 @@ namespace RaidersHaveFamilies
                     targets.Add(p);
                 }
                 if (targets.Count == 0) { Notify(map, "Нет пригодных целей для спасения."); return; }
-                if(scenario==RHFDebugScenario.FortifiedVipExtraction &&
-                   (targets[0]==null || RHFHostageDiplomacy.RankOf(targets[0])<6))
-                { Notify(map,"Нужен пленник не ниже ранга 6 и индустриальная фракция исполнителя."); return; }
+                // Rank was checked across ALL living prisoners above. Industrial
+                // extraction capability is checked independently below.
                 if (scenario == RHFDebugScenario.MassRescue && targets.Count < 2)
                 { Notify(map, "Для массового освобождения необходимо как минимум два пленника."); return; }
                 if (scenario == RHFDebugScenario.CoalitionManyFactions && sponsors.Count < 3)
@@ -559,13 +619,24 @@ namespace RaidersHaveFamilies
                 scenario == RHFDebugScenario.FieldPod ||
                 scenario == RHFDebugScenario.CoalitionHiredDiversion ||
                 scenario == RHFDebugScenario.CombinedMixedApproach ||
-                scenario == RHFDebugScenario.DropRescueWithDiversion || coalition)
+                scenario == RHFDebugScenario.DropRescueWithDiversion ||
+                scenario == RHFDebugScenario.FortifiedVipExtraction || coalition)
                 mercenary = FindHiredEnemy(sponsors, true);
             if ((scenario == RHFDebugScenario.MercenaryRescue ||
                  scenario == RHFDebugScenario.CoalitionHiredDiversion) && mercenary == null)
             { Notify(map, "Не найдена отдельная враждебная индустриальная фракция для найма."); return; }
-            Faction executor = (scenario == RHFDebugScenario.MercenaryRescue ||
-                scenario == RHFDebugScenario.FieldPod) && mercenary != null ? mercenary : sponsor;
+            Faction executor = ((scenario == RHFDebugScenario.MercenaryRescue ||
+                scenario == RHFDebugScenario.FieldPod) && mercenary != null) ||
+                (scenario == RHFDebugScenario.FortifiedVipExtraction &&
+                 sponsor.def.techLevel < TechLevel.Industrial && mercenary != null) ? mercenary : sponsor;
+            if (scenario == RHFDebugScenario.FortifiedVipExtraction &&
+                executor.def.techLevel < TechLevel.Industrial)
+            {
+                Notify(map, "Пленник ранга " + selectedRank + " найден (фракция: «" +
+                    sponsor.Name + "»), но для операции 16 нет индустриальной враждебной фракции-исполнителя. " +
+                    "Обычное VIP-спасение доступно через команду 03.");
+                return;
+            }
             if (!executor.HostileTo(Faction.OfPlayer))
             { Notify(map, "Фракция-исполнитель должна быть враждебна игроку."); return; }
 
@@ -591,7 +662,7 @@ namespace RaidersHaveFamilies
                 HuntTarget=scenario==RHFDebugScenario.TraitorHunt ? traitorCase.Pawn : null,
                 SourceImportance=scenario==RHFDebugScenario.TraitorHunt ?
                     traitorCase.Importance : targets.Count>0 ?
-                    RHFHostageDiplomacy.RankOf(targets[0]) : 0,
+                    HostageRank(targets[0]) : 0,
                 Doctrine=(int)(scenario==RHFDebugScenario.TraitorHunt ?
                     RHFDoctrine.TargetedTraitorHunt :
                     scenario==RHFDebugScenario.FortifiedVipExtraction ?
@@ -683,12 +754,52 @@ namespace RaidersHaveFamilies
                 ". Если использованы капсулы, дождись открытия капсул, не повторяй вызов.");
         }
 
+        private static PawnKindDef DebugMemberKind(Faction faction)
+        {
+            if (faction?.def == null) return null;
+            PawnKindDef basic = faction.def.basicMemberKind;
+            if (basic?.race?.race?.Humanlike == true) return basic;
+            // Some modded factions omit basicMemberKind but define faction-specific
+            // humanlike PawnKinds. Use their registered Defs rather than a hardcoded
+            // vanilla Colonist. This lookup runs only in developer tools.
+            foreach (PawnKindDef candidate in DefDatabase<PawnKindDef>.AllDefsListForReading)
+                if (candidate != null && candidate.defaultFactionDef == faction.def &&
+                    candidate.race?.race?.Humanlike == true)
+                    return candidate;
+            return null;
+        }
+
+        private static bool EligibleTestFaction(Faction faction, bool industrialOnly)
+        {
+            return faction != null && faction.def != null && !faction.def.hidden &&
+                !faction.IsPlayer && faction.HostileTo(Faction.OfPlayer) &&
+                DebugMemberKind(faction) != null &&
+                (!industrialOnly || faction.def.techLevel >= TechLevel.Industrial);
+        }
+
+        private static List<Faction> EligibleTestFactions(bool industrialOnly)
+        {
+            var result = new List<Faction>();
+            foreach (Faction faction in Find.FactionManager.AllFactionsListForReading)
+                if (EligibleTestFaction(faction, industrialOnly)) result.Add(faction);
+            return result;
+        }
+
+        private static Faction ChooseTestFaction(bool industrialOnly)
+        {
+            List<Faction> candidates = EligibleTestFactions(industrialOnly);
+            if (candidates.Count == 0) return null;
+            if (EligibleTestFaction(pinnedTestFaction, industrialOnly) &&
+                candidates.Contains(pinnedTestFaction)) return pinnedTestFaction;
+            int cursor = nextTestFaction++;
+            return candidates[(cursor & int.MaxValue) % candidates.Count];
+        }
+
         private static Faction FindUnusedEnemyCandidate(Faction skip, HashSet<Faction> used)
         {
             foreach (Faction faction in Find.FactionManager.AllFactionsListForReading)
-                if (faction != null && faction != skip && !used.Contains(faction) &&
-                    !faction.IsPlayer && faction.def != null && !faction.def.hidden &&
-                    faction.HostileTo(Faction.OfPlayer)) return faction;
+                if (faction != skip && !used.Contains(faction) &&
+                    EligibleTestFaction(faction, false)) return faction;
             return null;
         }
 
@@ -727,6 +838,12 @@ namespace RaidersHaveFamilies
                 list.Add(pawn);
             }
             return list;
+        }
+
+        private static int HostageRank(Pawn pawn)
+        {
+            RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(pawn);
+            return record != null ? record.Importance : RHFHostageDiplomacy.RankOf(pawn);
         }
 
         private static Faction SourceFaction(Pawn pawn)
