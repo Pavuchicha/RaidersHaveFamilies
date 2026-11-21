@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>Raiders Have Families</name>
+  <author>Pavuchicha</author>
+  <packageId>pavuk.raidshavefamilies</packageId>
+  <supportedVersions><li>1.7</li></supportedVersions>
+  <modDependencies>
+    <li>
+      <packageId>brrainz.harmony</packageId>
+      <displayName>Harmony</displayName>
+      <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+  <loadAfter><li>Mersid.WCE2Updated.Core</li></loadAfter>
+  <description>Raiders Have Families 0.3.1 DEV TEST for RimWorld 1.7. Expanded families, a nine-tier social/political rank system, hostage negotiations and faction retaliation. Separate assault and tactical prison-rescue responses, optional field extraction pod prototype, exact optional WCE2 surgery integration. Event-driven Harmony 3. Adds developer Actions for direct assault, rescue, VIP/pod prototype, coalition, hired raiders, tribal animals, and high-tech retaliation. Advanced scenarios remain experimental. Back up saves before testing.</description>
+</ModMetaData>
