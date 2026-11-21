@@ -1,0 +1,5 @@
+**/bin/
+**/obj/
+**/Assemblies/
+_release/
+*.zip

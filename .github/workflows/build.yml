@@ -1,0 +1,44 @@
+name: Build Raiders Have Families for RimWorld 1.6
+
+on:
+  push:
+    paths:
+      - 'RaidersHaveFamilies/**'
+      - 'tests/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate mod files
+        run: python3 tests/validate.py
+      - name: Restore RimWorld 1.6 reference assemblies from NuGet
+        run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
+      - name: Compile mod DLL
+        run: dotnet build RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj --configuration Release --no-restore
+      - name: Verify DLL exists
+        run: test -s RaidersHaveFamilies/Assemblies/RaidersHaveFamilies.dll
+      - name: Prepare installable ZIP
+        shell: bash
+        run: |
+          mkdir -p _release/RaidersHaveFamilies
+          cp -a RaidersHaveFamilies/About RaidersHaveFamilies/Languages RaidersHaveFamilies/Assemblies _release/RaidersHaveFamilies/
+          cd _release
+          zip -qr ../RaidersHaveFamilies_0.1.1_RimWorld_1.6_INSTALL.zip RaidersHaveFamilies
+      - name: Upload ZIP to GitHub Actions artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: RaidersHaveFamilies-RimWorld-1.6-TEST
+          path: RaidersHaveFamilies_0.1.1_RimWorld_1.6_INSTALL.zip
+          if-no-files-found: error

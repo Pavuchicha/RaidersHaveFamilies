@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RHF_Enable>Добавлять социальные связи рейдерам</RHF_Enable>
+  <RHF_Parents>Вероятность создать родителя: {0}</RHF_Parents>
+  <RHF_Partners>Вероятность создать партнёра вне карты: {0}</RHF_Partners>
+  <RHF_RaidPartners>Вероятность романа между участниками рейда: {0}</RHF_RaidPartners>
+  <RHF_Siblings>Вероятность общей семьи среди рейдеров: {0}</RHF_Siblings>
+  <RHF_PerWave>Максимум новых персонажей за одну волну: {0}</RHF_PerWave>
+  <RHF_PerSave>Максимум новых персонажей на сохранение: {0}</RHF_PerSave>
+  <RHF_Logging>Подробная диагностика в Player.log</RHF_Logging>
+</LanguageData>

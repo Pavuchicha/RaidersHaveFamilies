@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <RHF_Enable>Add social ties to raiders</RHF_Enable>
+  <RHF_Parents>Chance to create a parent: {0}</RHF_Parents>
+  <RHF_Partners>Chance to create an off-map partner: {0}</RHF_Partners>
+  <RHF_RaidPartners>Chance to link two raiders romantically: {0}</RHF_RaidPartners>
+  <RHF_Siblings>Chance to create a shared raider parent: {0}</RHF_Siblings>
+  <RHF_PerWave>Maximum new world pawns per wave: {0}</RHF_PerWave>
+  <RHF_PerSave>Maximum new world pawns per save: {0}</RHF_PerSave>
+  <RHF_Logging>Verbose logging to Player.log</RHF_Logging>
+</LanguageData>
