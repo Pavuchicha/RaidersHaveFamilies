@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BuildingBase">
+    <defName>RHF_ExtractionPod</defName>
+    <label>improvised evacuation pod</label>
+    <description>An armored field-built capsule used by a raiding team to extract a captive important to its sponsors. It remains as loot or debris after a successful launch.</description>
+    <thingClass>Building</thingClass>
+    <category>Building</category>
+    <graphicData>
+      <texPath>RaidersHaveFamilies/FieldPod</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(1,1)</drawSize>
+    </graphicData>
+    <size>(1,1)</size>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.2</fillPercent>
+    <useHitPoints>true</useHitPoints>
+    <statBases><MaxHitPoints>240</MaxHitPoints><WorkToBuild>2800</WorkToBuild></statBases>
+  </ThingDef>
+  <ThingDef ParentName="BuildingBase">
+    <defName>RHF_FieldLauncher</defName>
+    <label>improvised pod launcher</label>
+    <description>A disposable emergency field launcher assembled by a prison rescue squad.</description>
+    <thingClass>Building</thingClass>
+    <category>Building</category>
+    <graphicData>
+      <texPath>RaidersHaveFamilies/FieldLauncher</texPath>
+      <graphicClass>Graphic_Single</graphicClass>
+      <drawSize>(1,1)</drawSize>
+    </graphicData>
+    <size>(1,1)</size>
+    <passability>PassThroughOnly</passability>
+    <fillPercent>0.2</fillPercent>
+    <useHitPoints>true</useHitPoints>
+    <statBases><MaxHitPoints>180</MaxHitPoints><WorkToBuild>2100</WorkToBuild></statBases>
+  </ThingDef>
+</Defs>

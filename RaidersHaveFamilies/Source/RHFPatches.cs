@@ -19,7 +19,7 @@ namespace RaidersHaveFamilies
                 var harmony = new Harmony("pavuk.raidshavefamilies");
                 harmony.PatchAll(typeof(RHFPatchInit).Assembly);
                 RHFWarCrimesIntegration.Patch(harmony);
-                Log.Message("[Raiders Have Families] 0.2.0 event-driven Harmony integrations active.");
+                Log.Message("[Raiders Have Families] 0.3.0 event-driven Harmony integrations active.");
             }
             catch (Exception e) { Log.Error("[Raiders Have Families] Could not initialize Harmony: " + e); }
         }
@@ -34,6 +34,7 @@ namespace RaidersHaveFamilies
             if (respawningAfterLoad || map == null || RHFMod.Settings?.Enabled != true ||
                 __instance?.Faction == null) return;
             map.GetComponent<RHFMapComponent>()?.Enqueue(__instance);
+            map.GetComponent<RHFOperationController>()?.ObserveSpawn(__instance);
         }
     }
 
@@ -62,7 +63,7 @@ namespace RaidersHaveFamilies
             if (RHFMod.Settings?.Enabled != true || RHFMod.Settings.Negotiations != true ||
                 __instance?.Map == null || !__instance.CanUseCommsNow ||
                 myPawn == null || !myPawn.CanReach(__instance, PathEndMode.InteractionCell,
-                    Danger.Some, false, TraverseMode.ByPawn)) return;
+                    Danger.Some)) return;
             IEnumerable<FloatMenuOption> original = __result;
             Map colony = __instance.Map;
             __result = Append(original, colony);
@@ -101,7 +102,10 @@ namespace RaidersHaveFamilies
             if (__state == null || !__instance.Dead) return;
             bool playerDamage = dinfo.HasValue && dinfo.Value.Instigator != null &&
                 dinfo.Value.Instigator.Faction == Faction.OfPlayer;
-            RHFHostageDiplomacy.OnHostageDeath(__instance, playerDamage);
+            Pawn actor=dinfo.HasValue ? dinfo.Value.Instigator as Pawn : null;
+            string job=actor?.CurJobDef?.defName ?? "";
+            bool executed=playerDamage && job.IndexOf("Execute",StringComparison.OrdinalIgnoreCase)>=0;
+            RHFHostageDiplomacy.OnHostageDeath(__instance, playerDamage, executed);
         }
     }
 
@@ -146,21 +150,38 @@ namespace RaidersHaveFamilies
             foreach (RecipeDef recipe in DefDatabase<RecipeDef>.AllDefsListForReading)
             {
                 if (recipe?.workerClass == null || recipe.defName == null ||
-                    !recipe.defName.StartsWith("WCE2_", StringComparison.OrdinalIgnoreCase)) continue;
+                    !RHFWCERegistry.Known(recipe.defName)) continue;
                 MethodInfo target = AccessTools.Method(recipe.workerClass, "ApplyOnPawn");
                 if (target == null || !patched.Add(target)) continue;
-                try { harmony.Patch(target, postfix: new HarmonyMethod(postfix)); count++; }
+                try {
+                    harmony.Patch(target,
+                        prefix: new HarmonyMethod(AccessTools.Method(typeof(RHFWarCrimesIntegration), nameof(BeforeSurgery))),
+                        postfix: new HarmonyMethod(postfix));
+                    count++;
+                }
                 catch (Exception e) { Log.Warning("[Raiders Have Families] Optional WCE2 worker skipped: " + e.Message); }
             }
             Log.Message("[Raiders Have Families] WCE2 surgery workers patched: " + count);
         }
 
-        // Called by WCE2 surgeries, not by damage or diseases. Only after operation.
-        public static void OnSurgery(RecipeWorker __instance, Pawn pawn, Pawn billDoer)
+        // Prefix captures the original prisoner record even for operations that kill
+        // their patient before ApplyOnPawn returns (vivisection or organ removal).
+        public static void BeforeSurgery(RecipeWorker __instance, Pawn pawn, Pawn billDoer,
+            out RHFHostageRecord __state)
         {
-            if (__instance?.recipe?.defName == null ||
-                !__instance.recipe.defName.StartsWith("WCE2_", StringComparison.OrdinalIgnoreCase)) return;
-            RHFHostageDiplomacy.RecordWceOperation(pawn, billDoer, __instance.recipe.defName);
+            __state=null;
+            if (pawn != null && billDoer?.Faction == Faction.OfPlayer && pawn.IsPrisonerOfColony &&
+                RHFWCERegistry.SeverityOf(__instance?.recipe?.defName)>0)
+                __state=Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(pawn);
+        }
+
+        // Called after a successful WCE2 surgery. Routine removals are excluded.
+        public static void OnSurgery(RecipeWorker __instance, Pawn pawn, Pawn billDoer,
+            RHFHostageRecord __state)
+        {
+            if (__state==null || !RHFWCERegistry.Known(__instance?.recipe?.defName)) return;
+            RHFHostageDiplomacy.RecordWceOperation(pawn, billDoer,
+                __instance.recipe.defName, __state);
         }
     }
 }

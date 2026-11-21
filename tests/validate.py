@@ -16,18 +16,18 @@ packages = {x.attrib['Include']: x.attrib['Version'] for x in project.findall('.
 assert packages['Krafs.Rimworld.Ref'].startswith('1.7.')
 assert packages['Lib.Harmony'].startswith('3.')
 files = {p.name:p.read_text(encoding='utf-8') for p in (MOD/'Source').glob('*.cs')}
-assert {'RaidersHaveFamilies.cs','RHFPatches.cs','RHFHostageSystems.cs'} <= set(files)
+assert {'RaidersHaveFamilies.cs','RHFPatches.cs','RHFHostageSystems.cs','RHFOperations.cs','RHFRanks.cs','RHFWCERegistry.cs'} <= set(files)
 patch = files['RHFPatches.cs']
 for needle in ['Pawn.SpawnSetup', 'Pawn.ExitMap', 'Pawn.Kill', 'SetGuestStatus',
     'Building_CommsConsole', 'GetFloatMenuOptions', 'PatchAll', 'HarmonyPostfix',
-    'RHFWarCrimesIntegration', 'WCE2_', 'ApplyOnPawn']:
+    'RHFWarCrimesIntegration', 'RHFWCERegistry.Known', 'ApplyOnPawn']:
     assert needle in patch, f'Missing {needle}'
 diplomacy = files['RHFHostageSystems.cs']
 for needle in ['SilverPrice(', 'OnPrisonerExit(', 'UpdateOffers(', 'QueueRetaliation(',
-    'TryAffectGoodwillWith(', 'RecordWceOperation(', 'CrueltyScore', 'InitialIdeology',
+    'RHFPoliticalReputation.Change(', 'RecordWceOperation(', 'CrueltyScore', 'InitialIdeology',
     'ImprovedProsthetics(', 'RankOf(', 'HostageEligible(']:
     assert needle in diplomacy, f'Missing {needle}'
 assert len(list((MOD/'Defs/ThoughtDefs').glob('*.xml'))) > 0
-assert '0.2.0' in (ROOT/'.github/workflows/build.yml').read_text()
+assert '0.3.0' in (ROOT/'.github/workflows/build.yml').read_text()
 assert 'dotnet build' in (ROOT/'.github/workflows/build.yml').read_text()
 print('PASS: mod metadata, XML, RimWorld 1.7, Harmony 3, source interfaces, CI contracts.')

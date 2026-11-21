@@ -17,15 +17,18 @@ namespace RaidersHaveFamilies
         public int SettingsSchema = 2;
         public float ParentChance = 0.75f;
         public float PartnerChance = 0.32f;
-        public float RaidmatePartnerChance = 0.50f;
-        public float SharedParentChance = 0.55f;
-        public int MaxPerWave = 4; // legacy save key; budget per arrival burst
+        public float RaidmatePartnerChance = 0.58f;
+        public float SharedParentChance = 0.68f;
+        public int MaxPerWave = 6; // bounded generation attempts per arriving group
         public int MaxPerSave = 256;
         public bool VerboseLogging = false;
         public bool Negotiations = true;
         public bool Retaliation = true;
         public bool IncludeVisitors = true;
         public bool WCE2Events = true;
+        public bool EnableRescueOperations = true;
+        public bool FieldEvacPod = true;
+        public float InterventionStrength = 1f;
         public float FactionRelativeChance = 0.45f;
 
         // Hard safety ceilings also apply to previously saved settings.
@@ -39,6 +42,8 @@ namespace RaidersHaveFamilies
             RaidmatePartnerChance = ClampProbability(RaidmatePartnerChance);
             SharedParentChance = ClampProbability(SharedParentChance);
             FactionRelativeChance = ClampProbability(FactionRelativeChance);
+            InterventionStrength = float.IsNaN(InterventionStrength) ? 1f :
+                Math.Max(.5f,Math.Min(2f,InterventionStrength));
             MaxPerWave = Math.Max(0, Math.Min(MaxPerWave, HardMaxPerCycle));
             MaxPerSave = Math.Max(0, Math.Min(MaxPerSave, HardMaxPerSave));
         }
@@ -66,6 +71,9 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref Retaliation, "retaliation", true);
             Scribe_Values.Look(ref IncludeVisitors, "includeVisitors", true);
             Scribe_Values.Look(ref WCE2Events, "wce2Events", true);
+            Scribe_Values.Look(ref EnableRescueOperations, "enableRescueOperations", true);
+            Scribe_Values.Look(ref FieldEvacPod, "enableFieldEvacPod", true);
+            Scribe_Values.Look(ref InterventionStrength, "interventionStrength", 1f);
             Scribe_Values.Look(ref FactionRelativeChance, "factionRelativeChance", 0.45f);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
@@ -85,6 +93,7 @@ namespace RaidersHaveFamilies
     public sealed class RHFMod : Mod
     {
         public static RHFSettings Settings;
+        private Vector2 settingsScroll = Vector2.zero;
         public RHFMod(ModContentPack content) : base(content)
         {
             Settings = GetSettings<RHFSettings>();
@@ -95,8 +104,10 @@ namespace RaidersHaveFamilies
 
         public override void DoSettingsWindowContents(Rect rect)
         {
+            Rect content = new Rect(0f,0f,rect.width-20f,900f);
+            Widgets.BeginScrollView(rect,ref settingsScroll,content);
             Listing_Standard listing = new Listing_Standard();
-            listing.Begin(rect);
+            listing.Begin(content);
             listing.CheckboxLabeled("RHF_Enable".Translate(), ref Settings.Enabled);
             listing.GapLine();
             listing.Label("RHF_Parents".Translate(Settings.ParentChance.ToString("P0")));
@@ -120,8 +131,16 @@ namespace RaidersHaveFamilies
             listing.CheckboxLabeled("RHF_Negotiations".Translate(), ref Settings.Negotiations);
             listing.CheckboxLabeled("RHF_Retaliation".Translate(), ref Settings.Retaliation);
             listing.CheckboxLabeled("RHF_WCE2".Translate(), ref Settings.WCE2Events);
+            listing.GapLine();
+            listing.CheckboxLabeled("Включить тактические спасательные операции (эксперимент)",
+                ref Settings.EnableRescueOperations);
+            listing.CheckboxLabeled("Полевые капсулы эвакуации VIP (эксперимент)",
+                ref Settings.FieldEvacPod);
+            listing.Label("Мощность интервенций: " + Settings.InterventionStrength.ToString("P0"));
+            Settings.InterventionStrength=listing.Slider(Settings.InterventionStrength,.5f,2f);
             listing.CheckboxLabeled("RHF_Logging".Translate(), ref Settings.VerboseLogging);
             listing.End();
+            Widgets.EndScrollView();
             Settings.Clamp();
         }
     }
@@ -133,6 +152,7 @@ namespace RaidersHaveFamilies
         public List<RHFHostageRecord> Hostages = new List<RHFHostageRecord>();
         public List<RHFManagedLink> ManagedLinks = new List<RHFManagedLink>();
         public List<RHFWorldKin> GeneratedKin = new List<RHFWorldKin>();
+        public List<RHFFactionStanding> FactionStandings = new List<RHFFactionStanding>();
         public int ActiveGeneratedKin => GeneratedKin?.Count ?? 0;
         private int nextHostageCheck;
         public RHFGameLedger(Game game) { }
@@ -143,12 +163,14 @@ namespace RaidersHaveFamilies
             Scribe_Collections.Look(ref Hostages, "rhfHostagesV2", LookMode.Deep);
             Scribe_Collections.Look(ref ManagedLinks, "rhfLinksV2", LookMode.Deep);
             Scribe_Collections.Look(ref GeneratedKin, "rhfGeneratedKinV2", LookMode.Deep);
+            Scribe_Collections.Look(ref FactionStandings, "rhfStandingV3", LookMode.Deep);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 CreatedWorldPawns = Math.Max(0, CreatedWorldPawns);
                 if (Hostages == null) Hostages = new List<RHFHostageRecord>();
                 if (ManagedLinks == null) ManagedLinks = new List<RHFManagedLink>();
                 if (GeneratedKin == null) GeneratedKin = new List<RHFWorldKin>();
+                if (FactionStandings == null) FactionStandings = new List<RHFFactionStanding>();
                 nextHostageCheck = Find.TickManager.TicksGame + 30000;
             }
         }
@@ -285,8 +307,8 @@ namespace RaidersHaveFamilies
     public sealed class RHFMapComponent : MapComponent
     {
         private const int FirstScanDelay = 120;
-        private const int MaxBatchSize = 144; // bounds raidmate sets
-        private const int MaxPairProbes = 32; // bounds matching work per newcomer
+        private const int MaxBatchSize = 192; // bounds raidmate sets
+        private const int MaxPairProbes = 48; // bounds matching work per newcomer
         private const int MaxRememberedIds = 8192; // guards old/long-running saves
         private const int DropOldestCount = 4096;
 
@@ -404,6 +426,8 @@ namespace RaidersHaveFamilies
             }
 
             links += LinkGroupFamily(newcomers, ledger);
+            // Reuse our existing retained relatives before generating another world pawn.
+            links += ReuseExistingKin(newcomers, ledger, cfg);
 
             // Two group members may share one real off-map parent.
             HashSet<Pawn> grouped = new HashSet<Pawn>();
@@ -493,6 +517,40 @@ namespace RaidersHaveFamilies
                     ", world pawns=" + created + ", links=" + links +
                     ", total created=" + ledger.CreatedWorldPawns +
                     ", live generated=" + ledger.ActiveGeneratedKin);
+        }
+
+        // Reuse a bounded selection of stored world kin. This allows kinship between
+        // different raids and caravans without scanning the world's entire pawn pool.
+        // It also reduces the number of newly generated world pawns.
+        private static int ReuseExistingKin(List<Pawn> newcomers, RHFGameLedger ledger, RHFSettings cfg)
+        {
+            int linked = 0;
+            if (ledger.GeneratedKin == null || ledger.GeneratedKin.Count == 0) return linked;
+            for(int i=0;i<newcomers.Count;i++)
+            {
+                Pawn pawn=newcomers[i];
+                if(pawn.def!=ThingDefOf.Human || !Rand.Chance(cfg.FactionRelativeChance))continue;
+                int visited=0;
+                for(int j=ledger.GeneratedKin.Count-1;j>=0 && visited<32;j--,visited++)
+                {
+                    Pawn kin=ledger.GeneratedKin[j]?.Kin;
+                    if(kin==null || kin.Dead || kin==pawn || kin.def!=pawn.def ||
+                        kin.Faction!=pawn.Faction || HaveAnyRelation(pawn,kin)) continue;
+                    float gap=Age(kin)-Age(pawn);
+                    if(gap>=18f && kin.gender==Gender.Male && pawn.GetFather()==null)
+                    { pawn.SetFather(kin); linked++; break; }
+                    if(gap>=18f && kin.gender==Gender.Female && pawn.GetMother()==null)
+                    { pawn.SetMother(kin); linked++; break; }
+                    if(Math.Abs(gap)<=16f && CanLove(pawn) && CanLove(kin) &&
+                        RomanceGenderCompatible(pawn,kin) && Rand.Chance(.25f))
+                    {
+                        PawnRelationDef rel=Rand.Bool?PawnRelationDefOf.Lover:PawnRelationDefOf.Fiance;
+                        pawn.relations.AddDirectRelation(rel,kin);
+                        linked++;break;
+                    }
+                }
+            }
+            return linked;
         }
 
         // Family composition inside the same group. Derived siblings, half siblings,

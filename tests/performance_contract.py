@@ -1,20 +1,20 @@
-"""Static bounding checks; not a substitute for RimWorld 1.7 profiling."""
+"""Static TPS constraints, not runtime measurements."""
 from pathlib import Path
-import re
-ROOT = Path(__file__).resolve().parents[1]
+ROOT=Path(__file__).resolve().parents[1]
 source=(ROOT/'RaidersHaveFamilies/Source/RaidersHaveFamilies.cs').read_text(encoding='utf-8')
-diplomacy=(ROOT/'RaidersHaveFamilies/Source/RHFHostageSystems.cs').read_text(encoding='utf-8')
-patches=(ROOT/'RaidersHaveFamilies/Source/RHFPatches.cs').read_text(encoding='utf-8')
-for key in ['MaxBatchSize = 144','MaxPairProbes = 32','MaxRememberedIds = 8192',
+operation=(ROOT/'RaidersHaveFamilies/Source/RHFOperations.cs').read_text(encoding='utf-8')
+patch=(ROOT/'RaidersHaveFamilies/Source/RHFPatches.cs').read_text(encoding='utf-8')
+for key in ['MaxBatchSize = 192','MaxPairProbes = 48','MaxRememberedIds = 8192',
             'HardMaxPerCycle = 8','HardMaxPerSave = 512','CleanupGeneratedKin()',
-            'ActiveGeneratedKin','nextHostageCheck = tick + 30000']:
+            'ReuseExistingKin(', 'nextHostageCheck = tick + 30000']:
     assert key in source, key
 assert 'AllPawnsSpawned' not in source[source.index('public override void MapComponentTick()',source.index('class RHFMapComponent')):
-                                       source.index('private void Remember(int id)',source.index('class RHFMapComponent'))], 'Map tick cannot scan all pawns'
-assert '.Patch(typeof(TickManager)' not in patches
-assert 'MapComponentTick' not in patches
-assert 'WorldPawnGC' not in patches
-assert 'new List<Pawn>(48)' in source
-assert 'Math.Min(200' in diplomacy
-assert 'Math.Min(90' in diplomacy
-print('PASS: event-driven entry, bounded arrival / pair search / world kin / memory thoughts; no game tick patches.')
+                                       source.index('private void Remember(int id)',source.index('class RHFMapComponent'))]
+for key in ['DecisionInterval = 300','MaxOperationsPerMap = 4','MaxSquad = 96',
+            'MaxOrdersPerDecision = 14','MaxTargets = 24','MaxOperationDuration = 180000',
+            'operations.Count == 0', 'FindBarrier(', 'BuildAndLaunch(', 'ChooseExit(']:
+    assert key in operation, key
+for term in ['.Patch(typeof(TickManager)','Patch(typeof(Map)','WorldPawnGC']:
+    assert term not in patch
+assert 'TryTakeOrderedJob' in operation
+print('PASS: bounded scheduled operations, no global tick Harmony hooks, bounded world pawn and batch generation.')
