@@ -24,7 +24,7 @@ assert 'TryFactionMeleeFallback' in tactics and 'IsMeleeWeapon' in tactics
 assert 'kind.weaponTags' in tactics and 'def.weaponTags' in tactics
 assert 'pawn.equipment.Primary == null' not in tactics or 'pawn.equipment?.Primary == null' in tactics
 assert 'pawn.equipment.AddEquipment(melee)' in tactics
-assert 'MaxCandidatesPerThink = 45' in tactics and 'DecisionInterval = 450' in ops
+assert 'MaxCandidatesPerThink = 45' in tactics and 'DecisionInterval = 90' in ops
 assert 'MaxOrdersPerDecision = 14' in ops and 'MaxOperationDuration = 180000' in ops
 assert 'PressureAssault' in tactics and 'TryCover' in tactics
 assert 'TryFlank' in tactics and 'LengthHorizontalSquared' in tactics

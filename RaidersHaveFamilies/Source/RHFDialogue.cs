@@ -27,10 +27,10 @@ namespace RaidersHaveFamilies
         private static string Choose(RHFHostageRecord r, int scene, params string[] texts)
         {
             if (texts == null || texts.Length == 0) return "";
-            int seed = ((r?.Pawn?.thingIDNumber ?? r?.CaptureTick ?? 0) & int.MaxValue);
-            seed = (seed + scene * 19 + (r?.HighDemandRejected ?? 0) * 3 +
-                    (r?.RefusalCount ?? 0) * 7) & int.MaxValue;
-            return texts[seed % texts.Length];
+            // A prior deterministic pawn/scene hash selected EXACTLY the same
+            // line every visit. Choice is now sampled on each new dialogue
+            // node; categories and actual game-state branches remain intact.
+            return texts[Rand.Range(0, texts.Length)];
         }
 
         private static string Official(RHFHostageRecord r)
@@ -38,7 +38,7 @@ namespace RaidersHaveFamilies
             if (r?.Importance >= 7) return "Канцелярия высшего руководства фракции «" + r.OriginalFaction.Name + "»";
             if (r?.Importance >= 5) return "Уполномоченный совета фракции «" + r.OriginalFaction.Name + "»";
             if (r?.Importance >= 3) return "Офицер связи фракции «" + r.OriginalFaction.Name + "»";
-            return "Представитель общины из фракции «" + r?.OriginalFaction?.Name + "»";
+            return "Оператор связи фракции «" + r?.OriginalFaction?.Name + "»";
         }
 
         private static Pawn KnownRelative(RHFHostageRecord r)
@@ -58,8 +58,11 @@ namespace RaidersHaveFamilies
         private static string CurrentFacts(RHFHostageRecord r)
         {
             float h = r.Pawn?.health?.summaryHealth?.SummaryHealthPercent ?? 1f;
+            int pressure = RHFPoliticalReputation.Pressure(r.OriginalFaction);
             string facts = "Состояние здоровья: " + Mathf.RoundToInt(h * 100f) +
-                "%. Значимость: " + r.Importance + "/8 (" + r.OfficeName + ").";
+                "%. Значимость: " + r.Importance + "/8 (" + r.OfficeName + ")." +
+                "\nПолитическое давление RHF: " + pressure + " (от -1000 до +1000; " +
+                "отрицательное означает усиление вражды и влияет на торг/силу ответного рейда).";
             if (Prefs.DevMode)
                 facts += "\n[Отладка переговоров] Отклонено высоких цен: " +
                     r.HighDemandRejected + "; заявлений об отказе: " + r.RefusalCount +
@@ -127,12 +130,18 @@ namespace RaidersHaveFamilies
                 voice = Choose(r,4,
                     "«От его решений зависят чужие жизни и договоры. Вы захватили не просто прохожего. Назовите ваши намерения»",
                     "«Глава службы требует ежедневного отчёта, а я могу дать ему только молчание. Скажите, в каком состоянии наш представитель»",
-                    "«Мне приказано не торговаться без подтверждения, что наш человек жив. Начнём с этого»");
+                    "«Мне приказано не торговаться без подтверждения, что наш человек жив. Начнём с этого»",
+                    "«Совет уполномочил меня выяснить состояние нашего представителя. Уточните, на каких условиях вы его удерживаете»",
+                    "«Дело рассматривает руководство. Я обязан получить подтверждение жизни и перечень требований, прежде чем докладывать о переговорах»",
+                    "«Сведения об удержании поступили в канцелярию. Мы ожидаем официального ответа о его безопасности и порядке возвращения»");
             else
                 voice = Choose(r,5,
                     "«Его семья трижды приходила к управе. Мне нечего им сказать. Вы позволите ему вернуться домой?»",
                     "«Нам передали, что он у вас. Я не пришёл читать нравоучения — мне нужна ясность. Жив ли он?»",
-                    "«Мы собрали деньги и поручителей. Не вынуждайте нас тратить следующий месяц на поиски тел»");
+                    "«Мы собрали деньги и поручителей. Не вынуждайте нас тратить следующий месяц на поиски тел»",
+                    "«Я обеспечиваю связь по запросу семьи. Скажите, допускаете ли вы передачу условий освобождения?»",
+                    "«Родственники просят хотя бы подтвердить, что он жив. Я передам им ответ по отдельному каналу»",
+                    "«Фракция может организовать обмен или оплату. Уточните, какой вариант вы готовы рассматривать»");
             string stage=Choose(r,6,
                 "Щёлкает рычажок записи; собеседник берёт время, чтобы подобрать слова.",
                 "В трубке слышно шуршание документов, затем кто-то отодвигает стул.",
@@ -161,7 +170,11 @@ namespace RaidersHaveFamilies
 
         private static DiaNode RecruitedPerson(Pawn negotiator,RHFHostageRecord r)
         {
-            string speech=r.Importance>=6 ? Choose(r,50,
+            string speech=!r.RecruitmentReported ? Choose(r,49,
+                "«В нашем списке он по-прежнему пропавший. Вы располагаете проверенными сведениями о его местонахождении?»",
+                "«На данный момент подтверждения его перехода к другой стороне у нас нет. Что вы хотели сообщить?»",
+                "«Дело остаётся открытым. Сообщите, каким образом вы получили сведения о нашем человеке»") :
+                r.Importance>=6 ? Choose(r,50,
                 "«Вы зовёте это вербовкой. Для нас это уход человека, которому доверяли государственные дела. Его имя уже на столе у командования»",
                 "«Совет прислал меня не за обещаниями. Он хочет знать, почему наш представитель носит теперь ваши знаки»",
                 "«Я не буду обвинять его заочно. Но если он служит вам, наши договоры перестают что-либо значить»") :
@@ -172,6 +185,7 @@ namespace RaidersHaveFamilies
             var node=new DiaNode(Official(r)+".\n\n"+speech+Info(
                 "Вступление в колонию подтверждено. Значимость "+r.Importance+
                 "/8. Вербовщик: "+r.RecruiterName+
+                ". Вербовка известна исходной фракции: "+(r.RecruitmentReported?"да":"нет")+
                 ". Месть назначена: "+(r.RecruitmentRevengeQueued?"да":"нет")+"."));
             if(!r.RecruitmentReported)
                 node.options.Add(new DiaOption("Официально сообщить о вербовке бывшего пленника")
@@ -251,7 +265,10 @@ namespace RaidersHaveFamilies
             else if (r.Importance>=6)
                 speech=Choose(r,13,
                     "«Средства найдём. Но он должен вернуться с сохранённым здоровьем, иначе сам выкуп окажется бессмысленным»",
-                    "«Это политический вопрос, а не обычная торговля. Я вправе предложить деньги и обмен, но решение о силе примут без меня»");
+                    "«Это политический вопрос, а не обычная торговля. Я вправе предложить деньги и обмен, но решение о силе примут без меня»",
+                    "«Казна располагает резервом, но совет потребует от вас письменных гарантий его возвращения»",
+                    "«Мы рассматриваем и выкуп, и обмен. Решение примем после получения сведений о состоянии нашего представителя»",
+                    "«Полномочия на переговоры подтверждены. Назовите условия без угроз и двусмысленностей»");
             else speech=Choose(r,14,
                 "«У нас есть серебро. Не столько, сколько вы могли бы захотеть, но люди пожертвовали его добровольно»",
                 "«Я обсудил это с семьёй и общиной. Назовите цену, которую действительно собираетесь принять»",
@@ -318,10 +335,14 @@ namespace RaidersHaveFamilies
             int newMissing=Math.Max(0,RHFHostageDiplomacy.MissingParts(r.Pawn)-r.LastReportedMissing);
             string opening=r.Importance>=6 ? Choose(r,20,
                 "«Говорите внимательно. Я хочу передать врачу точные сведения, а не слухи и угрозы»",
-                "«Наш медицинский совет готов слушать. Начните с того, что делали после захвата»") :
+                "«Наш медицинский совет готов слушать. Начните с того, что делали после захвата»",
+                "«Врач и представитель руководства принимают протокол по защищённой линии. Сообщите факты последовательно»",
+                "«Мы запросили независимое заключение. Сначала назовите операции, затем объясните, по чьему приказу они проводились»") :
                 Choose(r,21,
                 "«Я приготовил бумагу. Скажите, что с ним произошло — только не пытайтесь назвать умышленную жестокость лечением»",
-                "«Минуту. Я включу запись. Теперь — что с его телом и кто был рядом?»");
+                "«Минуту. Я включу запись. Теперь — что с его телом и кто был рядом?»",
+                "«Я подключаю медицинского регистратора. Назовите проведённые вмешательства и дату каждого из них»",
+                "«Семья передала запрос на выписку. Я отмечу только подтверждённые сведения, остальное направлю врачам на проверку»");
             string clinician=string.IsNullOrEmpty(r.LastResponsibleActor) ?
                 "устанавливается журналом" : r.LastResponsibleActor;
             string facts=(newOps>0 ?
@@ -332,29 +353,17 @@ namespace RaidersHaveFamilies
                 "\nОтсутствующих частей тела с прошлого отчёта: "+newMissing+". " +
                 "Боевые ранения до плена не объявляются пыткой без доказательств.";
             var node=new DiaNode(Official(r)+".\n\n"+opening+Info(facts));
+            // Reporting evidence and admitting responsibility are two DIFFERENT
+            // acts. The recipient follows importance: at rank >=5 the faction
+            // speaks itself; at lower ranks it merely relays a relative remotely.
             Pawn family=KnownRelative(r);
+            bool viaFamily=r.Importance<5 && family!=null;
             if(RHFHostageDiplomacy.CanAdmitMutilation(r))
-            {
-                node.options.Add(new DiaOption("Признать: мы сознательно искалечили пленника")
-                { linkLateBind=()=>ReportAdmission(negotiator,r,false,null) });
-                if(family!=null)
-                {
-                    Pawn kin=family;
-                    node.options.Add(new DiaOption("Признаться родственнику "+kin.LabelShortCap+" лично")
-                    { linkLateBind=()=>ReportAdmission(negotiator,r,true,kin) });
-                }
-            }
+                node.options.Add(new DiaOption("Признать умышленное увечье и ответственность колонии")
+                { linkLateBind=()=>ReportAdmission(negotiator,r,viaFamily,family) });
             if(RHFHostageDiplomacy.HasNewEvidence(r))
-            {
-                node.options.Add(new DiaOption("Передать официальный медицинский отчёт фракции")
-                { linkLateBind=()=>ReportResponse(negotiator,r,false,null) });
-                if(family!=null)
-                {
-                    Pawn kin=family;
-                    node.options.Add(new DiaOption("Сообщить родственнику "+kin.LabelShortCap+" лично")
-                    { linkLateBind=()=>ReportResponse(negotiator,r,true,kin) });
-                }
-            }
+                node.options.Add(new DiaOption("Передать фактический медицинский отчёт (без признания умысла)")
+                { linkLateBind=()=>ReportResponse(negotiator,r,viaFamily,family) });
             node.options.Add(new DiaOption("Вернуться к обсуждению пленника")
             { linkLateBind=()=>Person(negotiator,r) });
             return node;
@@ -362,21 +371,23 @@ namespace RaidersHaveFamilies
 
         private static DiaNode ReportAdmission(Pawn negotiator,RHFHostageRecord r,bool family,Pawn kin)
         {
-            string start="Вы: «Это сделали мы. Увечье нанесено по нашему приказу. " +
-                "Это не последствие случайного боя и не несчастный случай».";
             string setting=family && kin!=null ?
-                "После соединения с "+kin.LabelShortCap+" вы произносите признание без посредника." :
-                "Оператор связи включает официальную запись признания.";
-            return ReturnNode(setting+"\n\n"+start+"\n\n"+
+                "Оператор фракционной связи соединяет вас с " + kin.LabelShortCap +
+                " по удалённому каналу. Представитель фракции остаётся посредником и фиксирует запись." :
+                "Официальный представитель фракции принимает заявление и оформляет протокол.";
+            string confession="Вы: «Я признаю, что увечье нанесено умышленно по нашей инициативе. " +
+                "Ответственность лежит на нашей колонии».";
+            return ReturnNode(setting+"\n\n"+confession+"\n\n"+
                 RHFHostageDiplomacy.AdmitMutilation(r,family),negotiator,r);
         }
 
         private static DiaNode ReportResponse(Pawn negotiator,RHFHostageRecord r,bool family,Pawn kin)
         {
             string setting=family && kin!=null ?
-                "На линии появляется "+kin.LabelShortCap+". " +
-                "Вместо канцелярских вопросов слышно дрожащий человеческий голос." :
-                "Секретарь передаёт листы врачу и ставит подпись на расшифровке.";
+                "Оператор фракции устанавливает удалённую связь с " + kin.LabelShortCap +
+                ". Фракция остаётся оператором канала, родственник слушает медицинские сведения." :
+                "Уполномоченный представитель фракции принимает медицинские документы, " +
+                "запрашивает медицинское заключение и регистрирует передачу.";
             return ReturnNode(setting+"\n\n"+
                 RHFHostageDiplomacy.ReportCondition(r,family),negotiator,r);
         }
@@ -390,7 +401,9 @@ namespace RaidersHaveFamilies
                 Choose(r,23,
                     "«Постойте. Вы хотите объявить, что никакого возвращения не будет? Я обязан занести это в протокол»",
                     "«Если вы решите оставить его навсегда, не считайте, что нам останется только принять это»",
-                    "«Я должен переспросить: это угроза или официальное решение вашей колонии?»");
+                    "«Я должен переспросить: это угроза или официальное решение вашей колонии?»",
+                "«Я зафиксирую отказ, однако потребую назвать причину и условия содержания»",
+                "«Ваше заявление повлияет на дальнейшие распоряжения. Подтвердите, что понимаете его последствия»");
             var node=new DiaNode(Official(r)+".\n\n"+speech+Info(
                 "Каждое подтверждение повышает напряжение и может ускорить операцию, но не блокирует будущие переговоры."));
             node.options.Add(new DiaOption("Да. Официально подтвердить, что мы не вернём пленника")

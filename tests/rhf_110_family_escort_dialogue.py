@@ -17,9 +17,13 @@ debug=(source/'RHFDebugActions.cs').read_text('utf8')
 for marker in ('oneTimeBackfill','visited < MaxBatchSize',
                'Remember(processedPawn.thingIDNumber)', 'CleanupGeneratedKin',
                'CurrentRelations(pawn) > 0', 'FamilyAudit',
-               'MaxPerWave = 16', 'HardMaxPerSave = 1024'):
+               'MaxPerWave = 48', 'HardMaxPerSave = 1024'):
     assert marker in base, marker
 assert base.index('int linked = Enrich(batch)') < base.index('Remember(processedPawn.thingIDNumber)')
+assert 'EnsureMinimumFamily(newcomers, ledger, cfg' in base
+assert 'DesiredLinks = Math.Max(3, Math.Min(DesiredLinks, 7))' in base
+assert 'bool viaFamily=r.Importance<5 && family!=null' in dia
+assert 'Rand.Range(0, texts.Length)' in dia
 assert 'kin.relations.RelatedPawns' in base
 # Only one-time loading exception to no full-map-scanning policy.
 a=base[base.index('public override void MapComponentTick()',base.index('class RHFMapComponent')):
@@ -33,7 +37,7 @@ for marker in ('class RHFEscortLink', 'Escorts = new List<RHFEscortLink>',
                'DropCellFinder.IsGoodDropSpot(cell,map,true,true)'):
     assert marker in ops, marker
 assert ops.index('captive.ExitMap(false,Rot4.Invalid)') < ops.index('if (escort.Spawned) escort.ExitMap(false,Rot4.Invalid)')
-assert 'if (!party.Drop) parms.raidArrivalMode = null' in ops
+assert 'if (!party.Drop && op.Type != (int)RHFOperationType.Rescue) parms.raidArrivalMode = null' in ops
 assert 'member?.Role == (int)RHFCombatRole.Escort ? -36 : 0' in ops
 # Personal panel not drawn, nor all stat rows exposed, for player faction.
 assert 'pawn.Faction.IsPlayer' in ui

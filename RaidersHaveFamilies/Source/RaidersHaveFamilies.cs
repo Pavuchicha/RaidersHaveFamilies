@@ -14,12 +14,12 @@ namespace RaidersHaveFamilies
     {
         // Existing Scribe keys retained: old 0.1.x settings and game saves remain readable.
         public bool Enabled = true;
-        public int SettingsSchema = 4;
+        public int SettingsSchema = 5;
         public float ParentChance = 0.92f;
         public float PartnerChance = 0.58f;
         public float RaidmatePartnerChance = 0.75f;
         public float SharedParentChance = 0.85f;
-        public int MaxPerWave = 16; // bounded generation attempts per arriving group
+        public int MaxPerWave = 48; // bounded generation attempts per arriving group
         public int MaxPerSave = 768;
         public bool VerboseLogging = false;
         public bool Negotiations = true;
@@ -34,7 +34,7 @@ namespace RaidersHaveFamilies
         public float FactionRelativeChance = 0.80f;
 
         // Hard safety ceilings also apply to previously saved settings.
-        public const int HardMaxPerCycle = 16;
+        public const int HardMaxPerCycle = 48;
         public const int HardMaxPerSave = 1024;
         public int DesiredLinks = 5; // best-effort density target for small arriving groups
 
@@ -49,7 +49,7 @@ namespace RaidersHaveFamilies
                 Math.Max(.5f,Math.Min(2f,InterventionStrength));
             MaxPerWave = Math.Max(0, Math.Min(MaxPerWave, HardMaxPerCycle));
             MaxPerSave = Math.Max(0, Math.Min(MaxPerSave, HardMaxPerSave));
-            DesiredLinks = Math.Max(1, Math.Min(DesiredLinks, 7));
+            DesiredLinks = Math.Max(3, Math.Min(DesiredLinks, 7));
         }
 
         private static float ClampProbability(float value)
@@ -113,6 +113,13 @@ namespace RaidersHaveFamilies
                     if (MaxPerWave == 8) MaxPerWave = 16;
                     if (MaxPerSave == 384) MaxPerSave = 768;
                     SettingsSchema = 4;
+                }
+                if (SettingsSchema < 5)
+                {
+                    // Migrate only untouched v0.12.1 generation limits; keep
+                    // intentional lower budgets as an explicit TPS trade-off.
+                    if (MaxPerWave == 16) MaxPerWave = 48;
+                    SettingsSchema = 5;
                 }
                 Clamp();
             }
@@ -603,6 +610,11 @@ namespace RaidersHaveFamilies
             links += LinkGroupFamily(newcomers, ledger);
             // Reuse our existing retained relatives before generating another world pawn.
             links += ReuseExistingKin(newcomers, ledger, cfg);
+            // Mandatory minimum is fulfilled before probabilistic embellishment.
+            // This avoids spending the shared generation budget on a single
+            // relative for each pawn while leaving others with no family.
+            links += EnsureMinimumFamily(newcomers, ledger, cfg, ref created,
+                ref generationAttempts);
 
             // Guaranteed baseline for EACH eligible ordinary human (until the
             // explicitly configured world-pawn budget runs out). Do not rely on
@@ -794,6 +806,82 @@ namespace RaidersHaveFamilies
                     ", world pawns=" + created + ", links=" + links +
                     ", total created=" + ledger.CreatedWorldPawns +
                     ", live generated=" + ledger.ActiveGeneratedKin);
+            return links;
+        }
+
+        // Minimum 3 unique linked people for every eligible ordinary human,
+        // subject only to a deliberately reduced creation budget or an exhausted
+        // world-pawn cap. A spouse by itself no longer ends enrichment.
+        private static int EnsureMinimumFamily(List<Pawn> newcomers, RHFGameLedger ledger,
+            RHFSettings cfg, ref int created, ref int generationAttempts)
+        {
+            int links=0;
+            for (int pass=0;pass<3 && CanCreate(ledger,cfg,created,generationAttempts);pass++)
+            for (int i=0;i<newcomers.Count && CanCreate(ledger,cfg,created,generationAttempts);i++)
+            {
+                Pawn p=newcomers[i];
+                if(!Eligible(p) || p.def!=ThingDefOf.Human || CurrentRelations(p)>=3) continue;
+                Pawn relative=null;
+                Pawn mother=p.GetMother(), father=p.GetFather();
+                if (Age(p)<70f && (mother==null || father==null))
+                {
+                    Gender g=MissingParentGender(p);
+                    generationAttempts++;
+                    relative=NewWorldPawn(p,g,Age(p)+Rand.Range(23f,35f),true,true);
+                    if(relative==null)continue;
+                    ledger.RegisterGeneratedKin(relative);created++;
+                    if(g==Gender.Male)p.SetFather(relative);
+                    else p.SetMother(relative);
+                    ledger.RegisterProvenance(p,relative,g==Gender.Male?"Отец":"Мать");
+                    links++;continue;
+                }
+                Pawn parent=mother??father;
+                if(parent!=null && Age(parent)>=Age(p)+18f)
+                {
+                    float siblingAge=Math.Max(18f,Age(p)+Rand.Range(-7f,8f));
+                    if(Age(parent)<siblingAge+18f) siblingAge=Math.Max(18f,Age(parent)-22f);
+                    if(Age(parent)<siblingAge+18f)continue;
+                    generationAttempts++;
+                    relative=NewWorldPawn(p,Rand.Bool?Gender.Male:Gender.Female,
+                        siblingAge,true,true);
+                    if(relative==null)continue;
+                    ledger.RegisterGeneratedKin(relative);created++;
+                    if(parent.gender==Gender.Male)relative.SetFather(parent);
+                    else relative.SetMother(parent);
+                    ledger.RegisterProvenance(relative,parent,"Общий родитель");
+                    ledger.RegisterProvenance(p,relative,"Брат/сестра");
+                    links++;continue;
+                }
+                if(Age(p)>=42f)
+                {
+                    float childAge=Age(p)-Rand.Range(23f,33f);
+                    if(childAge>=18f)
+                    {
+                        generationAttempts++;
+                        relative=NewWorldPawn(p,Rand.Bool?Gender.Male:Gender.Female,
+                            childAge,true,true);
+                        if(relative==null)continue;
+                        ledger.RegisterGeneratedKin(relative);created++;
+                        if(p.gender==Gender.Male)relative.SetFather(p);
+                        else relative.SetMother(p);
+                        ledger.RegisterProvenance(p,relative,"Ребёнок");
+                        links++;continue;
+                    }
+                }
+                if(CanLove(p))
+                {
+                    Gender partnerGender=DesiredPartnerGender(p);
+                    generationAttempts++;
+                    relative=NewWorldPawn(p,partnerGender,
+                        Math.Max(18f,Age(p)+Rand.Range(-6f,7f)),false,true);
+                    if(relative==null)continue;
+                    ledger.RegisterGeneratedKin(relative);created++;
+                    PawnRelationDef relation=Rand.Bool?PawnRelationDefOf.Spouse:PawnRelationDefOf.Lover;
+                    p.relations.AddDirectRelation(relation,relative);
+                    ledger.RegisterProvenance(p,relative,relation.defName);
+                    links++;
+                }
+            }
             return links;
         }
 

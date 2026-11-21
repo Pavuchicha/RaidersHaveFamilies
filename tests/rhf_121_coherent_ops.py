@@ -9,7 +9,10 @@ for key in ['HuntLastSeenCell', 'HuntLastSeenTick', 'rhfHuntLastSeenCellV121',
 assert ops.index('if (op.PodLaunchCompleted && captive == op.Vip) continue;') < ops.index('if (captive == null || captive.Dead || captive.MapHeld != map) continue;'), 'VIP skyfaller regression: should check before MapHeld'
 assert ops.count('HuntLastSeenCell') >= 5
 assert 'GenSight.LineOfSight(fighter.Position, possible.Position, map)' in tactical
-assert 'MaxSquad = 96' in ops and 'DecisionInterval = 450' in ops
+assert 'MaxSquad = 96' in ops and 'DecisionInterval = 90' in ops
+assert 'SafeRansomDrop' in (root/'RaidersHaveFamilies/Source/RHFHostageSystems.cs').read_text('utf-8')
+assert 'arrivalStillPending' in ops and 'EdgeWalkIn' in ops
+assert 'private Thing FindBarrier(' in ops and 'bestDoor ?? bestWall' in ops
 for key in ['Scribe_References.Look(ref HuntTarget', 'Scribe_Collections.Look(ref Escorts',
             'PodLaunchCompleted', 'PodBudgetPaid', 'RHFReprisalSystem.OnOperationDeployed']:
     assert key in ops, 'missing persistence/missions: '+key

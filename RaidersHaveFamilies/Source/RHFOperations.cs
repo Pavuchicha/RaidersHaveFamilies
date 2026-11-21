@@ -232,7 +232,7 @@ namespace RaidersHaveFamilies
         private const int MaxOperationsPerMap = 4;
         private const int MaxSquad = 96;
         private const int MaxTargets = 24;
-        private const int DecisionInterval = 450;
+        private const int DecisionInterval = 90;
         private const int MaxOrdersPerDecision = 14;
         private const int MaxOperationDuration = 180000;
         private const int MaxStrikeParties = 5;
@@ -550,10 +550,22 @@ namespace RaidersHaveFamilies
                     var parms = new IncidentParms
                     { target = map, faction = party.Faction,
                       points = Mathf.Clamp(effectivePoints, 300f, 15000f) };
-                    parms.raidStrategy = party.Siege ?
-                        PickStrategy("Siege", "ImmediateAttackSmart", "ImmediateAttack") :
+                    // A vanilla breaching lord selects arbitrary colony walls and
+                    // infrastructure. Rescue is objective-driven by RHF, never
+                    // a generic Breaching raid, including during its first ticks.
+                    parms.raidStrategy = op.Type == (int)RHFOperationType.Rescue ?
+                        PickStrategy("ImmediateAttackSmart", "ImmediateAttack") :
+                        party.Siege ? PickStrategy("Siege", "ImmediateAttackSmart", "ImmediateAttack") :
                         party.Breach ? PickStrategy("Breaching", "ImmediateAttackSmart", "ImmediateAttack") :
                         PickStrategy("ImmediateAttackSmart", "ImmediateAttack");
+                    if (!party.Drop && op.Type == (int)RHFOperationType.Rescue)
+                    {
+                        // Do not let vanilla pick a random high-tech center-drop
+                        // into the player's bedroom for a ground prison breakout.
+                        parms.raidArrivalMode = DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("EdgeWalkIn");
+                        if (parms.raidArrivalMode == null)
+                            throw new InvalidOperationException("RHF: EdgeWalkIn not available for rescue");
+                    }
                     if (party.Drop)
                     {
                         parms.raidArrivalMode = DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("CenterDrop");
@@ -576,12 +588,12 @@ namespace RaidersHaveFamilies
                     accepted = IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
                     // If a special strategy is invalid for this modded faction,
                     // retry a plain immediate assault only when no pawns spawned.
-                    if (!accepted && party.Members == 0)
+                    if (!accepted && !party.Drop && party.Members == 0)
                     {
                         // A refused prison drop is NOT an ordinary center raid.
                         // Keep the selected arrival mode and insertion point.
                         parms.raidStrategy = RaidStrategyDefOf.ImmediateAttack;
-                        if (!party.Drop) parms.raidArrivalMode = null;
+                        if (!party.Drop && op.Type != (int)RHFOperationType.Rescue) parms.raidArrivalMode = null;
                         accepted = IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
                     }
                 }
@@ -597,10 +609,16 @@ namespace RaidersHaveFamilies
                     " (role=" + party.Role + ", points=" + party.Points +"). " +
                     "Inspect pawn group makers and raid restrictions for this faction.");
             }
+            // Do not dispatch a reserve raid while a drop-pod launch can still
+            // be in flight but its occupants have not been spawned.
+            bool arrivalStillPending=false;
+            for(int x=0;x<op.Parties.Count;x++)
+                if(op.Parties[x]!=null && op.Parties[x].Attempted && op.Parties[x].Drop)
+                {arrivalStillPending=true;break;}
             // Last-chance recovery for debug tests: some modded factions are
             // non-raiding and their RaidEnemy worker rejects all strategies.
             // Try another hostile executor instead of silently showing nothing.
-            if (success == 0 && op.DebugForced && op.Parties.Count < MaxStrikeParties)
+            if (success == 0 && !arrivalStillPending && op.DebugForced && op.Parties.Count < MaxStrikeParties)
             {
                 foreach (Faction alternate in Find.FactionManager.AllFactionsListForReading)
                 {
@@ -695,9 +713,10 @@ namespace RaidersHaveFamilies
                         " Комплекты взлома: " + party.BreachKits + ", санитары: " + party.Medics +
                         ", без основного оружия: " + party.UnarmedCount + ".");
                 }
-                Find.LetterStack.ReceiveLetter("RHF: " +
-                    (op.Type == (int)RHFOperationType.Rescue ? "спасательная операция" : "карательный рейд"),
-                    report.ToString(), LetterDefOf.ThreatBig, new LookTargets(map.Center, map));
+                // RaidEnemy already issued an arrival letter with an actual raid
+                // location. A second letter pointing at map.Center looks like a
+                // duplicate or phantom raid. Keep the tactical report in the log.
+                Log.Message("[RHF] " + report.ToString());
             }
             return success > 0;
         }
@@ -885,6 +904,10 @@ namespace RaidersHaveFamilies
             {
                 op.Phase = 2; op.PhaseStartTick = now; return;
             }
+            // Resolve an access barrier once per bounded decision cycle, not
+            // separately for every soldier. The prison-door preference is shared.
+            Thing sharedBarrier = null;
+            bool barrierProbed = false;
             // If we already liberated another prisoner, hold that person with
             // an escort until the rest of the group is ready. Otherwise the
             // vanilla released-pawn AI can walk into combat or escape alone.
@@ -894,13 +917,14 @@ namespace RaidersHaveFamilies
                 Pawn rescuer = op.Squad[i];
                 if (rescuer == null || rescuer.Dead || rescuer.Map != map) { op.Squad.RemoveAt(i); continue; }
                 if (rescuer.Downed) continue;
+                // ALL rescue members leave vanilla assault command before any
+                // cover/advance order. Otherwise a covering pawn may remain in
+                // an assault lord and attack unrelated power infrastructure.
+                Lord oldLord = rescuer.GetLord();
+                if (oldLord != null) oldLord.Notify_PawnLost(rescuer, PawnLostCondition.LeftVoluntarily);
                 if (RHFMod.Settings?.TacticalCombat == true && coverOrders < 2 &&
                     RHFTactical.TryCover(map, op, rescuer, target, now))
                 { coverOrders++; orders++; continue; }
-                // The rescue coordinator takes command away from the vanilla assault lord.
-                // Only for the special response squad, never ordinary raids.
-                Lord oldLord = rescuer.GetLord();
-                if (oldLord != null) oldLord.Notify_PawnLost(rescuer, PawnLostCondition.LeftVoluntarily);
                 if ((rescuer.Position - target.Position).LengthHorizontalSquared <= 5 &&
                     rescuer.CanReach(target, PathEndMode.Touch, Danger.Deadly))
                 {
@@ -917,13 +941,20 @@ namespace RaidersHaveFamilies
                 }
                 else
                 {
-                    Thing barrier = FindBarrier(target, rescuer);
-                    if (barrier != null)
+                    if (!barrierProbed)
                     {
-                        // After reaching a shielded prison wall, technological
-                        // squads can use at most two controlled demolition charges.
+                        sharedBarrier = FindBarrier(target, rescuer);
+                        barrierProbed = true;
+                    }
+                    Thing barrier = sharedBarrier;
+                    if (barrier != null && !barrier.Destroyed)
+                    {
                         bool planted=TryBreachCharge(op,target,barrier,rescuer,now);
-                        if (!planted) Order(rescuer,JobDefOf.AttackMelee,barrier);
+                        // Do not restart a melee attack job every 90 ticks:
+                        // doing so can indefinitely reset the actual strike.
+                        if (!planted && (rescuer.jobs?.curJob?.def != JobDefOf.AttackMelee ||
+                            rescuer.jobs.curJob.targetA.Thing != barrier))
+                            Order(rescuer,JobDefOf.AttackMelee,barrier);
                         orders++;
                     }
                 }
@@ -1079,7 +1110,23 @@ namespace RaidersHaveFamilies
             // forbidden right beside the captive to avoid killing the rescue target.
             bool industrial = rescuer.Faction?.def?.techLevel >= TechLevel.Industrial;
             bool safelyAway = (barrier.Position - captive.Position).LengthHorizontalSquared >= 7;
-            if (industrial && safelyAway)
+            // Explosive entry is forbidden with the operator OR any friendly
+            // soldier/captive in the 3-tile danger zone. A breaching tool then
+            // strikes the identified barrier directly instead of suiciding.
+            bool clearBlast = industrial && safelyAway &&
+                (rescuer.Position-barrier.Position).LengthHorizontalSquared >= 9;
+            if (clearBlast)
+            {
+                int checkedPawns = 0;
+                foreach (Pawn nearby in map.mapPawns.AllPawnsSpawned)
+                {
+                    if (checkedPawns++ >= 256) { clearBlast=false; break; }
+                    if (nearby == null || nearby.Dead || !nearby.Spawned) continue;
+                    if ((nearby.Position-barrier.Position).LengthHorizontalSquared <= 9)
+                    { clearBlast=false; break; }
+                }
+            }
+            if (clearBlast)
                 GenExplosion.DoExplosion(op.BreachCell, map, 1.15f, DamageDefOf.Bomb, rescuer, 52);
             else
                 barrier.TakeDamage(new DamageInfo(DamageDefOf.Blunt, 45f, 0f, -1f, rescuer));
@@ -1093,25 +1140,46 @@ namespace RaidersHaveFamilies
 
         private Thing FindBarrier(Pawn captive, Pawn rescuer)
         {
-            // Local scan around a *known* prison room (at most 121 cells).
-            // No whole-map path search or expensive room graph rebuild.
-            Thing selected = null;
-            int best = int.MaxValue;
+            if (captive == null || rescuer == null || !captive.Spawned) return null;
+            // Unlike the old 11x11 random-wall scan, search the detention
+            // room's accessible perimeter (including a door up to 16 tiles
+            // away). Prefer its door over any wall, even if the wall is closer.
+            // Called at most once per 90-tick decision, not once per soldier.
+            Room prison = captive.Position.GetRoom(map);
+            Building bestDoor = null, bestWall = null;
+            int bestDoorScore = int.MaxValue, bestWallScore = int.MaxValue;
             IntVec3 center = captive.Position;
-            for (int dx=-5; dx<=5; dx++)
-            for (int dz=-5; dz<=5; dz++)
+            for (int dx=-16; dx<=16; dx++)
+            for (int dz=-16; dz<=16; dz++)
             {
-                IntVec3 c = new IntVec3(center.x + dx,0,center.z + dz);
+                IntVec3 c = new IntVec3(center.x+dx,0,center.z+dz);
                 if (!c.InBounds(map)) continue;
                 Building edifice = c.GetEdifice(map);
                 if (edifice == null || edifice.Destroyed || edifice.Faction != Faction.OfPlayer ||
                     (edifice.def.passability != Traversability.Impassable &&
                      !(edifice is Building_Door))) continue;
-                int score = (rescuer.Position-edifice.Position).LengthHorizontalSquared +
-                    (center-edifice.Position).LengthHorizontalSquared*2;
-                if (score < best) { best=score; selected=edifice; }
+                if (!rescuer.CanReach(c, PathEndMode.Touch, Danger.Deadly)) continue;
+                bool touchesPrison = prison == null || c.GetRoom(map) == prison;
+                if (!touchesPrison)
+                {
+                    IntVec3 north=c+IntVec3.North, south=c+IntVec3.South;
+                    IntVec3 east=c+IntVec3.East, west=c+IntVec3.West;
+                    touchesPrison = (north.InBounds(map) && north.GetRoom(map)==prison) ||
+                        (south.InBounds(map) && south.GetRoom(map)==prison) ||
+                        (east.InBounds(map) && east.GetRoom(map)==prison) ||
+                        (west.InBounds(map) && west.GetRoom(map)==prison);
+                }
+                if (!touchesPrison) continue;
+                int score=(rescuer.Position-c).LengthHorizontalSquared +
+                    (center-c).LengthHorizontalSquared;
+                if (edifice is Building_Door)
+                {
+                    if (score<bestDoorScore) {bestDoorScore=score;bestDoor=edifice;}
+                }
+                else if(score<bestWallScore)
+                {bestWallScore=score;bestWall=edifice;}
             }
-            return selected;
+            return bestDoor ?? bestWall;
         }
 
         private RHFEscortLink FindEscort(RHFOperation op, Pawn captive)

@@ -192,23 +192,28 @@ namespace RaidersHaveFamilies
             r.RecruitmentTick=Find.TickManager.TicksGame;
             r.RecruiterName=recruiter?.LabelShortCap ?? "не установлен";
             r.Negotiated=false; r.PendingSilver=0; r.PendingGoodwill=false;
-            // Not a guaranteed vengeance raid: high office, original faction
-            // hostility and its actual capacity determine the chance.
-            if (RHFMod.Settings?.Retaliation == true &&
-                r.OriginalFaction.HostileTo(Faction.OfPlayer) && r.Importance>=5)
-            {
-                float chance=r.Importance>=8 ? .95f : r.Importance==7 ? .76f :
-                    r.Importance==6 ? .57f : .32f;
-                if (Rand.Chance(chance))
-                {
-                    r.RecruitmentRevengeQueued=true;
-                    QueueRetaliation(r,true);
-                    r.NextRetaliationTick=Find.TickManager.TicksGame + Rand.Range(16000,95000);
-                }
-            }
-            Messages.Message("RHF: вербовка бывшего пленника «"+r.NameAtCapture+
-                "» зарегистрирована. Фракция может счесть это предательством.",
+            // No faction awareness, goodwill loss or retaliation on this secret
+            // local event. A player disclosure reveals it immediately; otherwise
+            // an intelligence report reaches the origin faction after 7 days.
+            Messages.Message("RHF: вербовка «"+r.NameAtCapture+
+                "» зарегистрирована. Исходная фракция пока об этом не осведомлена.",
                 pawn, MessageTypeDefOf.NeutralEvent, false);
+        }
+
+        private static void RevealRecruitment(RHFHostageRecord r)
+        {
+            if (r==null || !r.Recruited || r.RecruitmentReported) return;
+            r.RecruitmentReported=true; // known by former faction, not necessarily told by player
+            RHFPoliticalReputation.Change(r.OriginalFaction,-Mathf.Clamp(5+r.Importance*3,5,32));
+            if (RHFMod.Settings?.Retaliation != true || r.OriginalFaction==null ||
+                !r.OriginalFaction.HostileTo(Faction.OfPlayer) || r.Importance<5) return;
+            float chance=r.Importance>=8 ? .95f : r.Importance==7 ? .76f :
+                r.Importance==6 ? .57f : .32f;
+            if (Rand.Chance(chance))
+            {
+                r.RecruitmentRevengeQueued=true;
+                QueueRetaliation(r,true);
+            }
         }
 
         // Called by the Ideology event hook. Does not guess from the pawn's name
@@ -279,8 +284,7 @@ namespace RaidersHaveFamilies
         {
             if (r==null || !r.Recruited || r.RecruitmentReported)
                 return "По этому делу нет нового подтверждения вербовки.";
-            r.RecruitmentReported=true;
-            RHFPoliticalReputation.Change(r.OriginalFaction,-Mathf.Clamp(5+r.Importance*3,5,32));
+            RevealRecruitment(r);
             return "Фракции официально сообщили, что бывший пленник добровольно вступил в колонию. " +
                 (r.RecruitmentRevengeQueued ? "Штаб фракции уже готовит ответ. " :
                     "Официального приказа о силовой операции пока не перехвачено. ")+
@@ -607,7 +611,7 @@ namespace RaidersHaveFamilies
                 r.LastConfirmedOperationSeverity >= 10 ?
                 "«Вы лишили его жизненно важного органа? ... Нет. Я должен сообщить это семье лично. Я передаю показания командованию»." :
                 r.LastConfirmedOperationSeverity >= 8 ?
-                "«Вы искалечили его намеренно. Я слышу, как его родственник плачет рядом. Мы требуем независимого врача и его возвращения»." :
+                "«Вы искалечили его намеренно. Передадим заключение семье отдельным каналом. Требуем независимого врача и возвращения пленника»." :
                 "«Вы называете это операцией? Ему причиняли боль нарочно! Я запишу каждое ваше слово для семьи и властей».";
             string crime = newCrimes > 0 ? accusation :
                 newCruelty > 0 ? "«Мы услышали вас. Это обращение с пленником будет иметь последствия»." :
@@ -842,6 +846,16 @@ namespace RaidersHaveFamilies
                 // must not treat it as a still-confined prisoner.
                 if (r.Recruited)
                 {
+                    if (!r.RecruitmentReported && r.RecruitmentTick>0 &&
+                        tick-r.RecruitmentTick>=420000) // seven RimWorld days
+                    {
+                        RevealRecruitment(r);
+                        Find.LetterStack.ReceiveLetter("RHF: фракция узнала о вербовке",
+                            "Прошла неделя после вербовки " + r.Pawn.LabelShortCap +
+                            ". По торговым и информационным каналам сведения дошли до «" +
+                            r.OriginalFaction.Name + "». Теперь фракция знает о переходе " +
+                            "бывшего пленника на вашу сторону.", LetterDefOf.ThreatSmall, r.Pawn);
+                    }
                     if (r.NextRetaliationTick>0 && tick>=r.NextRetaliationTick &&
                         !r.RetaliationIssued) StartRetaliation(r);
                     continue;
@@ -1154,18 +1168,17 @@ namespace RaidersHaveFamilies
                 }
                 try
                 {
-                    IntVec3 dropCenter = DropCellFinder.TradeDropSpot(previousMap);
-                    if (!dropCenter.IsValid || !dropCenter.InBounds(previousMap))
-                        dropCenter = previousMap.Center;
+                    IntVec3 dropCenter = SafeRansomDrop(previousMap);
+                    if (!dropCenter.IsValid)
+                        throw new InvalidOperationException("No safely open ransom drop location");
                     // Creates incoming skyfallers and their ActiveDropPod containers.
                     // Three stable arguments; vanilla decides suitable roof and
                     // arrival handling for its incoming transport pods.
                     DropPodUtility.DropThingsNear(dropCenter, previousMap, cargo);
-                    Messages.Message("Выкуп за " + pawn.LabelShortCap + ": " +
-                        r.PendingSilver + " серебра доставляется транспортными капсулами. " +
-                        "Нажмите для перехода в зону падения.",
-                        new LookTargets(dropCenter, previousMap),
-                        MessageTypeDefOf.PositiveEvent, true);
+                    Find.LetterStack.ReceiveLetter("Выкуп за " + pawn.LabelShortCap,
+                        r.PendingSilver + " серебра отправлены к вашей базе " +
+                        "транспортными капсулами. Нажмите на письмо для перехода к месту доставки.",
+                        LetterDefOf.PositiveEvent, new LookTargets(dropCenter, previousMap));
                 }
                 catch (Exception e)
                 {
@@ -1180,6 +1193,36 @@ namespace RaidersHaveFamilies
                 }
             }
             ledger.Hostages.Remove(r);
+        }
+
+        private static IntVec3 SafeRansomDrop(Map map)
+        {
+            if(map==null)return IntVec3.Invalid;
+            IntVec3 preferred=DropCellFinder.TradeDropSpot(map);
+            if(!preferred.IsValid || !preferred.InBounds(map))preferred=map.Center;
+            // A centered vanilla trade drop can still target a roofed room.
+            // Choose the closest unroofed zone with a 13x13 clear footprint
+            // for a multi-pod reward. Only evaluated when a ransom is paid.
+            int maxRadius=Math.Max(map.Size.x,map.Size.z);
+            for(int radius=0;radius<maxRadius;radius++)
+            for(int dx=-radius;dx<=radius;dx++)
+            for(int dz=-radius;dz<=radius;dz++)
+            {
+                if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                IntVec3 cell=new IntVec3(preferred.x+dx,0,preferred.z+dz);
+                if(!cell.InBounds(map) || !cell.Standable(map))continue;
+                bool clear=true;
+                for(int x=-6;x<=6 && clear;x++)
+                for(int z=-6;z<=6;z++)
+                {
+                    IntVec3 around=new IntVec3(cell.x+x,0,cell.z+z);
+                    if(!around.InBounds(map) || !around.Standable(map) ||
+                        map.roofGrid.RoofAt(around)!=null || around.GetEdifice(map)!=null)
+                    {clear=false;break;}
+                }
+                if(clear)return cell;
+            }
+            return IntVec3.Invalid;
         }
 
         public static void OnHostageDeath(Pawn victim, bool causedByPlayer, bool execution=false)
