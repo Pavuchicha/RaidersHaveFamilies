@@ -19,8 +19,8 @@ files = {p.name:p.read_text(encoding='utf-8') for p in (MOD/'Source').glob('*.cs
 assert {'RaidersHaveFamilies.cs','RHFPatches.cs','RHFHostageSystems.cs','RHFOperations.cs','RHFRanks.cs','RHFWCERegistry.cs'} <= set(files)
 patch = files['RHFPatches.cs']
 for needle in ['Pawn.SpawnSetup', 'Pawn.ExitMap', 'Pawn.Kill', 'SetGuestStatus',
-    'Building_CommsConsole', 'GetFloatMenuOptions', 'PatchAll', 'HarmonyPostfix',
-    'RHFWarCrimesIntegration', 'RHFWCERegistry.Known', 'ApplyOnPawn']:
+    'FactionDialogMaker', 'FactionDialogFor', 'PatchAll', 'HarmonyPostfix',
+    'RHFWarCrimesIntegration', 'RHFWCERegistry.SeverityOf', 'ApplyOnPawn']:
     assert needle in patch, f'Missing {needle}'
 diplomacy = files['RHFHostageSystems.cs']
 for needle in ['SilverPrice(', 'OnPrisonerExit(', 'UpdateOffers(', 'QueueRetaliation(',
@@ -28,6 +28,6 @@ for needle in ['SilverPrice(', 'OnPrisonerExit(', 'UpdateOffers(', 'QueueRetalia
     'ImprovedProsthetics(', 'RankOf(', 'HostageEligible(']:
     assert needle in diplomacy, f'Missing {needle}'
 assert len(list((MOD/'Defs/ThoughtDefs').glob('*.xml'))) > 0
-assert '0.3.1' in (ROOT/'.github/workflows/build.yml').read_text()
+assert '0.5.0' in (ROOT/'.github/workflows/build.yml').read_text()
 assert 'dotnet build' in (ROOT/'.github/workflows/build.yml').read_text()
 print('PASS: mod metadata, XML, RimWorld 1.7, Harmony 3, source interfaces, CI contracts.')

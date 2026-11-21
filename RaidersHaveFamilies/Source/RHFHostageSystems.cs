@@ -62,6 +62,10 @@ namespace RaidersHaveFamilies
         public bool Executed;
         public bool DeathReportMade;
         public int DeathTick;
+        public string LastConfirmedOperation = "";
+        public int LastConfirmedOperationTick;
+        public int LastConfirmedOperationSeverity;
+        public int SurgicalCrueltyCount;
 
         public RHFHostageRecord() { }
         public RHFHostageRecord(Pawn pawn)
@@ -105,6 +109,10 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref Executed, "executed", false);
             Scribe_Values.Look(ref DeathReportMade, "deathReportMade", false);
             Scribe_Values.Look(ref DeathTick, "deathTick", 0);
+            Scribe_Values.Look(ref LastConfirmedOperation, "lastConfirmedOperation", "");
+            Scribe_Values.Look(ref LastConfirmedOperationTick, "lastConfirmedOpTick", 0);
+            Scribe_Values.Look(ref LastConfirmedOperationSeverity, "lastConfirmedSeverity", 0);
+            Scribe_Values.Look(ref SurgicalCrueltyCount, "surgicalCrueltyCount", 0);
             if (Scribe.mode==LoadSaveMode.PostLoadInit && RankSchema<3)
             { Importance=RHFRankResolver.RankOf(Pawn); RankSchema=3; }
         }
@@ -158,178 +166,114 @@ namespace RaidersHaveFamilies
             return Math.Max(50, Mathf.RoundToInt(220f * rank * faction * assessed));
         }
 
-        public static string Summary(RHFHostageRecord r)
+        public static int GoodwillReward(RHFHostageRecord r)
         {
-            Pawn pawn = r.Pawn;
-            string family = "";
-            int count = 0;
-            if (pawn?.relations != null)
-            {
-                foreach (Pawn person in pawn.relations.RelatedPawns)
-                {
-                    if (person == null || person == pawn || count >= 3) break;
-                    if (person.Faction == r.OriginalFaction)
-                    {
-                        family += (family.Length == 0 ? "" : ", ") + person.LabelShort;
-                        count++;
-                    }
-                }
-            }
-            if (family.Length == 0) family = "родственников в нашей базе нет";
-            float health = pawn.health?.summaryHealth?.SummaryHealthPercent ?? 1f;
-            string tone = r.Importance >= 5 ?
-                "Совет фракции следит за судьбой пленника. Любое решение имеет политические последствия." :
-                count > 0 ? "Родные просят хотя бы подтвердить, что пленник жив." :
-                "Фракция проверяет ваши требования; решение принимают не сразу.";
-            int pressure=RHFPoliticalReputation.Pressure(r.OriginalFaction);
-            return r.OriginalFaction.Name + " — " + pawn.LabelShortCap + "\n" +
-                "Накопленное дипломатическое давление: " + pressure + "\n" +
-                "Статус: " + RankLabel(r.Importance) + ". Здоровье: " +
-                Mathf.RoundToInt(health * 100f) + "%\n" +
-                "Известные родные: " + family + ".\n\n" + tone;
+            if (r?.Pawn == null) return 0;
+            return Mathf.Clamp(5 + r.Importance * 7 + ImprovedProsthetics(r.Pawn) * 3 -
+                r.CrueltyScore * 2, 0, 80);
         }
 
-        public static string RankLabel(int rank) { return RHFRankResolver.RankLabel(rank); }
-
-        public static void OpenForColony(Map map)
-        {
-            if (map == null) return;
-            RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
-            if (ledger == null) return;
-            List<FloatMenuOption> choices = new List<FloatMenuOption>();
-            // Include former prisoners enslaved by the player, but only when tracked
-            // before enslavement so we know their original faction.
-            var prisoners = map.mapPawns.AllPawnsSpawned;
-            for (int i = 0; i < prisoners.Count; i++)
-            {
-                Pawn p = prisoners[i];
-                if (!HostageEligible(p)) continue;
-                RHFHostageRecord r = ledger.FindHostage(p) ?? ledger.TrackHostage(p);
-                if (r == null || r.Paid) continue;
-                RHFHostageRecord captured = r;
-                choices.Add(new FloatMenuOption(p.LabelShortCap + " — " + r.OriginalFaction.Name +
-                    " (" + SilverPrice(r) + " серебра)", () => OpenNegotiation(captured)));
-            }
-            // Death reports are voluntary; a combat casualty is never automatically
-            // reclassified as a judicial execution or a public torture demonstration.
-            for (int i=0;i<ledger.Hostages.Count;i++)
-            {
-                RHFHostageRecord dead=ledger.Hostages[i];
-                if (dead?.Pawn == null || !dead.Pawn.Dead || dead.DeathReportMade ||
-                    !dead.Executed || dead.OriginalFaction==null || dead.DeathTick<=0)continue;
-                RHFHostageRecord target=dead;
-                choices.Add(new FloatMenuOption("Сообщить о казни " + target.Pawn.LabelShortCap,
-                    () => ReportExecution(target)));
-            }
-            if (choices.Count == 0)
-                Messages.Message("Нет доступных для переговоров пленников с установленной фракцией.", MessageTypeDefOf.RejectInput, false);
-            else Find.WindowStack.Add(new FloatMenu(choices));
-        }
-
-        public static void OpenNegotiation(RHFHostageRecord r)
+        // The text is explicitly offered AFTER the player agrees to release a hostage.
+        public static void AgreeRelease(RHFHostageRecord r, int silver, bool goodwill)
         {
             if (r == null || !HostageEligible(r.Pawn) || r.Paid) return;
-            string prompt = Summary(r) + "\n\nВыберите требование. Плата придёт только после того, как пленник действительно покинет карту живым.";
-            Find.WindowStack.Add(new Dialog_MessageBox(prompt,
-                "Выбрать условия", () => ChooseTerms(r),
-                "Закончить разговор", null));
+            r.PendingSilver = Math.Max(0, silver);
+            r.PendingGoodwill = goodwill;
+            r.Negotiated = true;
+            r.OfferDeadlineTick = 0;
+            Messages.Message("Договорённость достигнута. Отпустите " + r.Pawn.LabelShortCap +
+                ": награда будет доставлена после выхода пленника с карты.",
+                MessageTypeDefOf.NeutralEvent, false);
         }
 
-        private static void ChooseTerms(RHFHostageRecord r)
+        public static int CounterOfferChancePercent(RHFHostageRecord r, float factor)
         {
-            List<FloatMenuOption> options = new List<FloatMenuOption>();
-            int silver = SilverPrice(r);
-            options.Add(new FloatMenuOption("Потребовать выкуп: " + silver + " серебра", () =>
-                {
-                    r.PendingSilver = silver;
-                    r.PendingGoodwill = false;
-                    r.Negotiated = true;
-                    r.OfferDeadlineTick=0;
-                    Messages.Message("Условия приняты к рассмотрению. Отпустите пленника через вкладку 'Пленник'. Награда только после выхода с карты.", MessageTypeDefOf.NeutralEvent, false);
-                }));
-            options.Add(new FloatMenuOption("Предложить дорогой выкуп (+35%) — риск отказа", () =>
-                TryCounterOffer(r,1.35f)));
-            options.Add(new FloatMenuOption("Ультиматум (+80%) — высокий риск отказа", () =>
-                TryCounterOffer(r,1.80f)));
-            options.Add(new FloatMenuOption("Отпустить без платы — жест доброй воли", () =>
-                {
-                    r.PendingSilver = 0;
-                    r.PendingGoodwill = true;
-                    r.Negotiated = true;
-                    r.OfferDeadlineTick=0;
-                    Messages.Message("Договорённость достигнута. Отпустите пленника; отношения изменятся после его выхода с карты.", MessageTypeDefOf.NeutralEvent, false);
-                }));
-            int missing = MissingParts(r.Pawn);
-            if (r.InitialMissing > 0 && !r.ReportedInitialInjuries)
-                options.Add(new FloatMenuOption("Сообщить о старых боевых ранениях (без обвинений)", () =>
-                {
-                    r.ReportedInitialInjuries = true;
-                    Find.WindowStack.Add(new Dialog_MessageBox("Родственники потрясены состоянием пленника. " +
-                        "Ранения, полученные до заключения под стражу, не объявлены пытками и не дают бонусов к настроению."));
-                }));
-            if (missing > r.LastReportedMissing || r.CrueltyScore > r.DisclosedCrueltyScore)
-                options.Add(new FloatMenuOption("Сообщить родственникам о травмах и операциях", () => Disclose(r)));
-            if (r.Importance >= 3)
-                options.Add(new FloatMenuOption("Отказать фракции в возвращении пленника", () => Refuse(r)));
-            Find.WindowStack.Add(new FloatMenu(options));
+            if (r?.Pawn == null) return 0;
+            float health = r.Pawn.health?.summaryHealth?.SummaryHealthPercent ?? 1f;
+            float chance = Mathf.Clamp(.70f + Math.Min(8,r.Importance)*.03f +
+                (health-.5f)*.22f - (factor-1f)*.63f -
+                Math.Min(.25f, r.CrueltyScore*.004f) +
+                Mathf.Clamp(RHFPoliticalReputation.Pressure(r.OriginalFaction)/500f, -.25f,.15f), .05f,.94f);
+            return Mathf.RoundToInt(chance * 100f);
         }
 
-        private static void TryCounterOffer(RHFHostageRecord r, float factor)
+        public static bool RequestHigherRansom(RHFHostageRecord r, float factor)
         {
-            if(r?.OriginalFaction == null || !HostageEligible(r.Pawn) || r.Negotiated)return;
-            float health=r.Pawn.health?.summaryHealth?.SummaryHealthPercent ?? 1f;
-            float chance=Mathf.Clamp(.70f+Math.Min(8,r.Importance)*.03f+
-                (health-.5f)*.22f-(factor-1f)*.63f-
-                Math.Min(.25f,r.CrueltyScore*.004f)+
-                Mathf.Clamp(RHFPoliticalReputation.Pressure(r.OriginalFaction)/500f,-.25f,.15f),
-                .05f,.94f);
-            if(Rand.Chance(chance))
+            if (r?.OriginalFaction == null || !HostageEligible(r.Pawn) || r.Negotiated) return false;
+            if (Rand.RangeInclusive(1,100) <= CounterOfferChancePercent(r, factor))
             {
-                r.PendingSilver=Mathf.RoundToInt(SilverPrice(r)*factor);
-                r.Negotiated=true;
-                r.OfferDeadlineTick=0;
-                Find.WindowStack.Add(new Dialog_MessageBox(
-                    r.Importance>=5 ? "Совет фракции согласился: политическая цена потери пленника выше денег." :
-                    "Родные смогли собрать сумму. Их волнует, сколько времени у пленника ещё осталось.",
-                    "Согласовано",null));
+                AgreeRelease(r, Mathf.RoundToInt(SilverPrice(r)*factor), false);
+                return true;
             }
-            else
+            RHFPoliticalReputation.Change(r.OriginalFaction,-4);
+            if (r.Importance >= 5 && Rand.Chance(.35f)) QueueRetaliation(r);
+            return false;
+        }
+
+        public static string ReportCondition(RHFHostageRecord r)
+        {
+            if (r?.OriginalFaction == null || r.Pawn == null)
+                return "Связь прервана: установить личность и фракцию пленника не удалось.";
+            int extraMissing = Math.Max(0, MissingParts(r.Pawn) - r.LastReportedMissing);
+            int newCrimes = Math.Max(0, r.WceOperations - r.DisclosedOperations);
+            int newCruelty = Math.Max(0, r.CrueltyScore - r.DisclosedCrueltyScore);
+            if (extraMissing == 0 && newCrimes == 0 && newCruelty == 0 &&
+                (r.ReportedInitialInjuries || r.InitialMissing == 0))
+                return "«Мы уже получили эти сведения. Если состояние пленника изменится, сообщите отдельно».";
+            int requestedPenalty = Math.Min(90, extraMissing * 2 + newCruelty * (3 + r.Importance * 2));
+            int goodwillBefore = r.OriginalFaction.GoodwillWith(Faction.OfPlayer);
+            int pressureBefore = RHFPoliticalReputation.Pressure(r.OriginalFaction);
+            if (requestedPenalty > 0) RHFPoliticalReputation.Change(r.OriginalFaction, -requestedPenalty);
+            int actualGoodwill = r.OriginalFaction.GoodwillWith(Faction.OfPlayer) - goodwillBefore;
+            int actualPressure = RHFPoliticalReputation.Pressure(r.OriginalFaction) - pressureBefore;
+            int moods = 0;
+            if (newCruelty > 0)
             {
-                RHFPoliticalReputation.Change(r.OriginalFaction,-4);
-                if(r.Importance>=5 && Rand.Chance(.35f)) QueueRetaliation(r);
-                Find.WindowStack.Add(new Dialog_MessageBox(
-                    "Требование отклонено. Представитель фракции сочёл сумму вымогательством. " +
-                    "Следующий разговор будет труднее."));
+                RHFPublicityKind kind = newCrimes > 0 ? RHFPublicityKind.Torture :
+                    r.ForcedConversion && !r.Enslaved ? RHFPublicityKind.ForcedConversion :
+                    r.Enslaved ? RHFPublicityKind.Slavery : RHFPublicityKind.Torture;
+                moods = RHFMoralResponse.GivePublicCrueltyThoughts(r.Pawn, newCruelty, r.Importance, kind);
             }
+            string accusation = newCrimes >= 3 ?
+                "«ТРИ И БОЛЕЕ операции? Мне трудно даже произнести это вслух. Дайте мне секунду. Семья узнает всё. Вы ответите за каждого пострадавшего»." :
+                r.LastConfirmedOperationSeverity >= 10 ?
+                "«Вы лишили его жизненно важного органа? ... Нет. Я должен сообщить это семье лично. Я передаю показания командованию»." :
+                r.LastConfirmedOperationSeverity >= 8 ?
+                "«Вы искалечили его намеренно. Я слышу, как его родственник плачет рядом. Мы требуем независимого врача и его возвращения»." :
+                "«Вы называете это операцией? Ему причиняли боль нарочно! Я запишу каждое ваше слово для семьи и властей».";
+            string crime = newCrimes > 0 ? accusation :
+                newCruelty > 0 ? "«Мы услышали вас. Это обращение с пленником будет иметь последствия»." :
+                extraMissing > 0 ? "«У него отсутствуют части тела. Мы требуем медицинскую выписку и объяснений»." :
+                "«Мы приняли сведения о ранениях. Нам нужно знать, кто их нанёс».";
+            string evidence = newCrimes > 0 ? "\nДокументированная операция: " +
+                (string.IsNullOrEmpty(r.LastConfirmedOperation) ? "умышленное хирургическое вмешательство" : r.LastConfirmedOperation) +
+                ". Зафиксировано вредоносных операций: " + r.SurgicalCrueltyCount + "." :
+                extraMissing > 0 ? "\nПосле захвата обнаружены дополнительные отсутствующие части тела; исполнитель операции НЕ подтверждён журналом." :
+                (r.InitialMissing > 0 && !r.ReportedInitialInjuries ?
+                    "\nПри захвате уже отсутствовали части тела: " + r.InitialMissing +
+                    ". Такие травмы НЕ считаются пыткой без подтверждения их происхождения." :
+                    "\nНового подтверждённого хирургического вреда нет.");
+            string result = "\nИзменение обычной репутации RimWorld: " +
+                (actualGoodwill > 0 ? "+" : "") + actualGoodwill + "." +
+                (r.OriginalFaction.def.permanentEnemy ?
+                    " Постоянно враждебная фракция: goodwill изменить невозможно." :
+                    requestedPenalty > 0 && actualGoodwill == 0 ?
+                    " Репутация уже на границе шкалы или заблокирована игровыми правилами." : "") +
+                "\nИзменение отношения по учёту RHF: " +
+                (actualPressure > 0 ? "+" : "") + actualPressure +
+                " (отрицательные значения означают большую враждебность; учитываются в переговорах)." +
+                "\nДополнительное настроение RHF получили: " + moods + " колонистов.";
+            r.DisclosedOperations = r.WceOperations;
+            r.DisclosedCrueltyScore = r.CrueltyScore;
+            r.LastReportedMissing = MissingParts(r.Pawn);
+            r.ReportedInitialInjuries = true;
+            if (newCruelty > 0 && r.Importance >= 3) QueueRetaliation(r);
+            return crime + evidence + result;
         }
 
         public static void Disclose(RHFHostageRecord r)
         {
-            if (r == null || r.OriginalFaction == null) return;
-            int extraMissing = Math.Max(0, MissingParts(r.Pawn) - r.LastReportedMissing);
-            int newCrimes = Math.Max(0, r.WceOperations - r.DisclosedOperations);
-            int newCruelty = Math.Max(0, r.CrueltyScore - r.DisclosedCrueltyScore);
-            if (extraMissing == 0 && newCrimes == 0 && newCruelty == 0) return;
-            // Ordinary battle wounds are not deliberate cruelty. WCE operations performed
-            // by player doctors after capture count as deliberate acts; never guess from scars.
-            int goodwillLoss = Math.Min(90, extraMissing * 2 +
-                newCruelty * (3 + r.Importance * 2));
-            if (goodwillLoss > 0)
-                RHFPoliticalReputation.Change(r.OriginalFaction, -goodwillLoss);
-            if (newCruelty > 0)
-            {
-                RHFPublicityKind kind=newCrimes>0 ? RHFPublicityKind.Torture :
-                    r.ForcedConversion && !r.Enslaved ? RHFPublicityKind.ForcedConversion :
-                    r.Enslaved ? RHFPublicityKind.Slavery : RHFPublicityKind.Torture;
-                RHFMoralResponse.GivePublicCrueltyThoughts(r.Pawn,newCruelty,r.Importance,kind);
-            }
-            r.DisclosedOperations = r.WceOperations;
-            r.DisclosedCrueltyScore = r.CrueltyScore;
-            r.LastReportedMissing = MissingParts(r.Pawn);
-            if (newCruelty > 0 && r.Importance >= 3) QueueRetaliation(r);
-            Find.WindowStack.Add(new Dialog_MessageBox(newCruelty > 0 ?
-                "Фракция приняла сообщение об умышленных операциях. Родственники возмущены; власти требуют объяснений." :
-                "Сообщение о телесных повреждениях принято. Родственники встревожены; происхождение травм не установлено."));
+            Find.WindowStack.Add(new Dialog_MessageBox(ReportCondition(r)));
         }
 
         private static void ReportExecution(RHFHostageRecord r)
@@ -571,15 +515,14 @@ namespace RaidersHaveFamilies
             return selected??sponsor;
         }
 
-        public static void OnPrisonerExit(Pawn pawn, Map previousMap, bool wasReleased)
+        public static void OnPrisonerExit(Pawn pawn, Map previousMap, bool wasReleased, IntVec3 exitCell)
         {
             if (!wasReleased || previousMap == null || pawn == null || pawn.Dead) return;
             var ledger = Current.Game?.GetComponent<RHFGameLedger>();
             RHFHostageRecord r = ledger?.FindHostage(pawn);
             if (r == null || !r.Negotiated || r.Paid || r.OriginalFaction == null) return;
             r.Paid = true;
-            int goodwill = Mathf.Clamp(5 + r.Importance * 7 + ImprovedProsthetics(pawn) * 3 -
-                r.CrueltyScore * 2, 0, 80);
+            int goodwill = GoodwillReward(r);
             int undisclosed = Math.Max(0, r.CrueltyScore - r.DisclosedCrueltyScore);
             // Family discovers concealed cruelty when the released pawn returns.
             // No player mood bonus: they did not publicize it themselves.
@@ -587,20 +530,46 @@ namespace RaidersHaveFamilies
                 RHFPoliticalReputation.Change(r.OriginalFaction,
                     -Math.Min(95, undisclosed * (6 + r.Importance * 3)));
             if (r.PendingGoodwill && goodwill > 0)
+            {
+                int beforeGoodwill = r.OriginalFaction.GoodwillWith(Faction.OfPlayer);
                 RHFPoliticalReputation.Change(r.OriginalFaction, goodwill);
+                int realGain = r.OriginalFaction.GoodwillWith(Faction.OfPlayer) - beforeGoodwill;
+                string noticeGoodwill = realGain > 0 ?
+                    "Безвозмездное освобождение " + pawn.LabelShortCap + ": репутация с «" +
+                    r.OriginalFaction.Name + "» улучшена на +" + realGain + "." :
+                    "Пленник освобождён бесплатно. Обычная репутация не изменилась (постоянная вражда/граница шкалы); внутреннее отношение RHF улучшено.";
+                Messages.Message(noticeGoodwill, MessageTypeDefOf.NeutralEvent, true);
+            }
             if (r.PendingSilver > 0)
             {
                 int remaining = r.PendingSilver;
+                Thing firstDelivery = null;
+                IntVec3 deliveryCell = exitCell.IsValid && exitCell.InBounds(previousMap)
+                    ? exitCell : previousMap.Center;
                 while (remaining > 0)
                 {
                     Thing silver = ThingMaker.MakeThing(ThingDefOf.Silver);
                     int stack = Math.Min(remaining, silver.def.stackLimit);
                     silver.stackCount = stack;
-                    GenPlace.TryPlaceThing(silver, previousMap.Center, previousMap, ThingPlaceMode.Near);
+                    Thing placed;
+                    bool placedSuccessfully = GenPlace.TryPlaceThing(silver, deliveryCell, previousMap,
+                        ThingPlaceMode.Near, out placed);
+                    if (!placedSuccessfully && !silver.Destroyed)
+                        placedSuccessfully = GenPlace.TryPlaceThing(silver, previousMap.Center,
+                            previousMap, ThingPlaceMode.Near, out placed);
+                    if (placedSuccessfully)
+                    {
+                        if (firstDelivery == null) firstDelivery = placed;
+                    }
+                    else if (!silver.Destroyed) silver.Destroy(DestroyMode.Vanish);
                     remaining -= stack;
                 }
-                Messages.Message("Получено " + r.PendingSilver + " серебра за возвращение " + pawn.LabelShortCap +
-                    ".", MessageTypeDefOf.PositiveEvent, false);
+                string notice = "Доставлен выкуп за " + pawn.LabelShortCap + ": " +
+                    r.PendingSilver + " серебра. Нажмите на уведомление, чтобы увидеть место доставки.";
+                if (firstDelivery != null)
+                    Messages.Message(notice, firstDelivery, MessageTypeDefOf.PositiveEvent, true);
+                else Messages.Message("Выкуп за " + pawn.LabelShortCap +
+                    " не удалось разместить на карте — проверьте журнал RHF.", MessageTypeDefOf.RejectInput, true);
             }
             ledger.Hostages.Remove(r);
         }
@@ -623,15 +592,15 @@ namespace RaidersHaveFamilies
         }
 
         public static void RecordWceOperation(Pawn victim, Pawn doctor, string recipe,
-            RHFHostageRecord originalRecord = null)
+            RHFHostageRecord originalRecord = null, int severityOverride = 0, string label = null)
         {
-            if (RHFMod.Settings?.WCE2Events != true || victim == null || doctor == null ||
+            if (RHFMod.Settings?.Enabled != true || victim == null || doctor == null ||
                 doctor.Faction != Faction.OfPlayer) return;
             // Lethal surgeries can kill the pawn before the WCE postfix executes.
             RHFHostageRecord r = originalRecord ??
                 Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(victim);
             if (r == null) return;
-            int severity = RHFWCERegistry.SeverityOf(recipe);
+            int severity = severityOverride > 0 ? severityOverride : RHFWCERegistry.SeverityOf(recipe);
             if (severity <= 0) return; // Removing a torture implant is not another torture event.
             r.WceOperations = Math.Min(1000, r.WceOperations + 1);
             float pain = victim.health?.hediffSet?.PainTotal ?? 0f;
@@ -641,6 +610,14 @@ namespace RaidersHaveFamilies
             double multiplier = Math.Min(5.0, Math.Pow(1.13, Math.Min(14, r.WceOperations - 1)));
             int delta = (int)Math.Ceiling((severity + painBonus) * multiplier);
             r.CrueltyScore = Math.Min(500, r.CrueltyScore + delta);
+            r.SurgicalCrueltyCount = Math.Min(1000, r.SurgicalCrueltyCount + 1);
+            r.LastConfirmedOperation = string.IsNullOrEmpty(label) ? recipe : label;
+            r.LastConfirmedOperationSeverity = severity;
+            r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;
+            if (RHFMod.Settings.VerboseLogging)
+                Log.Message("[RHF][Surgery] Recorded " + r.LastConfirmedOperation +
+                    " for " + victim.LabelShortCap + "; severity " + severity +
+                    "; score " + r.CrueltyScore);
             // Do not grant mood until public disclosure. WCE2's *own* immediate
             // Ideology thoughts remain WCE2-owned and are not patched out.
 
@@ -653,7 +630,7 @@ namespace RaidersHaveFamilies
     {
         // No mood reward when operations remain unknown. Vanilla thought systems for
         // eating people, execution, slavery and conversion are never replaced.
-        public static void GivePublicCrueltyThoughts(Pawn victim, int newCruelty, int importance,
+        public static int GivePublicCrueltyThoughts(Pawn victim, int newCruelty, int importance,
             RHFPublicityKind kind=RHFPublicityKind.Torture)
         {
             // Exponential escalation in score, but bounded by six discrete memories.
@@ -661,7 +638,8 @@ namespace RaidersHaveFamilies
             int severity = Mathf.Clamp(Mathf.CeilToInt(Mathf.Log(1f + newCruelty *
                 (1f + importance * 0.5f), 1.7f)), 1, 6);
             ThoughtDef memory = DefDatabase<ThoughtDef>.GetNamedSilentFail("RHF_PublicCruelty" + severity);
-            if (memory == null) return;
+            if (memory == null) return 0;
+            int awarded = 0;
             foreach (Map m in Find.Maps)
             {
                 if (!m.IsPlayerHome) continue;
@@ -707,9 +685,11 @@ namespace RaidersHaveFamilies
                             if (previous != null) p.needs.mood.thoughts.memories.RemoveMemoriesOfDef(previous);
                         }
                         p.needs.mood.thoughts.memories.TryGainMemory(memory);
+                        awarded++;
                     }
                 }
             }
+            return awarded;
         }
     }
 }

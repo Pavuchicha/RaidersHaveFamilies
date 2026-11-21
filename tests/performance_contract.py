@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[1]
 source=(ROOT/'RaidersHaveFamilies/Source/RaidersHaveFamilies.cs').read_text(encoding='utf-8')
 operation=(ROOT/'RaidersHaveFamilies/Source/RHFOperations.cs').read_text(encoding='utf-8')
 patch=(ROOT/'RaidersHaveFamilies/Source/RHFPatches.cs').read_text(encoding='utf-8')
-for key in ['MaxBatchSize = 192','MaxPairProbes = 48','MaxRememberedIds = 8192',
+for key in ['MaxBatchSize = 192','MaxPairProbes = 64','MaxRememberedIds = 8192',
             'HardMaxPerCycle = 8','HardMaxPerSave = 512','CleanupGeneratedKin()',
             'ReuseExistingKin(', 'nextHostageCheck = tick + 30000']:
     assert key in source, key

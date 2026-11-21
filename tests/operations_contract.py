@@ -7,7 +7,7 @@ source=P/'RaidersHaveFamilies/Source'
 files={f.name:f.read_text('utf-8') for f in source.glob('*.cs')}
 assert {'RHFPatches.cs','RHFOperations.cs','RHFRanks.cs','RHFWCERegistry.cs','RHFHostageSystems.cs','RHFPoliticalReputation.cs'}<=set(files)
 assert 'Danger.Some, false, TraverseMode.ByPawn' not in files['RHFPatches.cs']
-assert 'Danger.Some)) return;' in files['RHFPatches.cs']
+assert 'RHFDialogue.HasCaptives(faction)' in files['RHFPatches.cs']
 assert 'PawnsArrivalModeDef' in files['RHFHostageSystems.cs']
 assert 'RaidArrivalModeDef' not in files['RHFHostageSystems.cs']
 for text in ['RHFRankResolver.RankOf','RansomMultiplier','SecondSponsor','ChooseExecutor','QueueRetaliation',

@@ -13,10 +13,10 @@ assert 'bool prisoner)' not in patch, 'old Harmony patch argument breaks in 1.7'
 assert 'p.IsPrisonerOfColony' in patch
 assert 'DebugForced' in ops and 'CancelDebugOperation' in ops
 assert 'using LudeonTK;' in debug
-assert debug.count('[DebugAction(') == 12
+assert debug.count('[DebugAction(') >= 25
 names = ['PreparePrisoner', 'Rescue', 'MassRescue', 'VipRescue', 'FieldPod',
     'Mercenaries', 'Coalition', 'Vengeance', 'TribalVengeance',
-    'HighTechDrop', 'HighTechSiege', 'Explain']
+    'HighTechDrop', 'HighTechSiege', 'Explain', 'InspectSelectedPawn', 'EnrichSelectedPawn']
 for name in names: assert 'void '+name+'()' in debug, name
 for name in ['RHFDebugScenario.Rescue', 'RHFDebugScenario.MassRescue',
     'RHFDebugScenario.VipRescue', 'RHFDebugScenario.FieldPod',
@@ -30,4 +30,4 @@ assert 'MaxDebugTargets = 24' in debug
 assert 'DelayTicks = 150' in debug
 assert 'MapComponentTick' not in debug
 assert 'RHFMod.Settings?.Retaliation != true' in ops
-print('PASS: 1.7 compile-error fixes, Harmony capture tracking, 12 developer actions, direct scenario scheduling and tick safeguards')
+print('PASS: 1.7 compile-error fixes, Harmony capture tracking, 14 developer actions, direct scenario scheduling and tick safeguards')

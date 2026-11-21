@@ -57,28 +57,21 @@ namespace RaidersHaveFamilies
         }
     }
 
-    [HarmonyPatch(typeof(Building_CommsConsole), "GetFloatMenuOptions")]
-    public static class RHFCommsEvent
+    // The VANILLA radio job is intentionally left intact. Faction.TryOpenComms
+    // opens its normal Dialog_Negotiation only after the pawn reaches the console.
+    [HarmonyPatch(typeof(FactionDialogMaker), nameof(FactionDialogMaker.FactionDialogFor))]
+    public static class RHFFactionConversation
     {
         [HarmonyPostfix]
-        public static void Postfix(Building_CommsConsole __instance, Pawn myPawn,
-            ref IEnumerable<FloatMenuOption> __result)
+        public static void Postfix(Pawn negotiator, Faction faction, ref DiaNode __result)
         {
             if (RHFMod.Settings?.Enabled != true || RHFMod.Settings.Negotiations != true ||
-                __instance?.Map == null || !__instance.CanUseCommsNow ||
-                myPawn == null || !myPawn.CanReach(__instance, PathEndMode.InteractionCell,
-                    Danger.Some)) return;
-            IEnumerable<FloatMenuOption> original = __result;
-            Map colony = __instance.Map;
-            __result = Append(original, colony);
-        }
-
-        private static IEnumerable<FloatMenuOption> Append(IEnumerable<FloatMenuOption> original, Map colony)
-        {
-            if (original != null)
-                foreach (FloatMenuOption o in original) yield return o;
-            yield return new FloatMenuOption("Связаться с родственниками и фракциями пленников…",
-                () => RHFHostageDiplomacy.OpenForColony(colony));
+                negotiator == null || negotiator.Map == null || faction == null ||
+                __result == null || !RHFDialogue.HasCaptives(faction)) return;
+            var option = new DiaOption("Обсудить возвращение наших пленников…")
+            { linkLateBind = () => RHFDialogue.Captives(negotiator, faction) };
+            int index = Math.Max(0, __result.options.Count - 1);
+            __result.options.Insert(index, option);
         }
     }
 
@@ -86,6 +79,7 @@ namespace RaidersHaveFamilies
     {
         public Map Map;
         public bool Released;
+        public IntVec3 ExitCell;
     }
 
     [HarmonyPatch(typeof(Pawn), nameof(Pawn.Kill))]
@@ -122,6 +116,7 @@ namespace RaidersHaveFamilies
             __state = new RHFExitState
             {
                 Map = __instance?.Map,
+                ExitCell = __instance?.Position ?? IntVec3.Invalid,
                 Released = __instance?.guest != null && __instance.guest.Released
             };
         }
@@ -131,61 +126,90 @@ namespace RaidersHaveFamilies
         {
             if (RHFMod.Settings?.Enabled != true || !__state.Released ||
                 __instance == null || __instance.Map != null) return;
-            RHFHostageDiplomacy.OnPrisonerExit(__instance, __state.Map, true);
+            RHFHostageDiplomacy.OnPrisonerExit(__instance, __state.Map, true, __state.ExitCell);
         }
     }
 
-    // Optional deep integration: patch only workers attached to WCE2 recipe defs.
-    // No compile-time dependence on the other mod and no blanket medical tick hooks.
+    // Surgical events: one Harmony patch for each distinct applicable recipe worker
+    // method at startup. The postfix is ONLY invoked when the game executes a surgery.
+    // It never scans the map, pawns, health trackers, or hediffs per tick.
     public static class RHFWarCrimesIntegration
     {
         private static readonly HashSet<MethodBase> patched = new HashSet<MethodBase>();
+        public static int PatchedWorkers;
+        public static int WceRecipesDetected;
+        public static int VanillaRecipesDetected;
+
+        // Vanilla organ harvesting may use the generic RemoveBodyPart worker;
+        // only violations that REMOVE organs/parts are classified here.
+        public static int SeverityOf(RecipeDef recipe)
+        {
+            if (recipe == null) return 0;
+            if (RHFWCERegistry.Known(recipe.defName))
+                return RHFMod.Settings?.WCE2Events == true ? RHFWCERegistry.SeverityOf(recipe.defName) : 0;
+            if (!recipe.isViolation) return 0;
+            string n = (recipe.defName ?? "").ToLowerInvariant();
+            string label = (recipe.label ?? "").ToLowerInvariant();
+            string worker = (recipe.workerClass?.Name ?? "").ToLowerInvariant();
+            bool organ = n.Contains("kidney") || n.Contains("lung") || n.Contains("liver") ||
+                n.Contains("heart") || n.Contains("stomach") || n.Contains("organ") ||
+                label.Contains("kidney") || label.Contains("lung") || label.Contains("liver") ||
+                label.Contains("heart") || label.Contains("орган") || label.Contains("почку") ||
+                label.Contains("лёгк") || label.Contains("печень") || label.Contains("сердце");
+            bool removal = n.Contains("harvest") || n.Contains("extract") ||
+                n.Contains("remove") || label.Contains("harvest") ||
+                label.Contains("извлеч") || label.Contains("удалить") ||
+                worker.Contains("removebodypart");
+            return removal && organ ? 8 : (worker.Contains("removebodypart") && removal ? 4 : 0);
+        }
 
         public static void Patch(Harmony harmony)
         {
-            if (RHFMod.Settings?.WCE2Events == false) return;
-            bool installed = false;
-            foreach (ModContentPack mod in LoadedModManager.RunningModsListForReading)
-                if (string.Equals(mod.PackageId, "mersid.wce2updated.core", StringComparison.OrdinalIgnoreCase))
-                { installed = true; break; }
-            if (!installed) return;
-            int count = 0;
+            int workers = 0;
+            WceRecipesDetected = 0; VanillaRecipesDetected = 0;
             MethodInfo postfix = AccessTools.Method(typeof(RHFWarCrimesIntegration), nameof(OnSurgery));
+            MethodInfo prefix = AccessTools.Method(typeof(RHFWarCrimesIntegration), nameof(BeforeSurgery));
             foreach (RecipeDef recipe in DefDatabase<RecipeDef>.AllDefsListForReading)
             {
-                if (recipe?.workerClass == null || recipe.defName == null ||
-                    !RHFWCERegistry.Known(recipe.defName)) continue;
+                if (recipe?.workerClass == null || SeverityOf(recipe) <= 0) continue;
+                if (RHFWCERegistry.Known(recipe.defName)) WceRecipesDetected++;
+                else VanillaRecipesDetected++;
                 MethodInfo target = AccessTools.Method(recipe.workerClass, "ApplyOnPawn");
                 if (target == null || !patched.Add(target)) continue;
-                try {
-                    harmony.Patch(target,
-                        prefix: new HarmonyMethod(AccessTools.Method(typeof(RHFWarCrimesIntegration), nameof(BeforeSurgery))),
-                        postfix: new HarmonyMethod(postfix));
-                    count++;
+                try
+                {
+                    harmony.Patch(target, prefix: new HarmonyMethod(prefix), postfix: new HarmonyMethod(postfix));
+                    workers++;
                 }
-                catch (Exception e) { Log.Warning("[Raiders Have Families] Optional WCE2 worker skipped: " + e.Message); }
+                catch (Exception e)
+                {
+                    patched.Remove(target);
+                    Log.Warning("[RHF] Medical patch skipped: " + e.Message);
+                }
             }
-            Log.Message("[Raiders Have Families] WCE2 surgery workers patched: " + count);
+            PatchedWorkers = workers;
+            Log.Message("[RHF] Surgical hooks: " + workers +
+                ", harmful WCE2 recipes: " + WceRecipesDetected +
+                ", vanilla organ/violation recipes: " + VanillaRecipesDetected);
         }
 
-        // Prefix captures the original prisoner record even for operations that kill
-        // their patient before ApplyOnPawn returns (vivisection or organ removal).
         public static void BeforeSurgery(RecipeWorker __instance, Pawn pawn, Pawn billDoer,
             out RHFHostageRecord __state)
         {
-            __state=null;
-            if (pawn != null && billDoer?.Faction == Faction.OfPlayer && pawn.IsPrisonerOfColony &&
-                RHFWCERegistry.SeverityOf(__instance?.recipe?.defName)>0)
-                __state=Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(pawn);
+            __state = null;
+            if (pawn == null || billDoer?.Faction != Faction.OfPlayer ||
+                !pawn.IsPrisonerOfColony || SeverityOf(__instance?.recipe) <= 0) return;
+            __state = Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(pawn);
         }
 
-        // Called after a successful WCE2 surgery. Routine removals are excluded.
         public static void OnSurgery(RecipeWorker __instance, Pawn pawn, Pawn billDoer,
             RHFHostageRecord __state)
         {
-            if (__state==null || !RHFWCERegistry.Known(__instance?.recipe?.defName)) return;
+            RecipeDef recipe = __instance?.recipe;
+            int severity = SeverityOf(recipe);
+            if (__state == null || severity <= 0) return;
             RHFHostageDiplomacy.RecordWceOperation(pawn, billDoer,
-                __instance.recipe.defName, __state);
+                recipe.defName, __state, severity, recipe.label);
         }
     }
 }

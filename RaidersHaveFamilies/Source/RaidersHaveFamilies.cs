@@ -14,13 +14,13 @@ namespace RaidersHaveFamilies
     {
         // Existing Scribe keys retained: old 0.1.x settings and game saves remain readable.
         public bool Enabled = true;
-        public int SettingsSchema = 2;
-        public float ParentChance = 0.75f;
-        public float PartnerChance = 0.32f;
-        public float RaidmatePartnerChance = 0.58f;
-        public float SharedParentChance = 0.68f;
-        public int MaxPerWave = 6; // bounded generation attempts per arriving group
-        public int MaxPerSave = 256;
+        public int SettingsSchema = 3;
+        public float ParentChance = 0.92f;
+        public float PartnerChance = 0.58f;
+        public float RaidmatePartnerChance = 0.75f;
+        public float SharedParentChance = 0.85f;
+        public int MaxPerWave = 8; // bounded generation attempts per arriving group
+        public int MaxPerSave = 384;
         public bool VerboseLogging = false;
         public bool Negotiations = true;
         public bool Retaliation = true;
@@ -29,11 +29,12 @@ namespace RaidersHaveFamilies
         public bool EnableRescueOperations = true;
         public bool FieldEvacPod = true;
         public float InterventionStrength = 1f;
-        public float FactionRelativeChance = 0.45f;
+        public float FactionRelativeChance = 0.80f;
 
         // Hard safety ceilings also apply to previously saved settings.
         public const int HardMaxPerCycle = 8;
         public const int HardMaxPerSave = 512;
+        public int DesiredLinks = 5; // best-effort density target for small arriving groups
 
         public void Clamp()
         {
@@ -46,6 +47,7 @@ namespace RaidersHaveFamilies
                 Math.Max(.5f,Math.Min(2f,InterventionStrength));
             MaxPerWave = Math.Max(0, Math.Min(MaxPerWave, HardMaxPerCycle));
             MaxPerSave = Math.Max(0, Math.Min(MaxPerSave, HardMaxPerSave));
+            DesiredLinks = Math.Max(1, Math.Min(DesiredLinks, 7));
         }
 
         private static float ClampProbability(float value)
@@ -60,6 +62,7 @@ namespace RaidersHaveFamilies
             base.ExposeData();
             Scribe_Values.Look(ref Enabled, "enabled", true);
             Scribe_Values.Look(ref SettingsSchema, "rhfSettingsSchema", 1);
+            Scribe_Values.Look(ref DesiredLinks, "rhfDesiredLinks", 5);
             Scribe_Values.Look(ref ParentChance, "parentChance", 0.75f);
             Scribe_Values.Look(ref PartnerChance, "partnerChance", 0.32f);
             Scribe_Values.Look(ref RaidmatePartnerChance, "raidmatePartnerChance", 0.50f);
@@ -84,6 +87,19 @@ namespace RaidersHaveFamilies
                     if (MaxPerWave == 1 || MaxPerWave == 2) MaxPerWave = 4;
                     if (MaxPerSave == 32 && MaxPerWave > 0) MaxPerSave = 256;
                     SettingsSchema = 2;
+                }
+                if (SettingsSchema < 3)
+                {
+                    // Upgrade only untouched v0.3.x defaults; preserve deliberate player settings.
+                    if (Math.Abs(ParentChance - .75f) < .001f) ParentChance = .92f;
+                    if (Math.Abs(PartnerChance - .32f) < .001f) PartnerChance = .58f;
+                    if (Math.Abs(RaidmatePartnerChance - .58f) < .001f) RaidmatePartnerChance = .75f;
+                    if (Math.Abs(SharedParentChance - .68f) < .001f) SharedParentChance = .85f;
+                    if (Math.Abs(FactionRelativeChance - .45f) < .001f) FactionRelativeChance = .80f;
+                    if (MaxPerWave == 6 || MaxPerWave == 4) MaxPerWave = 8;
+                    if (MaxPerSave == 256 && MaxPerWave > 0) MaxPerSave = 384;
+                    DesiredLinks = 5;
+                    SettingsSchema = 3;
                 }
                 Clamp();
             }
@@ -119,6 +135,8 @@ namespace RaidersHaveFamilies
             listing.Label("RHF_Siblings".Translate(Settings.SharedParentChance.ToString("P0")));
             Settings.SharedParentChance = listing.Slider(Settings.SharedParentChance, 0f, 1f);
             listing.GapLine();
+            listing.Label("Целевая плотность отношений (на персонажа): " + Settings.DesiredLinks + " (по возможности)");
+            Settings.DesiredLinks = (int)listing.Slider(Settings.DesiredLinks, 1f, 7f);
             listing.Label("RHF_PerCycle".Translate(Settings.MaxPerWave));
             Settings.MaxPerWave = (int)listing.Slider(Settings.MaxPerWave, 0f, RHFSettings.HardMaxPerCycle);
             listing.Label("RHF_PerSave".Translate(Settings.MaxPerSave));
@@ -151,6 +169,7 @@ namespace RaidersHaveFamilies
         public int CreatedWorldPawns;
         public List<RHFHostageRecord> Hostages = new List<RHFHostageRecord>();
         public List<RHFManagedLink> ManagedLinks = new List<RHFManagedLink>();
+        public List<RHFProvenanceLink> ProvenanceLinks = new List<RHFProvenanceLink>();
         public List<RHFWorldKin> GeneratedKin = new List<RHFWorldKin>();
         public List<RHFFactionStanding> FactionStandings = new List<RHFFactionStanding>();
         public int ActiveGeneratedKin => GeneratedKin?.Count ?? 0;
@@ -162,6 +181,7 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref CreatedWorldPawns, "rhfWorldPawnsCreated", 0);
             Scribe_Collections.Look(ref Hostages, "rhfHostagesV2", LookMode.Deep);
             Scribe_Collections.Look(ref ManagedLinks, "rhfLinksV2", LookMode.Deep);
+            Scribe_Collections.Look(ref ProvenanceLinks, "rhfProvenanceV4", LookMode.Deep);
             Scribe_Collections.Look(ref GeneratedKin, "rhfGeneratedKinV2", LookMode.Deep);
             Scribe_Collections.Look(ref FactionStandings, "rhfStandingV3", LookMode.Deep);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
@@ -169,6 +189,19 @@ namespace RaidersHaveFamilies
                 CreatedWorldPawns = Math.Max(0, CreatedWorldPawns);
                 if (Hostages == null) Hostages = new List<RHFHostageRecord>();
                 if (ManagedLinks == null) ManagedLinks = new List<RHFManagedLink>();
+                if (ProvenanceLinks == null) ProvenanceLinks = new List<RHFProvenanceLink>();
+                if (ProvenanceLinks.Count == 0 && ManagedLinks.Count > 0)
+                {
+                    // Legacy RHF-managed temporary relations are positive evidence
+                    // of origin, unlike vanilla parentage from v0.3.x.
+                    for (int i = 0; i < ManagedLinks.Count && ProvenanceLinks.Count < 4096; i++)
+                    {
+                        RHFManagedLink old = ManagedLinks[i];
+                        if (old == null || old.A == null || old.B == null || old.Relation == null) continue;
+                        if (old.A.relations != null && old.A.relations.DirectRelationExists(old.Relation, old.B))
+                            ProvenanceLinks.Add(new RHFProvenanceLink(old.A, old.B, old.Relation.defName + " (RHF до v0.4.0)"));
+                    }
+                }
                 if (GeneratedKin == null) GeneratedKin = new List<RHFWorldKin>();
                 if (FactionStandings == null) FactionStandings = new List<RHFFactionStanding>();
                 nextHostageCheck = Find.TickManager.TicksGame + 30000;
@@ -184,6 +217,7 @@ namespace RaidersHaveFamilies
 
         private void CleanupGeneratedKin()
         {
+            HashSet<Pawn> removedKin = null;
             // World-pawn removal ONLY for this mod's own generated kin.
             // Never destroy a pawn while it or any relative is in active play.
             for (int i = GeneratedKin.Count - 1; i >= 0; i--)
@@ -224,12 +258,54 @@ namespace RaidersHaveFamilies
                     if (Find.WorldPawns != null && Find.WorldPawns.Contains(kin))
                         Find.WorldPawns.RemovePawn(kin);
                     GeneratedKin.RemoveAt(i);
+                    if (removedKin == null) removedKin = new HashSet<Pawn>();
+                    removedKin.Add(kin);
                 }
                 catch (Exception e)
                 {
                     if (RHFMod.Settings?.VerboseLogging == true)
                         Log.Warning("[Raiders Have Families] Kin cleanup was deferred: " + e);
                 }
+            }
+            // Drop references to deleted off-map kin in one bounded pass.
+            if (removedKin != null)
+                ProvenanceLinks.RemoveAll(link => link == null ||
+                    removedKin.Contains(link.A) || removedKin.Contains(link.B));
+        }
+
+        public void RegisterProvenance(Pawn a, Pawn b, string kind)
+        {
+            if (a == null || b == null || a == b || kind == null || ProvenanceLinks.Count >= 4096) return;
+            for (int i = ProvenanceLinks.Count - 1; i >= 0; i--)
+            {
+                RHFProvenanceLink old = ProvenanceLinks[i];
+                if (old != null && ((old.A == a && old.B == b) || (old.A == b && old.B == a)) && old.Kind == kind)
+                    return;
+            }
+            ProvenanceLinks.Add(new RHFProvenanceLink(a, b, kind));
+        }
+
+        public int ConfirmedLinks(Pawn p)
+        {
+            if (p == null) return 0;
+            int count = 0;
+            for (int i = 0; i < ProvenanceLinks.Count; i++)
+            {
+                RHFProvenanceLink link = ProvenanceLinks[i];
+                if (link != null && (link.A == p || link.B == p) && link.A != null && link.B != null) count++;
+            }
+            return count;
+        }
+
+        private void PruneProvenance()
+        {
+            // Only our records; never remove vanilla relations or family trees.
+            for (int i = ProvenanceLinks.Count - 1; i >= 0; i--)
+            {
+                RHFProvenanceLink link = ProvenanceLinks[i];
+                if (link == null || link.A == null || link.B == null ||
+                    link.A.Destroyed || link.B.Destroyed)
+                    ProvenanceLinks.RemoveAt(i);
             }
         }
 
@@ -299,6 +375,7 @@ namespace RaidersHaveFamilies
             }
             CleanupDeparted();
             CleanupGeneratedKin();
+            PruneProvenance();
         }
     }
 
@@ -308,7 +385,7 @@ namespace RaidersHaveFamilies
     {
         private const int FirstScanDelay = 120;
         private const int MaxBatchSize = 192; // bounds raidmate sets
-        private const int MaxPairProbes = 48; // bounds matching work per newcomer
+        private const int MaxPairProbes = 64; // bounds matching work per newcomer
         private const int MaxRememberedIds = 8192; // guards old/long-running saves
         private const int DropOldestCount = 4096;
 
@@ -387,6 +464,24 @@ namespace RaidersHaveFamilies
                 (RHFMod.Settings.IncludeVisitors || p.Faction.HostileTo(Faction.OfPlayer));
         }
 
+        // Developer-only enrichment: inspect an existing save without spawning a new raid.
+        // Never called in the tick loop and does not erase existing relations.
+        public static void EnrichSelectedForDebug(Pawn pawn)
+        {
+            if (pawn == null || !pawn.Spawned || pawn.Faction == null || pawn.Faction.IsPlayer ||
+                pawn.relations == null || pawn.RaceProps == null || !pawn.RaceProps.Humanlike) return;
+            Enrich(new List<Pawn> { pawn });
+        }
+
+        private static int CurrentRelations(Pawn pawn)
+        {
+            int total = 0;
+            if (pawn?.relations == null) return 0;
+            foreach (Pawn other in pawn.relations.RelatedPawns)
+                if (other != null && other != pawn && ++total >= 64) break;
+            return total;
+        }
+
         private static void Enrich(List<Pawn> newcomers)
         {
             RHFSettings cfg = RHFMod.Settings;
@@ -397,6 +492,10 @@ namespace RaidersHaveFamilies
             int created = 0;
             int generationAttempts = 0; // hard bound even when pawn generation fails
             int links = 0;
+            links += LinkGroupFamily(newcomers, ledger);
+            // Reuse our existing retained relatives before generating another world pawn.
+            links += ReuseExistingKin(newcomers, ledger, cfg);
+
             // All pair matching runs once per batch, not on repeated ticks.
             HashSet<Pawn> paired = new HashSet<Pawn>();
             for (int i = 0; i < newcomers.Count; i++)
@@ -418,6 +517,7 @@ namespace RaidersHaveFamilies
                         (loveRoll < .43f ? PawnRelationDefOf.Fiance : PawnRelationDefOf.Lover);
                     p.relations.AddDirectRelation(love, q);
                     ledger.RegisterTemporaryLink(p, q, love);
+                    ledger.RegisterProvenance(p, q, love.defName);
                     paired.Add(p);
                     paired.Add(q);
                     links++;
@@ -425,16 +525,13 @@ namespace RaidersHaveFamilies
                 }
             }
 
-            links += LinkGroupFamily(newcomers, ledger);
-            // Reuse our existing retained relatives before generating another world pawn.
-            links += ReuseExistingKin(newcomers, ledger, cfg);
-
             // Two group members may share one real off-map parent.
             HashSet<Pawn> grouped = new HashSet<Pawn>();
             for (int i = 0; i < newcomers.Count && CanCreate(ledger, cfg, created, generationAttempts); i++)
             {
                 Pawn p = newcomers[i];
-                if (p.def != ThingDefOf.Human || grouped.Contains(p) || !HasMissingParent(p) ||
+                if (p.def != ThingDefOf.Human || grouped.Contains(p) ||
+                    CurrentRelations(p) >= cfg.DesiredLinks || !HasMissingParent(p) ||
                     !Rand.Chance(cfg.SharedParentChance)) continue;
                 int probed = 0;
                 for (int j = i + 1; j < newcomers.Count && probed < MaxPairProbes; j++, probed++)
@@ -463,6 +560,8 @@ namespace RaidersHaveFamilies
                         p.SetMother(parent);
                         q.SetMother(parent);
                     }
+                    ledger.RegisterProvenance(p, parent, g == Gender.Male ? "Отец" : "Мать");
+                    ledger.RegisterProvenance(q, parent, g == Gender.Male ? "Отец" : "Мать");
                     grouped.Add(p);
                     grouped.Add(q);
                     links += 2;
@@ -470,38 +569,39 @@ namespace RaidersHaveFamilies
                 }
             }
 
-            // At most 4 (8 if configured) off-map pawn-generation attempts per arrival.
-            // The total generated across this save is also capped.
-            for (int i = 0; i < newcomers.Count && CanCreate(ledger, cfg, created, generationAttempts); i++)
+            // Round-robin parents: two passes distribute budget across a group fairly.
+            // Never add a second parent of the same sex or invent impossible age gaps.
+            for (int pass = 0; pass < 2 && CanCreate(ledger, cfg, created, generationAttempts); pass++)
             {
-                Pawn p = newcomers[i];
-                if (p.def == ThingDefOf.Human && Age(p) < 70f && HasMissingParent(p) && Rand.Chance(cfg.ParentChance))
+                for (int i = 0; i < newcomers.Count && CanCreate(ledger, cfg, created, generationAttempts); i++)
                 {
+                    Pawn p = newcomers[i];
+                    if (p.def != ThingDefOf.Human || Age(p) >= 70f ||
+                        CurrentRelations(p) >= cfg.DesiredLinks || !HasMissingParent(p) || !Rand.Chance(cfg.ParentChance)) continue;
                     Gender g = MissingParentGender(p);
                     generationAttempts++;
                     Pawn parent = NewWorldPawn(p, g, Age(p) + Rand.Range(22f, 36f), true, true);
-                    if (parent != null)
-                    {
-                        ledger.RegisterGeneratedKin(parent);
-                        created++;
-                        if (g == Gender.Male) p.SetFather(parent);
-                        else p.SetMother(parent);
-                        links++;
-                    }
+                    if (parent == null) continue;
+                    ledger.RegisterGeneratedKin(parent);
+                    created++;
+                    if (g == Gender.Male) p.SetFather(parent);
+                    else p.SetMother(parent);
+                    ledger.RegisterProvenance(p, parent, g == Gender.Male ? "Отец" : "Мать");
+                    links++;
                 }
-                if (!CanCreate(ledger, cfg, created, generationAttempts)) break;
-                if (p.def != ThingDefOf.Human || !CanLove(p) || !Rand.Chance(cfg.PartnerChance)) continue;
+            }
+
+            // Romantic partners get an independent fair pass over newcomers.
+            for (int i = 0; i < newcomers.Count && CanCreate(ledger, cfg, created, generationAttempts); i++)
+            {
+                Pawn p = newcomers[i];
+                if (p.def != ThingDefOf.Human || CurrentRelations(p) >= cfg.DesiredLinks ||
+                    !CanLove(p) || !Rand.Chance(cfg.PartnerChance)) continue;
                 Gender partnerGender = DesiredPartnerGender(p);
                 generationAttempts++;
                 Pawn partner = NewWorldPawn(p, partnerGender,
                     Math.Max(18f, Age(p) + Rand.Range(-8f, 9f)), false, false);
-                if (partner == null) continue;
-                if (!RomanceGenderCompatible(p, partner))
-                {
-                    // Generated pawns can have conflicting sexuality. Do not connect
-                    // those pawns. The failed candidate is not passed to WorldPawns.
-                    continue;
-                }
+                if (partner == null || !RomanceGenderCompatible(p, partner)) continue;
                 KeepWorldPawn(partner);
                 ledger.RegisterGeneratedKin(partner);
                 created++;
@@ -509,9 +609,57 @@ namespace RaidersHaveFamilies
                 PawnRelationDef relation = roll < .32f ? PawnRelationDefOf.Spouse :
                     (roll < .52f ? PawnRelationDefOf.Fiance : PawnRelationDefOf.Lover);
                 p.relations.AddDirectRelation(relation, partner);
-                // World pawn is bounded and persisted. Never delete an active family tree.
+                ledger.RegisterProvenance(p, partner, relation.defName);
                 links++;
             }
+
+            // Share one parent's pedigree with up to two new siblings.
+            // These are real derived siblings, not fabricated UI-only labels.
+            for (int pass = 0; pass < 2 && CanCreate(ledger, cfg, created, generationAttempts); pass++)
+            for (int i = 0; i < newcomers.Count && CanCreate(ledger, cfg, created, generationAttempts); i++)
+            {
+                Pawn p = newcomers[i];
+                if (p.def != ThingDefOf.Human || CurrentRelations(p) >= cfg.DesiredLinks ||
+                    !Rand.Chance(cfg.SharedParentChance)) continue;
+                Pawn parent = p.GetMother() ?? p.GetFather();
+                if (parent == null) continue;
+                float siblingAge = Math.Max(18f, Age(p) + Rand.Range(-9f, 10f));
+                if (Age(parent) < siblingAge + 18f) continue;
+                Gender siblingGender = Rand.Bool ? Gender.Female : Gender.Male;
+                generationAttempts++;
+                Pawn sibling = NewWorldPawn(p, siblingGender, siblingAge, true, false);
+                if (sibling == null) continue;
+                KeepWorldPawn(sibling);
+                ledger.RegisterGeneratedKin(sibling);
+                created++;
+                if (parent.gender == Gender.Male) sibling.SetFather(parent);
+                else sibling.SetMother(parent);
+                ledger.RegisterProvenance(sibling, parent, parent.gender == Gender.Male ? "Отец" : "Мать");
+                ledger.RegisterProvenance(p, sibling, "Родство через общего родителя");
+                links++;
+            }
+            // Optional adult child for sufficiently old pawns; never a teenager
+            // or an implausibly young parent and never at an unbounded cost.
+            for (int i = 0; i < newcomers.Count && CanCreate(ledger, cfg, created, generationAttempts); i++)
+            {
+                Pawn parent = newcomers[i];
+                if (parent.def != ThingDefOf.Human || Age(parent) < 42f ||
+                    CurrentRelations(parent) >= cfg.DesiredLinks || !Rand.Chance(.38f)) continue;
+                float childAge = Age(parent) - Rand.Range(23f, 33f);
+                if (childAge < 18f) continue;
+                Gender childGender = Rand.Bool ? Gender.Female : Gender.Male;
+                generationAttempts++;
+                Pawn child = NewWorldPawn(parent, childGender, childAge, true, false);
+                if (child == null) continue;
+                KeepWorldPawn(child);
+                ledger.RegisterGeneratedKin(child);
+                created++;
+                if (parent.gender == Gender.Male) child.SetFather(parent);
+                else child.SetMother(parent);
+                ledger.RegisterProvenance(parent, child, "Ребёнок");
+                links++;
+            }
+
             if (cfg.VerboseLogging)
                 Log.Message("[Raiders Have Families] batch=" + newcomers.Count +
                     ", world pawns=" + created + ", links=" + links +
@@ -538,14 +686,15 @@ namespace RaidersHaveFamilies
                         kin.Faction!=pawn.Faction || HaveAnyRelation(pawn,kin)) continue;
                     float gap=Age(kin)-Age(pawn);
                     if(gap>=18f && kin.gender==Gender.Male && pawn.GetFather()==null)
-                    { pawn.SetFather(kin); linked++; break; }
+                    { pawn.SetFather(kin); ledger.RegisterProvenance(pawn,kin,"Отец (известный миру)"); linked++; break; }
                     if(gap>=18f && kin.gender==Gender.Female && pawn.GetMother()==null)
-                    { pawn.SetMother(kin); linked++; break; }
+                    { pawn.SetMother(kin); ledger.RegisterProvenance(pawn,kin,"Мать (известная миру)"); linked++; break; }
                     if(Math.Abs(gap)<=16f && CanLove(pawn) && CanLove(kin) &&
                         RomanceGenderCompatible(pawn,kin) && Rand.Chance(.25f))
                     {
                         PawnRelationDef rel=Rand.Bool?PawnRelationDefOf.Lover:PawnRelationDefOf.Fiance;
                         pawn.relations.AddDirectRelation(rel,kin);
+                        ledger.RegisterProvenance(pawn,kin,rel.defName);
                         linked++;break;
                     }
                 }
@@ -558,28 +707,33 @@ namespace RaidersHaveFamilies
         private static int LinkGroupFamily(List<Pawn> newcomers, RHFGameLedger ledger)
         {
             int links = 0;
-            for (int i = 0; i < newcomers.Count; i++)
+            int familyBudget = Math.Min(320, newcomers.Count * 3);
+            for (int i = 0; i < newcomers.Count && links < familyBudget; i++)
             {
                 Pawn p = newcomers[i];
+                if (CurrentRelations(p) >= RHFMod.Settings.DesiredLinks) continue;
                 int checkedCount = 0;
                 for (int j = i + 1; j < newcomers.Count && checkedCount < MaxPairProbes; j++, checkedCount++)
                 {
                     Pawn q = newcomers[j];
-                    if (p.Faction != q.Faction || p.def != q.def || HaveAnyRelation(p, q)) continue;
+                    if (links >= familyBudget || CurrentRelations(p) >= RHFMod.Settings.DesiredLinks) break;
+                    if (CurrentRelations(q) >= RHFMod.Settings.DesiredLinks ||
+                        p.Faction != q.Faction || p.def != q.def || HaveAnyRelation(p, q)) continue;
                     float older = Age(p) - Age(q);
                     // Genuine parent-child connections within a traveling group:
                     // keep at least an 18-year plausible biological age gap.
-                    if (older >= 18f && Rand.Chance(.18f) && AttachParent(q, p)) { links++; continue; }
-                    if (older <= -18f && Rand.Chance(.18f) && AttachParent(p, q)) { links++; continue; }
+                    if (older >= 18f && Rand.Chance(.34f) && AttachParent(q, p, ledger)) { links++; continue; }
+                    if (older <= -18f && Rand.Chance(.34f) && AttachParent(p, q, ledger)) { links++; continue; }
                     if (Math.Abs(older) > 19f) continue;
                     // Share a previously existing parent. No creation, no world-pawn cost.
-                    if (Rand.Chance(RHFMod.Settings.FactionRelativeChance * .65f) && TryShareParent(p, q)) { links++; continue; }
-                    if (Rand.Chance(.10f) && p.gender != Gender.None && q.gender != Gender.None &&
+                    if (Rand.Chance(RHFMod.Settings.FactionRelativeChance * .88f) && TryShareParent(p, q, ledger)) { links++; continue; }
+                    if (Rand.Chance(.16f) && p.gender != Gender.None && q.gender != Gender.None &&
                         RomanceGenderCompatible(p, q) && Age(p) >= 18f && Age(q) >= 18f)
                     {
                         PawnRelationDef ex = Rand.Bool ? PawnRelationDefOf.ExLover : PawnRelationDefOf.ExSpouse;
                         p.relations.AddDirectRelation(ex, q);
                         ledger.RegisterTemporaryLink(p, q, ex);
+                        ledger.RegisterProvenance(p, q, ex.defName);
                         links++;
                     }
                 }
@@ -587,32 +741,32 @@ namespace RaidersHaveFamilies
             return links;
         }
 
-        private static bool AttachParent(Pawn child, Pawn parent)
+        private static bool AttachParent(Pawn child, Pawn parent, RHFGameLedger ledger)
         {
             if (child == null || parent == null || child == parent ||
                 child.def != parent.def || parent.RaceProps.Humanlike == false) return false;
             if (parent.gender == Gender.Male && child.GetFather() == null)
-            { child.SetFather(parent); return true; }
+            { child.SetFather(parent); ledger.RegisterProvenance(child,parent,"Отец (из одной группы)"); return true; }
             if (parent.gender == Gender.Female && child.GetMother() == null)
-            { child.SetMother(parent); return true; }
+            { child.SetMother(parent); ledger.RegisterProvenance(child,parent,"Мать (из одной группы)"); return true; }
             return false;
         }
 
-        private static bool TryShareParent(Pawn a, Pawn b)
+        private static bool TryShareParent(Pawn a, Pawn b, RHFGameLedger ledger)
         {
             if (Math.Abs(Age(a) - Age(b)) > 18f) return false;
             Pawn father = a.GetFather();
             Pawn mother = a.GetMother();
             if (father != null && b.GetFather() == null && Age(father) >= Age(b) + 18f)
-            { b.SetFather(father); return true; }
+            { b.SetFather(father); ledger.RegisterProvenance(b,father,"Отец (общий)"); return true; }
             if (mother != null && b.GetMother() == null && Age(mother) >= Age(b) + 18f)
-            { b.SetMother(mother); return true; }
+            { b.SetMother(mother); ledger.RegisterProvenance(b,mother,"Мать (общая)"); return true; }
             father = b.GetFather();
             mother = b.GetMother();
             if (father != null && a.GetFather() == null && Age(father) >= Age(a) + 18f)
-            { a.SetFather(father); return true; }
+            { a.SetFather(father); ledger.RegisterProvenance(a,father,"Отец (общий)"); return true; }
             if (mother != null && a.GetMother() == null && Age(mother) >= Age(a) + 18f)
-            { a.SetMother(mother); return true; }
+            { a.SetMother(mother); ledger.RegisterProvenance(a,mother,"Мать (общая)"); return true; }
             return false;
         }
 
