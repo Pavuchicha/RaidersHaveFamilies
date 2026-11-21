@@ -185,12 +185,18 @@ namespace RaidersHaveFamilies
                     ", отряд " + op.Squad.Count + ", коалиция " + op.Parties.Count +
                     ", VIP " + (op.Vip?.LabelShortCap ?? "нет") +
                     ", пусковая оплачена " + op.PodBudgetPaid +
+                    ", ресурсы доставлены " + op.PodSuppliesIssued +
                     ", строительная стадия " + op.PodConstructionStage +
+                    ", ожидаемая стройплощадка " + op.PodCell +
+                    ", начало работы " + op.PodConstructionTick +
                     ", запуск " + op.PodLaunchCompleted + ".");
                 if(op.Freed != null)
                     for(int j=0;j<op.Freed.Count && j<6;j++)
                     {Pawn c=op.Freed[j]; if(c==null)continue;
                      sb.AppendLine("  освобождён " + c.LabelShortCap +
+                        "; фракция=" + (c.Faction?.Name ?? "нет") +
+                        "; миссионный командир=" + (c.GetLord()?.LordJob?.GetType().Name ?? "нет") +
+                        "; задание=" + (c.jobs?.curJob?.def?.defName ?? "нет") +
                         "; сопровождающий " + (op.Escorts?.Find(e=>e?.Captive==c)?.Escort?.LabelShortCap ?? "нет"));}
             }
             return sb.ToString();

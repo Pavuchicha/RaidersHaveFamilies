@@ -1046,13 +1046,14 @@ namespace RaidersHaveFamilies
             p.guest.SetGuestStatus(null);
             // In RimWorld player slaves belong to the colony's faction; a
             // successful rescue restores their pre-enslavement allegiance.
-            if (wasSlave && record?.OriginalFaction != null &&
-                p.Faction == Faction.OfPlayer && !record.OriginalFaction.IsPlayer)
+            if (record?.OriginalFaction != null && !record.OriginalFaction.IsPlayer &&
+                (wasSlave || p.Faction == null || p.Faction == Faction.OfPlayer))
                 p.SetFaction(record.OriginalFaction);
             if (!op.Freed.Contains(p)) op.Freed.Add(p);
             // Establish the escort BEFORE the former prisoner receives a free
             // think-tree decision. A still-active enemy lord must not commandeer it.
             EnsureEscort(op,p);
+            RHFRescueCommandV124.StabilizeFreed(op,p);
             Pawn next = FindCaptive(op);
             if (next == null) // dead/escaped/invalid targets do not block extraction
             {
@@ -1060,6 +1061,13 @@ namespace RaidersHaveFamilies
                 op.PhaseStartTick = Find.TickManager.TicksGame;
                 if (!op.ExitCell.IsValid && op.Squad.Count > 0)
                     op.ExitCell = ChooseExit(op.Squad[0].Position);
+                // The liberated pawn must be claimed in THIS tick, not after
+                // a 90-tick delay when their vanilla ExitMapBest job can loop.
+                RHFRescueCommandV124.StabilizeFreed(op,p);
+                Log.Message("[RHF][V131] Freed="+p.LabelShortCap+
+                    "; phase="+op.Phase+"; pod="+op.TryPod+
+                    "; financed="+op.PodBudgetPaid+
+                    "; missionLord="+(p.GetLord()?.LordJob is RHFRescueLordJobV124));
                 // Take an initial step together immediately instead of waiting
                 // another 450 ticks while vanilla AI sends them different ways.
                 if (!p.Downed)
@@ -1738,12 +1746,18 @@ namespace RaidersHaveFamilies
         private void FallBackToLand(RHFOperation op,int now,string reason)
         {
             op.Phase=2;op.PhaseStartTick=now;
+            op.TryPod=false;
             Log.Warning("[RHF][VIP] Native transport fallback to ground exit: " + reason);
+            Messages.Message("RHF: воздушная эвакуация VIP невозможна ("+reason+"). " +
+                "Группа переходит к наземному отходу.",
+                MessageTypeDefOf.ThreatSmall,false);
         }
 
         private void BuildAndLaunch(RHFOperation op,int now)
         {
             Pawn vip=op.Vip;
+            if(vip!=null && op.Freed.Contains(vip) && vip.Spawned)
+                RHFRescueCommandV124.StabilizeFreed(op,vip);
             if(!op.PodBudgetPaid || vip==null || vip.Dead || vip.Map!=map ||
                 !vip.Spawned || vip.Downed)
             {FallBackToLand(op,now,"resources or live mobile VIP unavailable");return;}
@@ -1776,6 +1790,14 @@ namespace RaidersHaveFamilies
                     extra=ThingMaker.MakeThing(ThingDefOf.Steel);
                     extra.stackCount=steel-first;
                 }
+                if(steel-first>ThingDefOf.Steel.stackLimit ||
+                    components>ThingDefOf.ComponentIndustrial.stackLimit)
+                {
+                    materials.Destroy();
+                    if(extra!=null)extra.Destroy();
+                    FallBackToLand(op,now,"modded transport cost exceeds current supply stack capacity");
+                    return;
+                }
                 Thing parts=ThingMaker.MakeThing(ThingDefOf.ComponentIndustrial);
                 parts.stackCount=components;
                 // Keep the transport pad clear; deposits remain recoverable loot
@@ -1802,6 +1824,9 @@ namespace RaidersHaveFamilies
                 op.PodConstructionStage=0;
                 op.PodConstructionTick=0;
                 op.PhaseStartTick=now;
+                Log.Message("[RHF][V131][Pod] Construction site="+op.PodLauncherCell+
+                    "; transport="+op.PodCell+"; steel="+steel+
+                    "; components="+components+"; squad="+op.Squad.Count);
                 // VIP waits with the unit, not in a drifting vanilla flee job.
                 // Keep out of the footprint until the structure is finished.
                 IntVec3 waiting=podCell+IntVec3.South*2;
@@ -1887,6 +1912,8 @@ namespace RaidersHaveFamilies
                 op.PodConstructionStage++;
                 op.PodConstructionTick=0;
                 if(op.PodConstructionStage>=2)op.PodReady=true;
+                Log.Message("[RHF][V131][Pod] Built="+construction.defName+
+                    "; stage="+op.PodConstructionStage+"; VIP="+vip.LabelShortCap);
             }
             catch(Exception e)
             {FallBackToLand(op,now,"native construction failed: "+e.GetBaseException().Message);}

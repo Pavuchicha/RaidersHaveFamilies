@@ -257,18 +257,20 @@ namespace RaidersHaveFamilies
                 ", vanilla organ/violation recipes: " + VanillaRecipesDetected);
         }
 
-        public static void BeforeSurgery(RecipeWorker __instance, Pawn pawn, Pawn billDoer,
+        public static void BeforeSurgery(RecipeWorker __instance, Pawn __0, Pawn __2,
             out RHFHostageRecord __state)
         {
+            Pawn pawn=__0, billDoer=__2;
             __state = null;
             if (pawn == null || billDoer?.Faction != Faction.OfPlayer ||
                 !pawn.IsPrisonerOfColony || SeverityOf(__instance?.recipe) <= 0) return;
             __state = Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(pawn);
         }
 
-        public static void OnSurgery(RecipeWorker __instance, Pawn pawn, Pawn billDoer,
+        public static void OnSurgery(RecipeWorker __instance, Pawn __0, Pawn __2,
             RHFHostageRecord __state)
         {
+            Pawn pawn=__0, billDoer=__2;
             RecipeDef recipe = __instance?.recipe;
             int severity = SeverityOf(recipe);
             if (__state == null || severity <= 0) return;

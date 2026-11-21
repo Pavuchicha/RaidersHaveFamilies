@@ -250,7 +250,14 @@ namespace RaidersHaveFamilies
             Map map = MapFor(controller);
             if (map == null) return;
             for (int i = 0; i < ops.Count && i < MaxOperations; i++)
-                if (IsRescue(ops[i])) ClaimGroup(ops[i], map);
+            {
+                RHFOperation op=ops[i];
+                if(!IsRescue(op))continue;
+                ClaimGroup(op,map);
+                if(op.Freed!=null)
+                    for(int j=0;j<op.Freed.Count && j<MaxTargets;j++)
+                        StabilizeFreed(op,op.Freed[j]);
+            }
         }
 
         private static int LastMove(Pawn p, RHFRescueCommandStateV124 state, int now)
@@ -424,12 +431,15 @@ namespace RaidersHaveFamilies
             Pawn captive = Target(op, map);
             if (captive == null)
             {
+                RecoverReleasedTargets(op,map,now);
                 // Do not report a rescue victory if the last prisoner died,
                 // escaped alone or became unreachable for a different reason.
-                op.Phase = 2;
+                op.Phase = op.Freed.Count > 0 && op.TryPod && op.Vip != null &&
+                    op.Freed.Contains(op.Vip) && op.Vip.Map==map ? 3 : 2;
                 op.PhaseStartTick = now;
                 state.LastDecision = op.Freed.Count > 0 ?
-                    "все доступные цели освобождены: формирование отхода" :
+                    (op.Phase==3 ? "VIP освобождён: инженерная эвакуация" :
+                    "все доступные цели освобождены: формирование отхода") :
                     "пленник утрачен: отход без объявления успешного спасения";
                 return;
             }
@@ -673,9 +683,62 @@ namespace RaidersHaveFamilies
             return current;
         }
 
+        // Some prison-break/door mechanics release a pawn BEFORE our explicit
+        // FreeTarget method can be called. Only adopt such a target when an
+        // actual rescuer is close enough to have reached the detention area.
+        private static void RecoverReleasedTargets(RHFOperation op,Map map,int now)
+        {
+            if(op?.Targets==null || op.Squad==null)return;
+            for(int i=0;i<op.Targets.Count && i<MaxTargets;i++)
+            {
+                Pawn p=op.Targets[i];
+                if(p==null || p.Dead || !p.Spawned || p.Map!=map ||
+                    p.IsPrisonerOfColony || p.IsSlaveOfColony ||
+                    p.Faction==Faction.OfPlayer || op.Freed.Contains(p))continue;
+                bool present=false;
+                for(int j=0;j<op.Squad.Count && j<MaxSquad;j++)
+                {
+                    Pawn rescuer=op.Squad[j];
+                    if(ActivePawn(rescuer,map) &&
+                       (rescuer.Position-p.Position).LengthHorizontalSquared<=144)
+                    {present=true;break;}
+                }
+                if(!present)continue;
+                op.Freed.Add(p);
+                StabilizeFreed(op,p);
+                Log.Message("[RHF][V131] Recovered auto-liberated captive "+
+                    p.LabelShortCap+" near rescue squad; phase="+op.Phase);
+            }
+        }
+
+        internal static void StabilizeFreed(RHFOperation op,Pawn captive)
+        {
+            if(op==null || captive==null || !captive.Spawned || captive.Map==null ||
+               op.Freed==null || !op.Freed.Contains(captive))return;
+            // Preserve the prisoner's authentic original affiliation while
+            // giving them a rescue-specific Lord and defend objective.
+            RebindFreed(op,captive);
+        }
+
+        internal static bool IsControlledFreed(Pawn captive)
+        {
+            if(captive==null || captive.Map==null || captive.Dead)return false;
+            RHFOperation op=captive.Map.GetComponent<RHFOperationController>()?
+                .FindRescueFor(captive.ThingID);
+            return op!=null && op.Deployed && !op.Finished &&
+                op.Freed!=null && op.Freed.Contains(captive) &&
+                !(op.PodLaunchCompleted && captive==op.Vip);
+        }
+
         private static void RebindFreed(RHFOperation op, Pawn captive)
         {
             if (captive == null || !captive.Spawned || captive.Map == null) return;
+            if(captive.Faction==null)
+            {
+                Faction original=Current.Game?.GetComponent<RHFGameLedger>()?
+                    .FindHostage(captive)?.OriginalFaction ?? op?.Sponsor;
+                if(original!=null && !original.IsPlayer) captive.SetFaction(original);
+            }
             string key = Key(op);
             if (captive.GetLord()?.LordJob is RHFRescueLordJobV124 already &&
                 already.MissionKey == key) return;
