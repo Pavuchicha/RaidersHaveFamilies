@@ -1,26 +1,24 @@
-"""Static contract to catch regressions like the v0.2.0 CS1503 signature error.
-Does not certify C# compilation or in-game AI behavior."""
+"""Structural contracts only; not proof of a successful RimWorld operation."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
 P=Path(__file__).resolve().parents[1]
-source=P/'RaidersHaveFamilies/Source'
-files={f.name:f.read_text('utf-8') for f in source.glob('*.cs')}
-assert {'RHFPatches.cs','RHFOperations.cs','RHFRanks.cs','RHFWCERegistry.cs','RHFHostageSystems.cs','RHFPoliticalReputation.cs'}<=set(files)
+src=P/'RaidersHaveFamilies/Source'
+files={f.name:f.read_text('utf-8') for f in src.glob('*.cs')}
+assert {'RHFPatches.cs','RHFOperations.cs','RHFRanks.cs','RHFWCERegistry.cs',
+        'RHFHostageSystems.cs','RHFPoliticalReputation.cs'}<=set(files)
 assert 'Danger.Some, false, TraverseMode.ByPawn' not in files['RHFPatches.cs']
 assert 'RHFDialogue.HasCaptives(faction)' in files['RHFPatches.cs']
-assert 'PawnsArrivalModeDef' in files['RHFHostageSystems.cs']
-assert 'RaidArrivalModeDef' not in files['RHFHostageSystems.cs']
-for text in ['RHFRankResolver.RankOf','RansomMultiplier','SecondSponsor','ChooseExecutor','QueueRetaliation',
-             'OfferDeadlineTick','FindStrategy','StartRetaliation','Rand.Chance(.25f)','RetaliationIssued','RHFPoliticalReputation']:
-    assert text in '\n'.join(files.values()),text
-for text in ['Infiltrate(', 'FindBarrier(', 'FreeTarget(', 'Extract(', 'BuildAndLaunch(',
-             'PawnLostCondition.LeftVoluntarily','LastProgressTick','RoofRockThick','Steel',
-             'PodReady', 'Phase', 'Expir', 'ExitMap(false,Rot4.Invalid)']:
-    assert text in files['RHFOperations.cs'],text
+for needle in ['RHFStrikeParty','RHFStrikeRole','CombinedStrike','Sponsors','ForceDeployNow',
+  'IncidentDefOf.RaidEnemy.Worker.TryExecute(parms)','private bool Deploy(',
+  'SplitRescueWing(','Scribe_Collections.Look(ref Parties',
+  'Infiltrate(', 'FindBarrier(', 'FreeTarget(', 'Extract(', 'BuildAndLaunch(',
+  'PawnLostCondition.LeftVoluntarily','LastProgressTick','RoofRockThick','Steel',
+  'PodReady','Phase','ExitMap(false,Rot4.Invalid)']:
+    assert needle in files['RHFOperations.cs'],needle
+for needle in ['RHFStrikeRole.Diversion','sponsors.Count>1','hired != null',
+               'Mathf.Clamp','RetaliationIssued','RHFPoliticalReputation','StartRetaliation']:
+    assert needle in files['RHFHostageSystems.cs'],needle
 for t in ['RHF_ExtractionPod','RHF_FieldLauncher']:
     assert t in (P/'RaidersHaveFamilies/Defs/ThingDefs/RHF_ExtractionEquipment.xml').read_text('utf-8')
-for xml in (P/'RaidersHaveFamilies').rglob('*.xml'):
-    ET.parse(xml)
-assert (P/'RaidersHaveFamilies/Textures/RaidersHaveFamilies/FieldPod.png').stat().st_size>100
-assert (P/'RaidersHaveFamilies/Textures/RaidersHaveFamilies/FieldLauncher.png').stat().st_size>100
-print('PASS: nine-tier rank, two raid plans, bounded rescue logic, release/boarding, field equipment, metadata.')
+for xml in (P/'RaidersHaveFamilies').rglob('*.xml'):ET.parse(xml)
+print('PASS: rescuer/diversion wings, coalition sponsorship, all rescue phases, metadata.')

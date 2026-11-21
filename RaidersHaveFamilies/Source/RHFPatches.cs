@@ -19,7 +19,7 @@ namespace RaidersHaveFamilies
                 var harmony = new Harmony("pavuk.raidshavefamilies");
                 harmony.PatchAll(typeof(RHFPatchInit).Assembly);
                 RHFWarCrimesIntegration.Patch(harmony);
-                Log.Message("[Raiders Have Families] 0.3.1 event-driven Harmony integrations active.");
+                Log.Message("[Raiders Have Families] 0.6.0 event-driven Harmony integrations active.");
             }
             catch (Exception e) { Log.Error("[Raiders Have Families] Could not initialize Harmony: " + e); }
         }

@@ -394,101 +394,134 @@ namespace RaidersHaveFamilies
                 for (int mi=0; mi<Find.Maps.Count; mi++)
                     if (Find.Maps[mi].IsPlayerHome) { map=Find.Maps[mi]; break; }
             if (map == null) return;
-            int now=Find.TickManager.TicksGame;
-            var ledger=Current.Game?.GetComponent<RHFGameLedger>();
-            var targetList=new List<Pawn>();
-            RHFHostageRecord secondImportant=null;
+            int now = Find.TickManager.TicksGame;
+            RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
+            List<Pawn> targets = new List<Pawn>();
+            // Up to four sponsoring factions, with additional hired allies possible.
+            // VIP captives of three or four distinct factions can trigger one joint raid;
+            // ordinary prisoners of each member are included in rescue targets.
+            List<Faction> sponsors = new List<Faction> { r.OriginalFaction };
             if (ledger != null)
             {
-                for (int i=0;i<ledger.Hostages.Count && targetList.Count<24;i++)
+                for (int i=0;i<ledger.Hostages.Count && sponsors.Count<4;i++)
                 {
-                    RHFHostageRecord other=ledger.Hostages[i];
-                    if (other?.Pawn == null || other.Pawn.Dead || other.Pawn.Map != map ||
-                        !other.Pawn.IsPrisonerOfColony) continue;
-                    if (other.OriginalFaction == r.OriginalFaction) targetList.Add(other.Pawn);
-                    else if (secondImportant == null && other.Importance>=5 &&
-                        other.OriginalFaction!=null && other.OriginalFaction.HostileTo(Faction.OfPlayer))
-                        secondImportant=other;
+                    RHFHostageRecord candidate=ledger.Hostages[i];
+                    if (candidate?.Pawn==null || candidate.Pawn.Dead ||
+                        candidate.Pawn.Map!=map || !candidate.Pawn.IsPrisonerOfColony ||
+                        candidate.Importance<5 || candidate.OriginalFaction==null ||
+                        !candidate.OriginalFaction.HostileTo(Faction.OfPlayer) ||
+                        sponsors.Contains(candidate.OriginalFaction)) continue;
+                    sponsors.Add(candidate.OriginalFaction);
+                }
+                for(int i=0;i<ledger.Hostages.Count && targets.Count<24;i++)
+                {
+                    RHFHostageRecord candidate=ledger.Hostages[i];
+                    if(candidate?.Pawn==null || candidate.Pawn.Dead ||
+                       candidate.Pawn.Map!=map || !candidate.Pawn.IsPrisonerOfColony ||
+                       !sponsors.Contains(candidate.OriginalFaction)) continue;
+                    targets.Add(candidate.Pawn);
                 }
             }
-            // Intent is strategic, not a duplicate boosted vanilla assault.
             bool revenge = r.Pawn == null || r.Pawn.Dead || r.CrueltyScore >= 28 ||
                 (r.Refused && r.Importance >= 6 && Rand.Chance(.50f));
-            RHFOperationType type=revenge || targetList.Count==0 ||
-                RHFMod.Settings.EnableRescueOperations==false ?
+            RHFOperationType type = revenge || targets.Count==0 ||
+                RHFMod.Settings.EnableRescueOperations == false ?
                 RHFOperationType.Vengeance : RHFOperationType.Rescue;
-            Faction executor=ChooseExecutor(r.OriginalFaction);
-            float threat=StorytellerUtility.DefaultThreatPointsNow(map);
-            float bonus=1.25f + r.Importance*.22f +
-                Math.Min(.90f, r.CrueltyScore*.015f) + Math.Min(1.0f,targetList.Count*.12f)+
+            if (type == RHFOperationType.Vengeance)
+                sponsors.RemoveRange(1, sponsors.Count-1);
+            Faction hired = null;
+            // Hiring is independent of whether the mercenary faction has captives.
+            // No duplicate sponsor is allowed in the mercenary slot.
+            if (type == RHFOperationType.Rescue &&
+                (r.OriginalFaction.def.techLevel < TechLevel.Industrial ||
+                 r.Importance >= 6 || sponsors.Count > 1) && Rand.Chance(.52f))
+            {
+                foreach (Faction f in Find.FactionManager.AllFactionsListForReading)
+                {
+                    if (f==null || sponsors.Contains(f) || f.IsPlayer || f.def==null ||
+                        f.def.hidden || !f.HostileTo(Faction.OfPlayer) ||
+                        f.def.techLevel < TechLevel.Industrial) continue;
+                    hired = f; break;
+                }
+            }
+            float threat = StorytellerUtility.DefaultThreatPointsNow(map);
+            float bonus = 1.25f + r.Importance * .22f +
+                Math.Min(.90f,r.CrueltyScore*.015f) + Math.Min(1.0f,targets.Count*.12f) +
                 Mathf.Clamp(-RHFPoliticalReputation.Pressure(r.OriginalFaction)/800f,0f,.6f);
-            if (type==RHFOperationType.Vengeance) bonus+=.70f;
-            // Preserve TPS: hard cap even for legendary captives or 100 prisoners.
-            float points=Mathf.Clamp(threat*bonus + (type==RHFOperationType.Rescue ? 450f : 200f),
-                400f, 15000f) * RHFMod.Settings.InterventionStrength;
-            int fireTick=now+5000;
-            var op=new RHFOperation
+            if (type == RHFOperationType.Vengeance) bonus += .70f;
+            float points = Mathf.Clamp(threat * bonus + (type == RHFOperationType.Rescue ? 450f : 200f),
+                550f, 15000f) * RHFMod.Settings.InterventionStrength;
+            int fireTick = now + 5000; // natural response keeps preparation time
+            RHFOperation op = new RHFOperation
             {
-                Sponsor=r.OriginalFaction,
-                Executor=executor,
-                SecondSponsor=secondImportant?.OriginalFaction,
-                Type=(int)type,
-                Targets=targetList,
-                Vip=r.Importance>=6 ? r.Pawn : null,
-                TryPod=type==RHFOperationType.Rescue && RHFMod.Settings.FieldEvacPod &&
-                    r.Importance>=7 &&
-                    executor.def.techLevel>=TechLevel.Industrial && Rand.Chance(.28f),
-                CreatedTick=now, SpawnTick=fireTick,
-                ThreatPoints=points,
-                ExpiryTick=fireTick+180000
+                Sponsor = r.OriginalFaction,
+                Executor = r.OriginalFaction,
+                SecondSponsor = sponsors.Count>1 ? sponsors[1] : null,
+                Sponsors = sponsors,
+                Type = (int)type,
+                Targets = type == RHFOperationType.Rescue ? targets : new List<Pawn>(),
+                Vip = r.Importance >= 6 && type == RHFOperationType.Rescue ? r.Pawn : null,
+                TryPod = type == RHFOperationType.Rescue && RHFMod.Settings.FieldEvacPod &&
+                    r.Importance >= 7 && r.OriginalFaction.def.techLevel >= TechLevel.Industrial &&
+                    Rand.Chance(.28f),
+                CreatedTick = now, SpawnTick = fireTick,
+                ThreatPoints = points, ExpiryTick = fireTick + 180000,
+                CombinedStrike = type == RHFOperationType.Rescue &&
+                    (sponsors.Count>1 || hired!=null || Rand.Chance(.44f))
             };
-            // A single hired executor can be paid by mutually hostile sponsors.
-            // Coalition declarations are only made when the other captive is actually
-            // included; do not claim two sponsors for one faction's private raid.
-            if (type==RHFOperationType.Rescue && secondImportant!=null && targetList.Count<24)
-                op.Targets.Add(secondImportant.Pawn);
-            else
-                op.SecondSponsor=null;
-            RHFOperationController manager=map.GetComponent<RHFOperationController>();
-            if (manager==null || !manager.Register(op)) return;
-            IncidentParms parms=new IncidentParms();
-            parms.target=map;
-            parms.faction=executor;
-            parms.points=points;
-            if (type==RHFOperationType.Rescue)
+            if (type == RHFOperationType.Vengeance)
             {
-                parms.raidStrategy=FindStrategy("Breaching","ImmediateAttackSmart","ImmediateAttack");
-                if (executor.def.techLevel>=TechLevel.Industrial && Rand.Chance(.25f))
-                    parms.raidArrivalMode=DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("CenterDrop");
+                Faction attacker = ChooseExecutor(r.OriginalFaction);
+                op.Executor = attacker;
+                op.Parties.Add(new RHFStrikeParty(attacker,RHFStrikeRole.Vengeance,points,
+                    drop: attacker.def.techLevel>=TechLevel.Industrial && Rand.Chance(.35f),
+                    siege: attacker.def.techLevel>=TechLevel.Industrial && Rand.Chance(.30f)));
             }
             else
             {
-                parms.raidStrategy=executor.def.techLevel>=TechLevel.Industrial && Rand.Chance(.35f) ?
-                    FindStrategy("Siege","ImmediateAttackSmart","ImmediateAttack") :
-                    FindStrategy("ImmediateAttackSmart","ImmediateAttack");
-                if (executor.def.techLevel>=TechLevel.Industrial && Rand.Chance(.45f))
-                    parms.raidArrivalMode=DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("CenterDrop");
+                int partyCount = sponsors.Count + (hired!=null ? 1 : 0);
+                bool singleSplit = op.CombinedStrike && partyCount==1;
+                if (singleSplit) partyCount=2;
+                // Total threat is shared, not multiplied by the number of coalition members.
+                points=Mathf.Max(points,350f*partyCount);
+                float perParty=Mathf.Clamp(points / partyCount, 350f, 9000f);
+                for (int i=0;i<sponsors.Count;i++)
+                {
+                    Faction member = sponsors[i];
+                    bool podAssault=member.def.techLevel>=TechLevel.Industrial &&
+                        !op.TryPod && Rand.Chance(.18f);
+                    op.Parties.Add(new RHFStrikeParty(member,RHFStrikeRole.Rescue,
+                        singleSplit ? points*.62f : perParty,
+                        drop: podAssault, breach: !podAssault));
+                }
+                if (hired != null)
+                    op.Parties.Add(new RHFStrikeParty(hired,RHFStrikeRole.Diversion,perParty,
+                        drop: hired.def.techLevel>=TechLevel.Industrial && Rand.Chance(.25f)));
+                else if (singleSplit)
+                    op.Parties.Add(new RHFStrikeParty(r.OriginalFaction,RHFStrikeRole.Diversion,
+                        points*.38f));
             }
-            if(executor.def.techLevel<TechLevel.Industrial && type==RHFOperationType.Vengeance)
-                parms.points*=.92f; // portion of the points budget reserved for animals
-            if (!Find.Storyteller.incidentQueue.Add(IncidentDefOf.RaidEnemy,fireTick,parms))
-            { op.Finished=true; return; }
+            RHFOperationController controller=map.GetComponent<RHFOperationController>();
+            if (controller == null || !controller.Register(op)) return;
             r.RetaliationIssued=true;
-            // One intervention per source faction and window, not a raid per prisoner.
-            if (ledger!=null)
-                for(int i=0;i<ledger.Hostages.Count;i++)
-                    if(ledger.Hostages[i]!=null && ledger.Hostages[i].OriginalFaction==r.OriginalFaction)
-                        ledger.Hostages[i].RetaliationIssued=true;
-            string intent=type==RHFOperationType.Rescue ?
-                "планирует освободить своих пленников, а не грабить поселение" :
-                "готовит карательную экспедицию против вашей колонии";
-            string contract=executor!=r.OriginalFaction ?
-                " Для операции наняты силы: " + executor.Name + "." : "";
-            string coalition=op.SecondSponsor!=null ?
-                " Сообщают также об общей операции нескольких враждующих сторон." : "";
-            Find.LetterStack.ReceiveLetter("Реакция фракции: " + r.OriginalFaction.Name,
-                r.OriginalFaction.Name + " " + intent + "." + contract + coalition,
-                LetterDefOf.ThreatBig,r.Pawn);
+            if (ledger != null)
+                for (int i=0;i<ledger.Hostages.Count;i++)
+                {
+                    RHFHostageRecord member=ledger.Hostages[i];
+                    if (member != null && sponsors.Contains(member.OriginalFaction))
+                        member.RetaliationIssued=true;
+                }
+            string intent=type == RHFOperationType.Rescue ?
+                "начинает подготовку спасательной операции" :
+                "готовит карательный удар по вашей колонии";
+            string allies = sponsors.Count>1 ?
+                " В коалиции участвуют " + sponsors.Count + " фракции с захваченными представителями." : "";
+            string contract = hired!=null ? " Для отвлекающего удара нанята фракция " + hired.Name + "." : "";
+            string split = op.CombinedStrike ?
+                " Возможны одновременные удары по тюрьме и основным оборонительным позициям." : "";
+            Find.LetterStack.ReceiveLetter("Реакция фракций: " + r.OriginalFaction.Name,
+                r.OriginalFaction.Name + " " + intent + "." + allies + contract + split,
+                LetterDefOf.ThreatBig, r.Pawn);
         }
 
         private static RaidStrategyDef FindStrategy(params string[] defNames)

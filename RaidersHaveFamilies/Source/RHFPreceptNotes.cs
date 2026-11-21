@@ -43,7 +43,7 @@ namespace RaidersHaveFamilies
                         (name.IndexOf("Required", StringComparison.OrdinalIgnoreCase) >= 0 ||
                          name.IndexOf("Respected", StringComparison.OrdinalIgnoreCase) >= 0))
                     {
-                        // This is intentionally NOT advertised as working: v0.5.0 has
+                        // This is intentionally NOT advertised as working: v0.6.0 has
                         // no event that calls RHFMoralResponse with Cannibalism.
                         info = "[Состояние интеграции RHF] В этом релизе дополнительные " +
                             "воспоминания за сообщение родственникам о поедании пленника ЕЩЁ НЕ РЕАЛИЗОВАНЫ. " +

@@ -1,4 +1,4 @@
-// Raiders Have Families 0.3.1 — faction intervention system.
+// Raiders Have Families 0.6.0 — bounded multi-party faction intervention system.
 //  * Only scheduled operations have an active controller.
 //  * A forced rescue uses an actual raiding party and in-map goals, never a fake letter.
 //  * Every action has a bounded decision budget; no global pawn scans in idle time.
@@ -13,6 +13,39 @@ using UnityEngine;
 namespace RaidersHaveFamilies
 {
     public enum RHFOperationType { Rescue = 1, Vengeance = 2 }
+    public enum RHFStrikeRole { Rescue = 1, Diversion = 2, Vengeance = 3 }
+
+    // One actual vanilla raid per force/role. The operation owns all groups;
+    // unrelated map raids are never enlisted. Capped at five parties for TPS.
+    public sealed class RHFStrikeParty : IExposable
+    {
+        public Faction Faction;
+        public int Role;
+        public float Points;
+        public bool Drop;
+        public bool Siege;
+        public bool Breach;
+        public bool Attempted;
+        public bool Succeeded;
+        public int Members;
+        public RHFStrikeParty() { }
+        public RHFStrikeParty(Faction faction, RHFStrikeRole role, float points,
+            bool drop = false, bool siege = false, bool breach = false)
+        { Faction = faction; Role = (int)role; Points = points;
+          Drop = drop; Siege = siege; Breach = breach; }
+        public void ExposeData()
+        {
+            Scribe_References.Look(ref Faction, "faction");
+            Scribe_Values.Look(ref Role, "role", 1);
+            Scribe_Values.Look(ref Points, "points", 500f);
+            Scribe_Values.Look(ref Drop, "drop", false);
+            Scribe_Values.Look(ref Siege, "siege", false);
+            Scribe_Values.Look(ref Breach, "breach", false);
+            Scribe_Values.Look(ref Attempted, "attempted", false);
+            Scribe_Values.Look(ref Succeeded, "succeeded", false);
+            Scribe_Values.Look(ref Members, "members", 0);
+        }
+    }
 
     public sealed class RHFOperation : IExposable
     {
@@ -22,6 +55,13 @@ namespace RaidersHaveFamilies
         public List<Pawn> Targets = new List<Pawn>();
         public List<Pawn> Squad = new List<Pawn>();
         public List<Pawn> Freed = new List<Pawn>();
+        public List<Pawn> Diversion = new List<Pawn>();
+        public List<Faction> Sponsors = new List<Faction>();
+        public List<RHFStrikeParty> Parties = new List<RHFStrikeParty>();
+        public bool CombinedStrike;
+        public bool SplitApplied;
+        public bool Deployed;
+        public int SuccessfulParties;
         public Pawn Vip;
         public int Type;
         public int SpawnTick;
@@ -55,6 +95,13 @@ namespace RaidersHaveFamilies
             Scribe_Collections.Look(ref Targets, "targets", LookMode.Reference);
             Scribe_Collections.Look(ref Squad, "squad", LookMode.Reference);
             Scribe_Collections.Look(ref Freed, "freed", LookMode.Reference);
+            Scribe_Collections.Look(ref Diversion, "diversion", LookMode.Reference);
+            Scribe_Collections.Look(ref Sponsors, "sponsors", LookMode.Reference);
+            Scribe_Collections.Look(ref Parties, "strikeParties", LookMode.Deep);
+            Scribe_Values.Look(ref CombinedStrike, "combinedStrike", false);
+            Scribe_Values.Look(ref SplitApplied, "splitApplied", false);
+            Scribe_Values.Look(ref Deployed, "deployed", false);
+            Scribe_Values.Look(ref SuccessfulParties, "successfulParties", 0);
             Scribe_References.Look(ref Vip, "vip");
             Scribe_Values.Look(ref Type, "type", 1);
             Scribe_Values.Look(ref SpawnTick, "spawnTick", 0);
@@ -83,6 +130,12 @@ namespace RaidersHaveFamilies
                 if (Targets == null) Targets = new List<Pawn>();
                 if (Squad == null) Squad = new List<Pawn>();
                 if (Freed == null) Freed = new List<Pawn>();
+                if (Diversion == null) Diversion = new List<Pawn>();
+                if (Sponsors == null) Sponsors = new List<Faction>();
+                if (Parties == null) Parties = new List<RHFStrikeParty>();
+                // Existing v0.3.x operations were already queued through the storyteller.
+                // Do not create a duplicate raid when upgrading a saved game.
+                if (Parties.Count == 0) Deployed = true;
             }
         }
     }
@@ -95,6 +148,9 @@ namespace RaidersHaveFamilies
         private const int DecisionInterval = 300;
         private const int MaxOrdersPerDecision = 14;
         private const int MaxOperationDuration = 180000;
+        private const int MaxStrikeParties = 5;
+        private RHFOperation activeOperation;
+        private RHFStrikeParty activeParty;
         private List<RHFOperation> operations = new List<RHFOperation>();
         private int nextDecision;
 
@@ -115,8 +171,46 @@ namespace RaidersHaveFamilies
             if (operation == null || operation.Executor == null || operations.Count >= MaxOperationsPerMap)
                 return false;
             operations.Add(operation);
-            nextDecision = operation.SpawnTick + 60;
+            nextDecision = Math.Min(nextDecision, operation.SpawnTick);
             return true;
+        }
+
+        // Debug inspection is computed only when clicked, never per tick.
+        public string DebugStatus()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("RHF: активные спецоперации " + operations.Count + "/" + MaxOperationsPerMap);
+            for (int i=0; i<operations.Count; i++)
+            {
+                RHFOperation op=operations[i];
+                if (op==null) continue;
+                sb.AppendLine("#" + (i+1) + " " +
+                    (op.Type==(int)RHFOperationType.Rescue ? "СПАСЕНИЕ" : "МЕСТЬ") +
+                    "; подготовка=" + (op.Deployed?"завершена":"ожидание") +
+                    "; группы=" + op.SuccessfulParties + "/" + op.Parties.Count +
+                    "; спасатели=" + op.Squad.Count + "; отвлекающие=" + op.Diversion.Count +
+                    "; цели=" + op.Targets.Count + "; фракции-заявители=" + op.Sponsors.Count);
+                for (int k=0;k<op.Parties.Count && k<MaxStrikeParties;k++)
+                {
+                    RHFStrikeParty party=op.Parties[k];
+                    if (party==null) continue;
+                    sb.AppendLine("  " + (party.Faction?.Name ?? "нет фракции") +
+                        ": " + (RHFStrikeRole)party.Role +
+                        ", принято=" + party.Succeeded +
+                        ", пешек=" + party.Members + ", очки=" + Mathf.RoundToInt(party.Points));
+                }
+            }
+            return sb.ToString();
+        }
+
+        public int CancelDebugOperations()
+        {
+            int removed=0;
+            for (int i=operations.Count-1;i>=0;i--)
+                if (operations[i]!=null && operations[i].DebugForced)
+                { operations.RemoveAt(i); removed++; }
+            // Already arrived pawns remain on the map; this cancels only custom AI.
+            return removed;
         }
 
         // Used only when scheduling a debug raid fails; otherwise remove finished records normally.
@@ -125,19 +219,207 @@ namespace RaidersHaveFamilies
             if (operation != null && operation.DebugForced) operations.Remove(operation);
         }
 
-        // Called by SpawnSetup; constant work and only if a special raid is pending.
+        // A single explicit bound arrival prevents an unrelated raid of the same faction
+        // from being confused with a rescue team. Zero allocation in ordinary ticks.
         public void ObserveSpawn(Pawn pawn)
         {
-            if (pawn == null || !pawn.Spawned || pawn.Faction == null || operations.Count == 0) return;
+            if (pawn == null || !pawn.Spawned || pawn.Faction == null || pawn.Dead ||
+                pawn.RaceProps == null || !pawn.RaceProps.Humanlike) return;
+            if (activeOperation != null && activeParty != null &&
+                pawn.Faction == activeParty.Faction)
+            {
+                List<Pawn> assigned = activeParty.Role == (int)RHFStrikeRole.Rescue ?
+                    activeOperation.Squad : activeOperation.Diversion;
+                if (assigned.Count < MaxSquad && !assigned.Contains(pawn))
+                { assigned.Add(pawn); activeParty.Members++; }
+                return;
+            }
+            // Some arrival modes create transport pods immediately and spawn their
+            // occupants a few ticks later. The party has a short, bounded bind window.
             int now = Find.TickManager.TicksGame;
             for (int i=0;i<operations.Count;i++)
             {
+                RHFOperation operation=operations[i];
+                if (operation==null || operation.Finished || !operation.Deployed ||
+                    now < operation.SpawnTick || now>operation.SpawnTick+2400) continue;
+                for (int k=0;k<operation.Parties.Count && k<MaxStrikeParties;k++)
+                {
+                    RHFStrikeParty delayed=operation.Parties[k];
+                    if (delayed == null || !delayed.Succeeded || !delayed.Drop ||
+                        delayed.Faction != pawn.Faction || delayed.Members >= MaxSquad) continue;
+                    List<Pawn> wing = delayed.Role == (int)RHFStrikeRole.Rescue ?
+                        operation.Squad : operation.Diversion;
+                    if (!wing.Contains(pawn) && wing.Count < MaxSquad)
+                    { wing.Add(pawn); delayed.Members++; }
+                    return;
+                }
+            }
+            // Backward compatibility for saves made with the queued-raid v0.3.x API.
+            for (int i=0; i<operations.Count; i++)
+            {
                 RHFOperation op = operations[i];
-                if (op.Finished || pawn.Faction != op.Executor || now < op.SpawnTick - 120 ||
-                    now > op.SpawnTick + 3600 || op.Squad.Count >= MaxSquad ||
-                    pawn.Dead || pawn.RaceProps.Humanlike == false) continue;
+                if (op == null || op.Finished || op.Parties.Count != 0 ||
+                    pawn.Faction != op.Executor || now < op.SpawnTick - 120 ||
+                    now > op.SpawnTick + 3600 || op.Squad.Count >= MaxSquad) continue;
                 if (!op.Squad.Contains(pawn)) op.Squad.Add(pawn);
                 break;
+            }
+        }
+
+        // Called synchronously by developer actions. No 150-tick queue and no
+        // reliance on storyteller polling; reports when generation is rejected.
+        public bool ForceDeployNow(RHFOperation op)
+        {
+            if (op == null || !operations.Contains(op)) return false;
+            op.SpawnTick = Find.TickManager.TicksGame;
+            bool result = Deploy(op);
+            nextDecision = Find.TickManager.TicksGame;
+            if (!result) CancelDebugOperation(op);
+            else MapComponentTick();
+            return result;
+        }
+
+        private bool Deploy(RHFOperation op)
+        {
+            if (op == null || op.Deployed) return op != null && op.SuccessfulParties > 0;
+            op.Deployed = true;
+            if (op.Parties == null || op.Parties.Count == 0) return false;
+            int success = 0;
+            for (int i=0; i<op.Parties.Count && i<MaxStrikeParties; i++)
+            {
+                RHFStrikeParty party = op.Parties[i];
+                if (party == null || party.Faction == null || party.Attempted) continue;
+                party.Attempted = true;
+                activeOperation = op;
+                activeParty = party;
+                bool accepted = false;
+                try
+                {
+                    var parms = new IncidentParms
+                    { target = map, faction = party.Faction,
+                      points = Mathf.Clamp(party.Points, 300f, 15000f) };
+                    parms.raidStrategy = party.Siege ?
+                        PickStrategy("Siege", "ImmediateAttackSmart", "ImmediateAttack") :
+                        party.Breach ? PickStrategy("Breaching", "ImmediateAttackSmart", "ImmediateAttack") :
+                        PickStrategy("ImmediateAttackSmart", "ImmediateAttack");
+                    if (party.Drop)
+                        parms.raidArrivalMode = DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("CenterDrop");
+                    // RaidEnemy.Worker.TryExecute fires *now*. The Harmony SpawnSetup
+                    // hook binds each generated pawn to this specific party.
+                    accepted = IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
+                    // If a special strategy is invalid for this modded faction,
+                    // retry a plain immediate assault only when no pawns spawned.
+                    if (!accepted && party.Members == 0)
+                    {
+                        parms.raidStrategy = RaidStrategyDefOf.ImmediateAttack;
+                        parms.raidArrivalMode = null;
+                        accepted = IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Error("[RHF] Immediate raid failed for " + party.Faction.Name +
+                        " role " + party.Role + ": " + e);
+                }
+                finally { activeOperation = null; activeParty = null; }
+                party.Succeeded = accepted || party.Members > 0;
+                if (party.Succeeded) success++;
+                else Log.Warning("[RHF] RaidEnemy declined " + party.Faction.Name +
+                    " (role=" + party.Role + ", points=" + party.Points +"). " +
+                    "Inspect pawn group makers and raid restrictions for this faction.");
+            }
+            // Last-chance recovery for debug tests: some modded factions are
+            // non-raiding and their RaidEnemy worker rejects all strategies.
+            // Try another hostile executor instead of silently showing nothing.
+            if (success == 0 && op.DebugForced && op.Parties.Count < MaxStrikeParties)
+            {
+                foreach (Faction alternate in Find.FactionManager.AllFactionsListForReading)
+                {
+                    if (alternate == null || alternate.IsPlayer || alternate.def == null ||
+                        alternate.def.hidden || !alternate.HostileTo(Faction.OfPlayer) ||
+                        alternate == op.Executor) continue;
+                    bool tried=false;
+                    for (int n=0;n<op.Parties.Count;n++)
+                        if (op.Parties[n]!=null && op.Parties[n].Faction==alternate)
+                        { tried=true; break; }
+                    if (tried) continue;
+                    RHFStrikeParty reserve=new RHFStrikeParty(alternate,
+                        op.Type==(int)RHFOperationType.Rescue ? RHFStrikeRole.Rescue : RHFStrikeRole.Vengeance,
+                        Mathf.Max(650f,op.ThreatPoints),breach: op.Type==(int)RHFOperationType.Rescue);
+                    op.Parties.Add(reserve);
+                    activeOperation=op;
+                    activeParty=reserve;
+                    try
+                    {
+                        var parms=new IncidentParms { target=map, faction=alternate,
+                            points=Mathf.Clamp(reserve.Points,650f,15000f),
+                            raidStrategy=RaidStrategyDefOf.ImmediateAttack };
+                        reserve.Attempted=true;
+                        reserve.Succeeded=IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
+                    }
+                    catch(Exception e)
+                    { Log.Warning("[RHF] Reserve raider " + alternate.Name + " failed: " + e.Message); }
+                    finally { activeOperation=null;activeParty=null; }
+                    if (reserve.Succeeded || reserve.Members>0)
+                    {
+                        reserve.Succeeded=true;
+                        op.Executor=alternate;
+                        success++;
+                        Messages.Message("RHF: исходная фракция не смогла собрать рейд; " +
+                            "операцию выполняет " + alternate.Name + ".",
+                            MessageTypeDefOf.NeutralEvent,false);
+                        break;
+                    }
+                    // Bounded: only one reserve candidate per manual test.
+                    break;
+                }
+            }
+            op.SuccessfulParties = success;
+            if (op.Type == (int)RHFOperationType.Rescue && op.Squad.Count == 0 &&
+                op.Diversion.Count > 2)
+            {
+                // A failed rescue wing can be replaced by a hired escort, but do not
+                // commandeer all diversion troops or pretend the rescue succeeded.
+                int n = Math.Max(2, op.Diversion.Count / 3);
+                for (int i=0; i<n && op.Diversion.Count>2; i++)
+                {
+                    Pawn p = op.Diversion[op.Diversion.Count - 1];
+                    op.Diversion.RemoveAt(op.Diversion.Count - 1);
+                    op.Squad.Add(p);
+                }
+            }
+            if (op.CombinedStrike) SplitRescueWing(op);
+            if (op.Type == (int)RHFOperationType.Rescue && op.Squad.Count == 0 && success > 0)
+                Log.Warning("[RHF] Rescue dispatched but no active on-map rescuers yet. " +
+                    "Drop pods may still be opening.");
+            return success > 0;
+        }
+
+        private static RaidStrategyDef PickStrategy(params string[] names)
+        {
+            for (int i=0;i<names.Length;i++)
+            {
+                RaidStrategyDef strategy = DefDatabase<RaidStrategyDef>.GetNamedSilentFail(names[i]);
+                if (strategy != null) return strategy;
+            }
+            return RaidStrategyDefOf.ImmediateAttack;
+        }
+
+        private void SplitRescueWing(RHFOperation op)
+        {
+            if (op.SplitApplied || op.Type != (int)RHFOperationType.Rescue) return;
+            if (op.Diversion.Count != 0) { op.SplitApplied=true; return; }
+            if (op.Squad.Count < 5) return;
+            op.SplitApplied = true;
+            // Keep >=3 dedicated rescuers. Non-rescuers retain their vanilla Lord
+            // and pursue its hostile assault behavior as a distraction.
+            int amount = Math.Min(op.Squad.Count / 3, op.Squad.Count - 3);
+            for (int i=0;i<amount;i++)
+            {
+                int index = op.Squad.Count - 1 - i;
+                Pawn p = op.Squad[index];
+                op.Squad.RemoveAt(index);
+                op.Diversion.Add(p);
             }
         }
 
@@ -162,9 +444,19 @@ namespace RaidersHaveFamilies
                 if (op == null || op.Finished || now > op.ExpiryTick ||
                     now - op.CreatedTick > MaxOperationDuration)
                 { operations.RemoveAt(i); continue; }
+                if (now >= op.SpawnTick && !op.Deployed && op.Parties.Count > 0)
+                {
+                    if (!Deploy(op))
+                    {
+                        Messages.Message("RHF: фракции не удалось собрать рейд. Проверьте журнал ошибок и тип фракции.",
+                            MessageTypeDefOf.RejectInput, false);
+                        operations.RemoveAt(i);
+                        continue;
+                    }
+                }
                 if (op.Type == (int)RHFOperationType.Vengeance)
                 {
-                    if (now >= op.SpawnTick && op.Squad.Count>0 && !op.SupportUsed)
+                    if (now >= op.SpawnTick && (op.Diversion.Count>0 || op.Squad.Count>0) && !op.SupportUsed)
                         DeployVengeanceSupport(op);
                     if (now > op.SpawnTick + 7200) operations.RemoveAt(i);
                     continue; // vanilla raid AI controls vengeance
@@ -182,6 +474,7 @@ namespace RaidersHaveFamilies
                     op.LastProgressTick = now;
                     if (op.ExitCell == IntVec3.Invalid) op.ExitCell = ChooseExit(op.Squad[0].Position);
                 }
+                if (op.CombinedStrike) SplitRescueWing(op);
                 if (op.Phase == 1) Infiltrate(op, now);
                 else if (op.Phase == 2) Extract(op, now);
                 else if (op.Phase == 3) BuildAndLaunch(op, now);
@@ -192,12 +485,13 @@ namespace RaidersHaveFamilies
         private void DeployVengeanceSupport(RHFOperation op)
         {
             op.SupportUsed=true;
-            if(op.Executor?.def.techLevel>=TechLevel.Industrial || op.Squad.Count==0)
+            List<Pawn> attackers = op.Diversion.Count>0 ? op.Diversion : op.Squad;
+            if(op.Executor?.def.techLevel>=TechLevel.Industrial || attackers.Count==0)
                 return; // Higher-tech raids use vanilla strategy/arrival modes.
             PawnKindDef kind=DefDatabase<PawnKindDef>.GetNamedSilentFail("Warg") ??
                 DefDatabase<PawnKindDef>.GetNamedSilentFail("Wolf");
             if(kind==null) return;
-            Pawn leader=op.Squad[0];
+            Pawn leader=attackers[0];
             if(leader==null || leader.Map!=map)return;
             Lord lord=leader.GetLord();
             int desired=Mathf.Clamp(Mathf.RoundToInt(op.ThreatPoints/800f),2,8);

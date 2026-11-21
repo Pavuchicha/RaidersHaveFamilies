@@ -20,7 +20,12 @@ namespace RaidersHaveFamilies
         Vengeance,
         TribalVengeance,
         HighTechDrop,
-        HighTechSiege
+        HighTechSiege,
+        CombinedSingleFaction,
+        CoalitionManyFactions,
+        CoalitionHiredDiversion,
+        CombinedMixedApproach,
+        DropRescueWithDiversion
     }
 
     public static class RHFDebugActions
@@ -29,7 +34,8 @@ namespace RaidersHaveFamilies
         private const string PrisonersCategory = "RHF - ТЕСТЫ | ПЛЕННИКИ";
         private const string ChecksCategory = "RHF - ТЕСТЫ | ДИАГНОСТИКА";
         private const int MaxDebugTargets = 24;
-        private const int DelayTicks = 150;
+        // Direct developer actions execute incidents synchronously (no wait queue).
+        private const int MaxCoalitionParties = 5;
 
         // All commands are explicitly developer mode only and are deliberately
         // split into independent menu entries for reproducible testing.
@@ -81,7 +87,7 @@ namespace RaidersHaveFamilies
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Mercenaries() { Start(RHFDebugScenario.MercenaryRescue); }
 
-        [DebugAction(Category, "06 - Rescue: two-faction coalition", actionType = DebugActionType.Action,
+        [DebugAction(Category, "06 - Rescue: coalition (all captive factions + optional hire)", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Coalition() { Start(RHFDebugScenario.CoalitionRescue); }
 
@@ -100,6 +106,53 @@ namespace RaidersHaveFamilies
         [DebugAction(Category, "10 - Vengeance: high-tech siege", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void HighTechSiege() { Start(RHFDebugScenario.HighTechSiege); }
+
+        [DebugAction(Category, "11 - Combined strike: one faction splits rescue / diversion", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void CombinedSingle() { Start(RHFDebugScenario.CombinedSingleFaction); }
+
+        [DebugAction(Category, "12 - Coalition: three or more hostage factions", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void ThreeFactions() { Start(RHFDebugScenario.CoalitionManyFactions); }
+
+        [DebugAction(Category, "13 - Coalition: hostage faction + hired distraction", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void HiredDistraction() { Start(RHFDebugScenario.CoalitionHiredDiversion); }
+
+        [DebugAction(Category, "14 - Combined: rescue, breach, drop or frontal diversion", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void MixedCombined() { Start(RHFDebugScenario.CombinedMixedApproach); }
+
+        [DebugAction(Category, "15 - Combined: rescue by pods + frontal diversion", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void DropRescue() { Start(RHFDebugScenario.DropRescueWithDiversion); }
+
+        [DebugAction(PrisonersCategory, "Создать VIP ранга 6: другая враждебная фракция", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void OtherRank6() { PrepareAt(UI.MouseCell(), 6, true); }
+
+        [DebugAction(PrisonersCategory, "Создать VIP ранга 8: другая враждебная фракция", actionType = DebugActionType.ToolMap,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void OtherRank8() { PrepareAt(UI.MouseCell(), 8, true); }
+
+        [DebugAction(ChecksCategory, "17 - Inspect active rescue/coalition parties", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void CoalitionDiagnostics()
+        {
+            RHFOperationController controller = Find.CurrentMap?.GetComponent<RHFOperationController>();
+            if (controller != null)
+                Find.WindowStack.Add(new Dialog_MessageBox(controller.DebugStatus()));
+        }
+
+        [DebugAction(ChecksCategory, "18 - Cancel RHF test operations (not spawned pawns)", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void CancelTestOperations()
+        {
+            RHFOperationController controller = Find.CurrentMap?.GetComponent<RHFOperationController>();
+            if (controller != null)
+                Notify(Find.CurrentMap,"Отменено тестовых сценариев: " +
+                    controller.CancelDebugOperations() + ". Уже созданные рейдеры НЕ удалены.");
+        }
 
         [DebugAction(ChecksCategory, "11 - Show test setup and limitations", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
@@ -172,14 +225,16 @@ namespace RaidersHaveFamilies
                 MessageTypeDefOf.NeutralEvent, false);
         }
 
-        private static void PrepareAt(IntVec3 requested, int rank)
+        private static void PrepareAt(IntVec3 requested, int rank, bool nextFaction = false)
         {
             Map map = Find.CurrentMap;
             if (map == null || !map.IsPlayerHome)
             { Notify(map, "Открой карту своей колонии, чтобы создать тестового пленника."); return; }
-            Faction faction = FirstEnemy(null, false, false);
+            Faction faction = nextFaction ? FirstUnusedEnemy(map) : FirstEnemy(null, false, false);
             if (faction == null)
-            { Notify(map, "Нет подходящей враждебной фракции. Создай её в сценарии и повтори."); return; }
+            { Notify(map, nextFaction ?
+                "Все доступные враждебные фракции уже представлены пленниками. Для коалиции нужны дополнительные фракции." :
+                "Нет подходящей враждебной фракции. Создай её в сценарии и повтори."); return; }
             try
             {
                 PawnKindDef basic = DefDatabase<PawnKindDef>.GetNamedSilentFail("Colonist");
@@ -196,7 +251,7 @@ namespace RaidersHaveFamilies
                 RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(test);
                 if (record != null) { record.Importance = Mathf.Clamp(rank, 0, 8); record.RankSchema = 3; }
                 Notify(map, "Создан тестовый пленник с рангом RHF " + rank + "/8 фракции " + faction.Name +
-                    ". Для коалиции нужны пленники двух разных фракций; можно создать их через обычные средства разработчика.");
+                    ". При желании добавь VIP другой фракции для коалиции.");
             }
             catch (Exception e)
             {
@@ -205,160 +260,202 @@ namespace RaidersHaveFamilies
             }
         }
 
+        // Every debug invocation dispatches NOW. No incident queue, no 150-tick timer.
+        // One budget is divided among up to five actual vanilla raid parties.
         private static void Start(RHFDebugScenario scenario)
         {
             Map map = Find.CurrentMap;
             if (map == null || !map.IsPlayerHome)
-            { Notify(map, "Тестовые рейды запускаются только на карте колонии."); return; }
-            var controller = map.GetComponent<RHFOperationController>();
+            { Notify(map, "Тесты запускаются только на карте колонии."); return; }
+            RHFOperationController controller = map.GetComponent<RHFOperationController>();
             if (controller == null)
-            { Notify(map, "Не найден контроллер спасательных операций."); return; }
-
-            bool rescue = scenario == RHFDebugScenario.Rescue ||
-                scenario == RHFDebugScenario.MassRescue ||
-                scenario == RHFDebugScenario.VipRescue ||
-                scenario == RHFDebugScenario.FieldPod ||
-                scenario == RHFDebugScenario.MercenaryRescue ||
-                scenario == RHFDebugScenario.CoalitionRescue;
-            bool tribal = scenario == RHFDebugScenario.TribalVengeance;
-            bool industrial = scenario == RHFDebugScenario.FieldPod ||
+            { Notify(map, "Контроллер специальных операций не найден; проверь загрузку RHF."); return; }
+            bool vengeance = scenario == RHFDebugScenario.Vengeance ||
+                scenario == RHFDebugScenario.TribalVengeance ||
                 scenario == RHFDebugScenario.HighTechDrop ||
                 scenario == RHFDebugScenario.HighTechSiege;
+            bool rescue = !vengeance;
+            bool coalition = scenario == RHFDebugScenario.CoalitionRescue ||
+                scenario == RHFDebugScenario.CoalitionManyFactions ||
+                scenario == RHFDebugScenario.CoalitionHiredDiversion ||
+                scenario == RHFDebugScenario.CombinedMixedApproach ||
+                scenario == RHFDebugScenario.DropRescueWithDiversion;
+            bool combined = coalition || scenario == RHFDebugScenario.CombinedSingleFaction;
+            bool tribal = scenario == RHFDebugScenario.TribalVengeance;
+            bool industrial = scenario == RHFDebugScenario.HighTechDrop ||
+                scenario == RHFDebugScenario.HighTechSiege;
 
-            var prisoners = Captives(map);
-            Faction sponsor = rescue ? (prisoners.Count > 0 ? SourceFaction(prisoners[0]) : null) : null;
-            if (rescue && sponsor == null)
-            {
-                Notify(map, "Для спасательной операции нужен пленник враждебной фракции. " +
-                    "Сначала создай пленника в категории RHF - ТЕСТЫ | ПЛЕННИКИ или захвати рейдера.");
-                return;
-            }
-            Faction secondSponsor = null;
-            if (scenario == RHFDebugScenario.CoalitionRescue)
-            {
-                foreach (Pawn p in prisoners)
-                    if (SourceFaction(p) != null && SourceFaction(p) != sponsor)
-                    { secondSponsor = SourceFaction(p); break; }
-                if (secondSponsor == null)
-                {
-                    Notify(map, "Для коалиционного теста нужны пленники ДВУХ разных враждебных фракций.");
-                    return;
-                }
-            }
-            if (!rescue)
-            {
-                sponsor = FirstEnemy(null, tribal, industrial);
-                if (sponsor == null)
-                { Notify(map, "Для выбранного типа нет подходящей враждебной фракции."); return; }
-            }
+            List<Pawn> prisoners = Captives(map);
+            Faction sponsor = rescue ? (prisoners.Count>0 ? SourceFaction(prisoners[0]) : null) :
+                FirstEnemy(null, tribal, industrial);
+            if (sponsor == null)
+            { Notify(map, rescue ? "Нужен реальный живой пленник. Сначала создай его в разделе RHF - ТЕСТЫ | ПЛЕННИКИ." :
+                "Подходящей враждебной фракции для выбранного типа нападения нет."); return; }
 
-            Faction executor = sponsor;
-            if (scenario == RHFDebugScenario.MercenaryRescue || scenario == RHFDebugScenario.FieldPod)
-            {
-                executor = FirstEnemy(sponsor, false, true);
-                if (executor == null)
-                {
-                    if (scenario == RHFDebugScenario.FieldPod && sponsor.def.techLevel >= TechLevel.Industrial)
-                        executor = sponsor;
-                    else
-                    { Notify(map, "Нужна дополнительная враждебная индустриальная фракция-исполнитель."); return; }
-                }
-            }
-            if (scenario == RHFDebugScenario.CoalitionRescue &&
-                sponsor.def.techLevel < TechLevel.Industrial)
-            {
-                Faction hire = FirstEnemy(sponsor, false, true);
-                if (hire != null) executor = hire;
-            }
-            if (executor == null || !executor.HostileTo(Faction.OfPlayer))
-            { Notify(map, "Фракция-исполнитель должна быть враждебна колонии."); return; }
-
-            var targets = new List<Pawn>();
+            List<Faction> sponsors = new List<Faction> { sponsor };
+            List<Pawn> targets = new List<Pawn>();
             if (rescue)
             {
                 for (int i=0;i<prisoners.Count && targets.Count<MaxDebugTargets;i++)
                 {
                     Pawn p = prisoners[i];
                     Faction f = SourceFaction(p);
-                    if (f != sponsor && f != secondSponsor) continue;
-                    if (scenario == RHFDebugScenario.Rescue && targets.Count >= 1) break;
-                    if (scenario == RHFDebugScenario.VipRescue && targets.Count >= 1) break;
-                    if (scenario == RHFDebugScenario.FieldPod && targets.Count >= 1) break;
+                    if (f == null) continue;
+                    if (coalition && !sponsors.Contains(f) && sponsors.Count < 4)
+                        sponsors.Add(f);
+                    if (!coalition && f != sponsor) continue;
+                    if (!sponsors.Contains(f)) continue;
+                    if ((scenario == RHFDebugScenario.Rescue ||
+                         scenario == RHFDebugScenario.VipRescue ||
+                         scenario == RHFDebugScenario.FieldPod ||
+                         scenario == RHFDebugScenario.CombinedSingleFaction) && targets.Count >= 1)
+                        continue;
                     targets.Add(p);
                 }
-                if (targets.Count == 0)
-                { Notify(map, "Не нашлось живого пленника для операции."); return; }
+                if (targets.Count == 0) { Notify(map, "Нет пригодных целей для спасения."); return; }
                 if (scenario == RHFDebugScenario.MassRescue && targets.Count < 2)
-                { Notify(map, "Для массового освобождения нужно хотя бы два пленника одной фракции."); return; }
+                { Notify(map, "Для массового освобождения необходимо как минимум два пленника."); return; }
+                if (scenario == RHFDebugScenario.CoalitionManyFactions && sponsors.Count < 3)
+                { Notify(map, "Для теста 3+ фракций создай трёх VIP разных фракций (команда 'другая фракция')."); return; }
             }
+            Faction mercenary = null;
+            if (scenario == RHFDebugScenario.MercenaryRescue ||
+                scenario == RHFDebugScenario.FieldPod ||
+                scenario == RHFDebugScenario.CoalitionHiredDiversion ||
+                scenario == RHFDebugScenario.CombinedMixedApproach ||
+                scenario == RHFDebugScenario.DropRescueWithDiversion || coalition)
+                mercenary = FindHiredEnemy(sponsors, true);
+            if ((scenario == RHFDebugScenario.MercenaryRescue ||
+                 scenario == RHFDebugScenario.CoalitionHiredDiversion) && mercenary == null)
+            { Notify(map, "Не найдена отдельная враждебная индустриальная фракция для найма."); return; }
+            Faction executor = (scenario == RHFDebugScenario.MercenaryRescue ||
+                scenario == RHFDebugScenario.FieldPod) && mercenary != null ? mercenary : sponsor;
+            if (!executor.HostileTo(Faction.OfPlayer))
+            { Notify(map, "Фракция-исполнитель должна быть враждебна игроку."); return; }
 
             int now = Find.TickManager.TicksGame;
             float basePoints = StorytellerUtility.DefaultThreatPointsNow(map);
-            float factor = scenario == RHFDebugScenario.MassRescue ? 2.0f :
-                scenario == RHFDebugScenario.TribalVengeance ? 2.2f :
-                scenario == RHFDebugScenario.HighTechSiege ? 2.0f : 1.6f;
-            float points = Mathf.Clamp(Mathf.Max(500f, basePoints) * factor, 600f, 12000f);
-            var op = new RHFOperation
+            float factor = scenario == RHFDebugScenario.MassRescue ? 2f :
+                tribal ? 2.2f : scenario == RHFDebugScenario.HighTechSiege ? 2f : 1.65f;
+            float total = Mathf.Clamp(Mathf.Max(500f, basePoints) * factor, 650f, 12000f);
+            RHFOperation op = new RHFOperation
             {
-                DebugForced = true,
-                Sponsor = sponsor,
-                Executor = executor,
-                SecondSponsor = secondSponsor,
-                Targets = targets,
+                DebugForced = true, Sponsor = sponsor, Executor = executor,
+                SecondSponsor = sponsors.Count>1 ? sponsors[1] : null,
+                Sponsors = sponsors, Targets = targets,
                 Type = (int)(rescue ? RHFOperationType.Rescue : RHFOperationType.Vengeance),
-                Vip = scenario == RHFDebugScenario.VipRescue || scenario == RHFDebugScenario.FieldPod ? targets[0] : null,
+                CombinedStrike = combined,
+                Vip = scenario == RHFDebugScenario.VipRescue ||
+                      scenario == RHFDebugScenario.FieldPod ? targets[0] : null,
                 TryPod = scenario == RHFDebugScenario.FieldPod,
-                CreatedTick = now,
-                SpawnTick = now + DelayTicks,
-                ExpiryTick = now + DelayTicks + 180000,
-                ThreatPoints = points
+                CreatedTick = now, SpawnTick = now,
+                ExpiryTick = now + 180000, ThreatPoints = total
             };
-            if (!controller.Register(op))
-            { Notify(map, "Лимит: не более четырёх одновременных специальных операций на карту."); return; }
 
-            var parms = new IncidentParms { target = map, faction = executor, points = points };
-            if (rescue)
+            if (vengeance)
             {
-                parms.raidStrategy = Strategy("Breaching", "ImmediateAttackSmart", "ImmediateAttack");
-                // Field construction needs a real path in, so not drop-on-prison.
+                op.Parties.Add(new RHFStrikeParty(executor, RHFStrikeRole.Vengeance, total,
+                    drop: scenario == RHFDebugScenario.HighTechDrop,
+                    siege: scenario == RHFDebugScenario.HighTechSiege));
             }
-            else if (scenario == RHFDebugScenario.HighTechSiege)
-                parms.raidStrategy = Strategy("Siege", "ImmediateAttackSmart", "ImmediateAttack");
-            else
-                parms.raidStrategy = Strategy("ImmediateAttackSmart", "ImmediateAttack");
-            if (scenario == RHFDebugScenario.HighTechDrop)
+            else if (scenario == RHFDebugScenario.DropRescueWithDiversion)
             {
-                PawnsArrivalModeDef drop = DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("CenterDrop");
-                if (drop == null)
+                Faction rescuer = sponsor.def.techLevel >= TechLevel.Industrial ? sponsor : mercenary;
+                if (rescuer == null)
+                { Notify(map,"Нет индустриальной фракции для десантного спасения."); return; }
+                op.Executor = rescuer;
+                Faction distraction = rescuer == sponsor && mercenary != null ? mercenary : sponsor;
+                op.Parties.Add(new RHFStrikeParty(rescuer, RHFStrikeRole.Rescue,
+                    total * .58f, drop: true));
+                op.Parties.Add(new RHFStrikeParty(distraction, RHFStrikeRole.Diversion,
+                    total * .42f));
+            }
+            else if (scenario == RHFDebugScenario.CombinedSingleFaction)
+            {
+                // Same faction, two separately deployed elements with distinct tasks.
+                op.Parties.Add(new RHFStrikeParty(sponsor, RHFStrikeRole.Rescue, total * .60f,
+                    breach: true));
+                op.Parties.Add(new RHFStrikeParty(sponsor, RHFStrikeRole.Diversion, total * .40f));
+            }
+            else if (scenario == RHFDebugScenario.MercenaryRescue ||
+                     scenario == RHFDebugScenario.FieldPod)
+            {
+                op.Parties.Add(new RHFStrikeParty(executor, RHFStrikeRole.Rescue, total,
+                    breach: true));
+            }
+            else if (coalition)
+            {
+                // 1..4 hostage sponsors + optional hired assault wing. They need
+                // not all have captives, and the mercenary never requires its own.
+                int rescueCount = sponsors.Count;
+                bool addHire = mercenary != null && rescueCount < MaxCoalitionParties &&
+                    scenario != RHFDebugScenario.CoalitionManyFactions;
+                int partyCount = rescueCount + (addHire ? 1 : 0);
+                total = Mathf.Max(total, 350f * partyCount);
+                float per = total / partyCount;
+                for (int i=0; i<rescueCount && i<4; i++)
+                    op.Parties.Add(new RHFStrikeParty(sponsors[i], RHFStrikeRole.Rescue,
+                        per, breach: true));
+                if (addHire)
+                    op.Parties.Add(new RHFStrikeParty(mercenary, RHFStrikeRole.Diversion, per,
+                        drop: scenario == RHFDebugScenario.CombinedMixedApproach &&
+                              mercenary.def.techLevel >= TechLevel.Industrial));
+                // Even without hired soldiers, split one sponsor into a distraction.
+                else if (sponsors.Count == 1)
                 {
-                    controller.CancelDebugOperation(op);
-                    Notify(map, "В этой сборке/наборе модов нет режима CenterDrop. Тест десанта отменён.");
-                    return;
+                    op.Parties[0].Points = total * .60f;
+                    op.Parties.Add(new RHFStrikeParty(sponsor, RHFStrikeRole.Diversion,
+                        total * .40f));
                 }
-                parms.raidArrivalMode = drop;
             }
-            if (scenario == RHFDebugScenario.HighTechSiege &&
-                DefDatabase<RaidStrategyDef>.GetNamedSilentFail("Siege") == null)
+            else
             {
-                controller.CancelDebugOperation(op);
-                Notify(map, "В этой сборке/наборе модов нет стратегии Siege. Тест осады отменён.");
-                return;
+                op.Parties.Add(new RHFStrikeParty(sponsor, RHFStrikeRole.Rescue, total,
+                    breach: true));
             }
-            if (scenario == RHFDebugScenario.TribalVengeance)
-                parms.points *= .92f; // reserve some budget for animals
+            // A DebugAction does not affect the natural raid scheduler. The raid
+            // is performed on this click, not silently scheduled for later.
+            if (!controller.Register(op))
+            { Notify(map, "Достигнут лимит: максимум 4 параллельные специальные операции."); return; }
+            bool appeared = controller.ForceDeployNow(op);
+            if (!appeared)
+            { Notify(map, "Рейд НЕ появился: RimWorld отклонила генерацию фракции/стратегии. " +
+                "Проверь журнал ошибок. Запись операции отменена."); return; }
+            Notify(map, "Рейд вызван СЕЙЧАС: " + scenario + ". Успешных групп: " +
+                op.SuccessfulParties + "/" + op.Parties.Count + "; спонсоров: " +
+                sponsors.Count + "; всего бюджет " + Mathf.RoundToInt(total) +
+                ". Если использованы капсулы, дождись открытия капсул, не повторяй вызов.");
+        }
 
-            // This is the SAME incident/AI entry point as real faction reprisals.
-            // The dev command bypasses chance, diplomacy thresholds, and cooldowns.
-            if (!Find.Storyteller.incidentQueue.Add(IncidentDefOf.RaidEnemy,
-                op.SpawnTick, parms))
+        private static Faction FindUnusedEnemyCandidate(Faction skip, HashSet<Faction> used)
+        {
+            foreach (Faction faction in Find.FactionManager.AllFactionsListForReading)
+                if (faction != null && faction != skip && !used.Contains(faction) &&
+                    !faction.IsPlayer && faction.def != null && !faction.def.hidden &&
+                    faction.HostileTo(Faction.OfPlayer)) return faction;
+            return null;
+        }
+
+        private static Faction FirstUnusedEnemy(Map map)
+        {
+            HashSet<Faction> used = new HashSet<Faction>();
+            foreach (Pawn pawn in Captives(map))
             {
-                controller.CancelDebugOperation(op);
-                Notify(map, "RimWorld отказался поставить этот рейд в очередь.");
-                return;
+                Faction faction = SourceFaction(pawn);
+                if (faction != null) used.Add(faction);
             }
-            Notify(map, "Тестовый рейд запланирован: " + scenario +
-                "; исполнитель: " + executor.Name + "; сила: " + Mathf.RoundToInt(points) +
-                "; появление через " + DelayTicks + " тиков. Сохранение НЕ делается автоматически.");
+            return FindUnusedEnemyCandidate(null, used);
+        }
+
+        private static Faction FindHiredEnemy(List<Faction> sponsors, bool industrial)
+        {
+            foreach (Faction faction in Find.FactionManager.AllFactionsListForReading)
+                if (faction != null && !sponsors.Contains(faction) &&
+                    !faction.IsPlayer && faction.def != null && !faction.def.hidden &&
+                    faction.HostileTo(Faction.OfPlayer) &&
+                    (!industrial || faction.def.techLevel >= TechLevel.Industrial))
+                    return faction;
+            return null;
         }
 
         private static List<Pawn> Captives(Map map)
@@ -412,9 +509,10 @@ namespace RaidersHaveFamilies
             if (map == null) return;
             int prisoners = Captives(map).Count;
             Notify(map, "RHF: пленников враждебных фракций " + prisoners +
-                ". '00' создаёт тестового пленника. Rescue/VIP/mercenaries/coalition требуют " +
-                "пленников (коалиция — две фракции, массовый рейд — двух пленников). " +
-                "Тестовые рейды игнорируют переговоры/таймеры; VIP pod — опытная реализация, " +
+                ". Пленников рангов 0..8 создавай щелчком на карте. " +
+                "Коалиция: одна и более фракций-покровителей + наёмники, отдельный " +
+                "тест для 3+ VIP. Комбинированный рейд = спасение + фронтальная атака. " +
+                "Тесты запускают рейды немедленно, без 150-тик. очереди. VIP pod — опытная реализация, " +
                 "не настоящая ванильная транспортная капсула. Тестируй только на копии сохранения.");
         }
 
