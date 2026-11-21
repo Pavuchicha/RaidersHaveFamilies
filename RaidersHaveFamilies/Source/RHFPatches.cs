@@ -9,6 +9,16 @@ using Verse.AI;
 
 namespace RaidersHaveFamilies
 {
+    public static class RHFOrdinarySaleHook
+    {
+        private static readonly FieldInfo PawnField = AccessTools.Field(typeof(Pawn_RelationsTracker), "pawn");
+        public static void Postfix(Pawn_RelationsTracker __instance)
+        {
+            Pawn pawn = PawnField?.GetValue(__instance) as Pawn;
+            if (pawn != null) RHFMercy.OnOrdinarySale(pawn);
+        }
+    }
+
     [StaticConstructorOnStartup]
     public static class RHFPatchInit
     {
@@ -19,7 +29,17 @@ namespace RaidersHaveFamilies
                 var harmony = new Harmony("pavuk.raidshavefamilies");
                 harmony.PatchAll(typeof(RHFPatchInit).Assembly);
                 RHFWarCrimesIntegration.Patch(harmony);
-                Log.Message("[Raiders Have Families] 0.6.0 event-driven Harmony integrations active.");
+                // Optional vanilla sale event, resolved dynamically so an API change
+                // cannot prevent all other Harmony patches from installing.
+                try
+                {
+                    MethodInfo sold = AccessTools.Method(typeof(Pawn_RelationsTracker), "Notify_PawnSold");
+                    MethodInfo postfix = AccessTools.Method(typeof(RHFOrdinarySaleHook), nameof(RHFOrdinarySaleHook.Postfix));
+                    if (sold != null && postfix != null)
+                        harmony.Patch(sold, postfix: new HarmonyMethod(postfix));
+                }
+                catch (Exception e) { Log.Warning("[RHF] Ordinary sale event unavailable: " + e.Message); }
+                Log.Message("[Raiders Have Families] 0.8.0 event-driven Harmony integrations active.");
             }
             catch (Exception e) { Log.Error("[Raiders Have Families] Could not initialize Harmony: " + e); }
         }
@@ -174,7 +194,9 @@ namespace RaidersHaveFamilies
                 if (recipe?.workerClass == null || SeverityOf(recipe) <= 0) continue;
                 if (RHFWCERegistry.Known(recipe.defName)) WceRecipesDetected++;
                 else VanillaRecipesDetected++;
-                MethodInfo target = AccessTools.Method(recipe.workerClass, "ApplyOnPawn");
+                MethodInfo target = AccessTools.Method(recipe.workerClass, "ApplyOnPawn", new Type[] {
+                    typeof(Pawn), typeof(BodyPartRecord), typeof(Pawn),
+                    typeof(List<Thing>), typeof(Bill) });
                 if (target == null || !patched.Add(target)) continue;
                 try
                 {
@@ -210,6 +232,26 @@ namespace RaidersHaveFamilies
             if (__state == null || severity <= 0) return;
             RHFHostageDiplomacy.RecordWceOperation(pawn, billDoer,
                 recipe.defName, __state, severity, recipe.label);
+        }
+    }
+}
+
+namespace RaidersHaveFamilies
+{
+    // Inspection-only decoration: the original faction's pawn title/gear remain intact.
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetInspectString))]
+    public static class RHFTacticalInspectEvent
+    {
+        [HarmonyPostfix]
+        public static void Postfix(Pawn __instance, ref string __result)
+        {
+            if (__instance?.Map == null || RHFMod.Settings?.TacticalCombat != true) return;
+            RHFTacticalMember m = __instance.Map.GetComponent<RHFOperationController>()?
+                .TacticalMember(__instance);
+            if (m == null) return;
+            __result += "\nRHF: " + RHFTactical.RoleName(m.Role) +
+                (m.KitIssued > 0 ? "; реальный комплект взлома" : "") +
+                (m.WeaponMissing ? "; нет основного оружия" : "");
         }
     }
 }

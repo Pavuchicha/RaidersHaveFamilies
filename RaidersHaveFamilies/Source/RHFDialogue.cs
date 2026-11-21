@@ -64,6 +64,11 @@ namespace RaidersHaveFamilies
         private static DiaNode Person(Pawn negotiator, RHFHostageRecord r)
         {
             string introduction = Contact(r) + ".\n\n";
+            introduction += "Сводное здоровье пленника: " +
+                Mathf.RoundToInt((r.Pawn.health?.summaryHealth?.SummaryHealthPercent ?? 1f)*100f) +
+                "% (общая оценка состояния здоровья игрой).\n" +
+                "Ранее отвергнутых повышенных требований: " + r.HighDemandRejected +
+                "; заявлений об отказе: " + r.RefusalCount + ".\n\n";
             if (r.Importance >= 6) introduction +=
                 "«Не думайте, что речь идёт только о деньгах. Вы удерживаете человека, " +
                 "от которого зависят люди и решения. Мы требуем ясного ответа».";
@@ -80,8 +85,11 @@ namespace RaidersHaveFamilies
             { linkLateBind = () => ConfirmAlive(negotiator, r) });
             node.options.Add(new DiaOption("Обсудить условия возвращения")
             { linkLateBind = () => Terms(negotiator, r) });
-            node.options.Add(new DiaOption("Сообщить о ранениях и проведённых операциях")
-            { linkLateBind = () => HealthReport(negotiator, r) });
+            DiaOption report = new DiaOption("Сообщить о ранениях и проведённых операциях")
+            { linkLateBind = () => HealthReport(negotiator, r) };
+            if (!RHFHostageDiplomacy.HasNewEvidence(r))
+                report.Disable("новых сведений пока нет");
+            node.options.Add(report);
             if (r.Importance >= 3)
                 node.options.Add(new DiaOption("Заявить, что пленника не вернут")
                 { linkLateBind = () => Deny(negotiator, r) });
@@ -108,7 +116,7 @@ namespace RaidersHaveFamilies
         {
             if (r.Negotiated)
                 return ReturnNode("«У нас уже есть договорённость. Отпустите пленника; только затем будет произведена оплата»." , negotiator, r);
-            int basePrice = RHFHostageDiplomacy.SilverPrice(r);
+            int basePrice = RHFHostageDiplomacy.NegotiatedPrice(r, negotiator);
             int higher = Mathf.RoundToInt(basePrice * 1.35f);
             int extreme = Mathf.RoundToInt(basePrice * 1.80f);
             int goodwill = RHFHostageDiplomacy.GoodwillReward(r);
@@ -117,15 +125,18 @@ namespace RaidersHaveFamilies
                 "Ожидаемое улучшение отношений: до +" + goodwill + " (предел +100)";
             DiaNode node = new DiaNode(Contact(r) + ".\n\n" +
                 "«Назовите условия. Мы выслушаем их, но не путайте готовность платить с покорностью».\n\n" +
-                "Суммы ниже — СЕРЕБРО. Проценты означают увеличение требуемой суммы, " +
-                "а не шанс принятия. Вероятности указаны отдельно.");
+                "Суммы указаны в серебре; шанс принятия требования приведён отдельно. " +
+                "Цена учитывает здоровье пленника, известные жестокости, историю переговоров " +
+                "и социальный навык переговорщика (" + RHFHostageDiplomacy.NegotiatorSocial(negotiator) + ")." +
+                (r.RefusalCount > 0 ? "\n«Вы уже заявляли, что не вернёте его. " +
+                    "Мы помним это. Что изменилось?»" : ""));
             node.options.Add(new DiaOption("Стандартный выкуп — " + basePrice + " серебра")
             { linkLateBind = () => Agreement(negotiator, r, basePrice, false) });
             node.options.Add(new DiaOption("Повышенное требование — " + higher + " серебра (примерный шанс " +
-                RHFHostageDiplomacy.CounterOfferChancePercent(r,1.35f) + "%)")
+                RHFHostageDiplomacy.CounterOfferChancePercent(r,1.35f, negotiator) + "%)")
             { linkLateBind = () => Higher(negotiator, r, 1.35f) });
             node.options.Add(new DiaOption("Ультиматум — " + extreme + " серебра (примерный шанс " +
-                RHFHostageDiplomacy.CounterOfferChancePercent(r,1.80f) + "%)")
+                RHFHostageDiplomacy.CounterOfferChancePercent(r,1.80f, negotiator) + "%)")
             { linkLateBind = () => Higher(negotiator, r, 1.80f) });
             node.options.Add(new DiaOption("Освободить бесплатно — " + goodwillText)
             { linkLateBind = () => Agreement(negotiator, r, 0, true) });
@@ -146,8 +157,8 @@ namespace RaidersHaveFamilies
 
         private static DiaNode Higher(Pawn negotiator, RHFHostageRecord r, float factor)
         {
-            bool accepted = RHFHostageDiplomacy.RequestHigherRansom(r, factor);
-            int price = Mathf.RoundToInt(RHFHostageDiplomacy.SilverPrice(r) * factor);
+            bool accepted = RHFHostageDiplomacy.RequestHigherRansom(r, factor, negotiator);
+            int price = Mathf.RoundToInt(RHFHostageDiplomacy.NegotiatedPrice(r,negotiator) * factor);
             return ReturnNode(accepted ?
                 "После паузы, когда на линии слышен спор нескольких голосов, представитель отвечает: " +
                 "«Мы приняли решение. " + price + " серебра. Верните его живым»." :
@@ -157,6 +168,7 @@ namespace RaidersHaveFamilies
 
         private static DiaNode HealthReport(Pawn negotiator, RHFHostageRecord r)
         {
+            RHFHostageDiplomacy.AuditInteractionMutilation(r);
             int undisclosed = Math.Max(0, r.WceOperations - r.DisclosedOperations);
             int missing = Math.Max(0, RHFHostageDiplomacy.MissingParts(r.Pawn) - r.LastReportedMissing);
             DiaNode node = new DiaNode(Contact(r) + ".\n\n«Я записываю. Говорите точно: " +
@@ -165,9 +177,11 @@ namespace RaidersHaveFamilies
                     r.LastConfirmedOperation + ". Новых зарегистрированных операций: " + undisclosed + "." :
                     "Новых документированных умышленных операций в журнале RHF нет.") +
                 (missing > 0 ? "\nНовых отсутствующих частей тела: " + missing + "." : ""));
-            if (undisclosed > 0 || missing > 0 || (r.InitialMissing > 0 && !r.ReportedInitialInjuries) ||
-                r.CrueltyScore > r.DisclosedCrueltyScore)
-                node.options.Add(new DiaOption("Сообщить все зафиксированные обстоятельства")
+            if (RHFHostageDiplomacy.CanAdmitMutilation(r))
+                node.options.Add(new DiaOption("Признать: части тела намеренно удалены по нашему приказу")
+                { linkLateBind = () => ReturnNode(RHFHostageDiplomacy.AdmitMutilation(r), negotiator, r) });
+            if (RHFHostageDiplomacy.HasNewEvidence(r))
+                node.options.Add(new DiaOption("Передать медицинские сведения без признания умысла")
                 { linkLateBind = () => ReportResponse(negotiator, r) });
             node.options.Add(new DiaOption("Вернуться к разговору")
             { linkLateBind = () => Person(negotiator, r) });
@@ -182,11 +196,17 @@ namespace RaidersHaveFamilies
 
         private static DiaNode Deny(Pawn negotiator, RHFHostageRecord r)
         {
-            DiaNode n = new DiaNode("«Вы отказываетесь вернуть его? Вы уверены, что хотите сказать это официально? " +
+            DiaNode n = new DiaNode(r.RefusalCount > 0 ?
+                "«Вы уже клялись удерживать пленника навсегда. И теперь повторяете это? " +
+                "Каждый новый отказ будет рассматриваться как отдельная угроза»." :
+                "«Вы отказываетесь вернуть его? Вы уверены, что хотите сказать это официально? " +
                 "Я передам каждое слово командованию».\n\nОтказ может вызвать попытку спасения или карательную операцию.");
             n.options.Add(new DiaOption("Подтвердить отказ")
             { linkLateBind = () => { RHFHostageDiplomacy.Refuse(r);
-                return ReturnNode("«Мы услышали. На этом переговоры закончены»." , negotiator, r); } });
+                return ReturnNode(r.RefusalCount > 1 ?
+                    "«Мы слышали это уже не раз. Повторения не делают вашу угрозу убедительнее. " +
+                    "Совет будет действовать исходя из того, что вы удерживаете нашего человека силой»." :
+                    "«Мы услышали. Совет получит запись разговора. Решение принято»." , negotiator, r); } });
             n.options.Add(new DiaOption("Не отказываться; продолжить переговоры")
             { linkLateBind = () => Person(negotiator,r) });
             return n;

@@ -24,7 +24,9 @@ namespace RaidersHaveFamilies
                     string info = null;
                     if (name.Equals("WCE2_Torture_AlwaysRespected", StringComparison.OrdinalIgnoreCase))
                     {
-                        info = "[Дополнительный эффект RHF] После того как через консоль связи фракции " +
+                        info = "Настроение (RHF): +2 / +4 / +8 / +16 / +32 / +48 на 5 дней " +
+                            "ТОЛЬКО после публичного раскрытия подтверждённых мучений.\n" +
+                            "[Дополнительный эффект RHF] После того как через консоль связи фракции " +
                             "сообщено о подтверждённых пытках её пленника, колонисты с этим принципом " +
                             "получают ОДНО воспоминание +2 / +4 / +8 / +16 / +32 / +48 к настроению " +
                             "на 5 дней. Сила зависит от зафиксированной жестокости и важности пленника. " +
@@ -33,7 +35,9 @@ namespace RaidersHaveFamilies
                     }
                     else if (name.Equals("WCE2_Torture_RespectedGuilty", StringComparison.OrdinalIgnoreCase))
                     {
-                        info = "[Дополнительный эффект RHF] За сообщение фракции через консоль " +
+                        info = "Настроение (RHF): +2 / +4 / +8 / +16 / +32 / +48 на 5 дней " +
+                            "после раскрытия пыток ВИНОВНОГО пленника.\n" +
+                            "[Дополнительный эффект RHF] За сообщение фракции через консоль " +
                             "о подтверждённых пытках пленника: одно воспоминание +2 / +4 / +8 / +16 / +32 / +48 " +
                             "к настроению на 5 дней — ТОЛЬКО если игра считает жертву виновной " +
                             "на момент сообщения. Сила зависит от жестокости и статуса жертвы. " +
@@ -49,6 +53,29 @@ namespace RaidersHaveFamilies
                             "воспоминания за сообщение родственникам о поедании пленника ЕЩЁ НЕ РЕАЛИЗОВАНЫ. " +
                             "Показанные выше бонусы каннибализма принадлежат обычной Ideology. " +
                             "Это пояснение не меняет настроение и не создаёт дополнительных эффектов.";
+                    }
+                    else if ((name.StartsWith("Charity_", StringComparison.OrdinalIgnoreCase) ||
+                              name.StartsWith("Mercy_", StringComparison.OrdinalIgnoreCase)) &&
+                             (name.IndexOf("Worthwhile", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                              name.IndexOf("Important", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                              name.IndexOf("Essential", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                              name.IndexOf("Respected", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                              name.IndexOf("Required", StringComparison.OrdinalIgnoreCase) >= 0))
+                    {
+                        int tier = name.IndexOf("Essential", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   name.IndexOf("Required", StringComparison.OrdinalIgnoreCase) >= 0 ? 3 :
+                                   name.IndexOf("Important", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   name.IndexOf("Respected", StringComparison.OrdinalIgnoreCase) >= 0 ? 2 : 1;
+                        int freeBonus = tier == 3 ? 9 : tier == 2 ? 6 : 3;
+                        int saleBonus = tier == 3 ? 3 : tier == 2 ? 2 : 1;
+                        info = "Настроение RHF: милосердное освобождение +" + freeBonus +
+                            ", гуманная обычная продажа +" + saleBonus + " на 5 дней.\n" +
+                            "[Дополнительный эффект RHF] Только для пленника, которого НЕ пытали, " +
+                            "не держали рабом, не обращали принудительно в другую идеологию " +
+                            "и не калечили после захвата. Бонус получают верующие " +
+                            "в этот принцип после фактического ухода пленника или обычной продажи. " +
+                            "Выкуп за серебро — НЕ благотворительность и бонуса не даёт. " +
+                            "Новое воспоминание заменяет предыдущее и не складывается бесконечно.";
                     }
                     if (info == null || (def.description != null && def.description.Contains(Marker)))
                         continue;

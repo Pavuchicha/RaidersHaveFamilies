@@ -10,7 +10,7 @@ for key in ['MaxBatchSize = 192','MaxPairProbes = 64','MaxRememberedIds = 8192',
     assert key in source, key
 assert 'AllPawnsSpawned' not in source[source.index('public override void MapComponentTick()',source.index('class RHFMapComponent')):
                                        source.index('private void Remember(int id)',source.index('class RHFMapComponent'))]
-for key in ['DecisionInterval = 300','MaxOperationsPerMap = 4','MaxSquad = 96',
+for key in ['DecisionInterval = 450','MaxOperationsPerMap = 4','MaxSquad = 96',
             'MaxOrdersPerDecision = 14','MaxTargets = 24','MaxOperationDuration = 180000',
             'operations.Count == 0', 'FindBarrier(', 'BuildAndLaunch(', 'ChooseExit(']:
     assert key in operation, key

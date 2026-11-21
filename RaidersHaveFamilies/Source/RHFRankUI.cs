@@ -69,7 +69,10 @@ namespace RaidersHaveFamilies
             int marked = Current.Game?.GetComponent<RHFGameLedger>()?.ConfirmedLinks(p) ?? 0;
             cachePawn = p;
             cacheTick = tick;
-            cacheShort = "Значимость RHF: " + rank + "/8 — " + RHFRankResolver.RankLabel(rank) +
+            RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
+            string office = record != null && !string.IsNullOrEmpty(record.OfficeName) ?
+                record.OfficeName : RHFRankResolver.OfficeFor(p, rank);
+            cacheShort = "Значимость RHF: " + rank + "/8 — " + office +
                 (Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p) != null ? " (при пленении)" : " (по роли)") +
                 "\nПодтверждено связей RHF: " + marked + "; всего родственных и социальных: " + TotalRelated(p);
             return cacheShort;
@@ -81,6 +84,11 @@ namespace RaidersHaveFamilies
             var b = new StringBuilder(700);
             b.AppendLine(p.LabelShortCap + " — Raiders Have Families");
             b.AppendLine(Short(p));
+            RHFHostageRecord captured = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
+            int rank = EffectiveRank(p);
+            b.AppendLine();
+            b.AppendLine(RHFRankResolver.OfficeStory(p, rank, captured?.OfficeName,
+                captured != null && captured.DebugOffice));
             b.AppendLine();
             b.AppendLine("Подтверждённые изменения отношений нашего мода:");
             RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
@@ -128,6 +136,48 @@ namespace RaidersHaveFamilies
         }
     }
 
+    public static class RHFPrisonerInline
+    {
+        // Plain text, not a secondary gray menu panel in the prisoner tab.
+        public static void Draw(Rect area, Pawn pawn)
+        {
+            if (pawn == null) return;
+            var record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(pawn);
+            int rank = RHFRankUI.EffectiveRank(pawn);
+            string office = record?.OfficeName ?? RHFRankResolver.OfficeFor(pawn, rank);
+            Text.Font = GameFont.Tiny;
+            Widgets.Label(new Rect(area.x, area.y, area.width, 28f),
+                "RHF: " + rank + "/8 — " + office);
+            if (record != null)
+                Widgets.Label(new Rect(area.x, area.y+23f, area.width, 40f),
+                    "Выкуп: " + RHFHostageDiplomacy.SilverPrice(record) + " серебра; " +
+                    "бесплатный возврат: до +" + RHFHostageDiplomacy.GoodwillReward(record) + " репутации");
+            if (Widgets.ButtonText(new Rect(area.x, area.y+61f, area.width, 22f), "RHF: подробности и связи"))
+                RHFRankUI.OpenDetails(pawn);
+            Text.Font = GameFont.Small;
+        }
+    }
+
+    // Vanilla kind labels ("жительница", "солдат") describe PawnKind, not
+    // political importance. Add a separate truthful line rather than changing
+    // PawnKindDef shared by every pawn of the same race/faction.
+    [HarmonyPatch(typeof(Pawn), nameof(Pawn.GetInspectString))]
+    public static class RHFInspectStatus
+    {
+        [HarmonyPostfix]
+        public static void Postfix(Pawn __instance, ref string __result)
+        {
+            if (__instance?.RaceProps == null || !__instance.RaceProps.Humanlike ||
+                __instance.Faction == null || __instance.Faction.IsPlayer ||
+                RHFMod.Settings?.Enabled != true) return;
+            int rank = RHFRankUI.EffectiveRank(__instance);
+            RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(__instance);
+            string office = record != null && !string.IsNullOrEmpty(record.OfficeName) ?
+                record.OfficeName : RHFRankResolver.OfficeFor(__instance, rank);
+            __result = (__result ?? "").TrimEnd() + "\nRHF: " + rank + "/8 — " + office;
+        }
+    }
+
     [HarmonyPatch(typeof(ITab_Pawn_Character), MethodType.Constructor)]
     public static class RHFCharacterTabSize
     {
@@ -165,7 +215,25 @@ namespace RaidersHaveFamilies
             Vector2 old = RHFRankUI.GetSize(__instance);
             if (old.x < 100f) return;
             RHFRankUI.SetSize(__instance, new Vector2(old.x, old.y + 100f));
-            RHFRankUI.DrawStatus(new Rect(8f, old.y + 3f, old.x - 16f, 88f), p);
+            RHFPrisonerInline.Draw(new Rect(11f, old.y + 3f, old.x - 22f, 88f), p);
+        }
+    }
+
+    // RimWorld 1.7 StatWorker.GetStatDrawEntryLabel is not virtual in our reference DLL.
+    // Alter only the displayed value of our own custom rank, never other mods' stats.
+    [HarmonyPatch(typeof(StatDrawEntry), "get_ValueString")]
+    public static class RHFRankStatText
+    {
+        [HarmonyPostfix]
+        public static void Postfix(StatDrawEntry __instance, ref string __result)
+        {
+            if (__instance?.stat?.defName != "RHF_SocialImportance" ||
+                !__instance.hasOptionalReq || !(__instance.optionalReq.Thing is Pawn pawn)) return;
+            int rank = RHFRankUI.EffectiveRank(pawn);
+            RHFHostageRecord r = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(pawn);
+            string office = r != null && !string.IsNullOrEmpty(r.OfficeName) ?
+                r.OfficeName : RHFRankResolver.OfficeFor(pawn, rank);
+            __result = rank + "/8 — " + office;
         }
     }
 

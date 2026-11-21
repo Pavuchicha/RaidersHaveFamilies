@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Defs>
+  <JobDef>
+    <defName>RHF_CarryDowned</defName>
+    <driverClass>RaidersHaveFamilies.JobDriver_RHFCarryDowned</driverClass>
+    <reportString>эвакуирует раненого пленника.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
+</Defs>

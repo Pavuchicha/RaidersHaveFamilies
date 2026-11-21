@@ -66,6 +66,14 @@ namespace RaidersHaveFamilies
         public int LastConfirmedOperationTick;
         public int LastConfirmedOperationSeverity;
         public int SurgicalCrueltyCount;
+        public string OfficeName = "";
+        public bool DebugOffice;
+        public int RefusalCount;
+        public int HighDemandRejected;
+        public int LastRejectionTick;
+        public int SelfAdmittedMutilations;
+        public int LastAdmittedMissing;
+        public bool MercyAwarded; // avoids repeated ideology memories in exit/sale hooks
 
         public RHFHostageRecord() { }
         public RHFHostageRecord(Pawn pawn)
@@ -73,9 +81,11 @@ namespace RaidersHaveFamilies
             Pawn = pawn;
             OriginalFaction = pawn.Faction;
             Importance = RHFHostageDiplomacy.RankOf(pawn);
+            OfficeName = RHFRankResolver.OfficeFor(pawn, Importance);
             CaptureTick = Find.TickManager.TicksGame;
             InitialIdeology = pawn.Ideo?.ToString() ?? "";
             InitialMissing = RHFHostageDiplomacy.MissingParts(pawn);
+            LastAdmittedMissing = InitialMissing;
             LastReportedMissing = InitialMissing;
         }
 
@@ -113,6 +123,14 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref LastConfirmedOperationTick, "lastConfirmedOpTick", 0);
             Scribe_Values.Look(ref LastConfirmedOperationSeverity, "lastConfirmedSeverity", 0);
             Scribe_Values.Look(ref SurgicalCrueltyCount, "surgicalCrueltyCount", 0);
+            Scribe_Values.Look(ref OfficeName, "rhfOfficeNameV7", "");
+            Scribe_Values.Look(ref DebugOffice, "rhfDebugOfficeV7", false);
+            Scribe_Values.Look(ref RefusalCount, "rhfRefusalCountV7", 0);
+            Scribe_Values.Look(ref HighDemandRejected, "rhfHighDemandRejectedV7", 0);
+            Scribe_Values.Look(ref LastRejectionTick, "rhfLastRejectionTickV7", 0);
+            Scribe_Values.Look(ref SelfAdmittedMutilations, "rhfSelfAdmittedV7", 0);
+            Scribe_Values.Look(ref LastAdmittedMissing, "rhfLastAdmittedMissingV7", 0);
+            Scribe_Values.Look(ref MercyAwarded, "rhfMercyAwardedV8", false);
             if (Scribe.mode==LoadSaveMode.PostLoadInit && RankSchema<3)
             { Importance=RHFRankResolver.RankOf(Pawn); RankSchema=3; }
         }
@@ -180,38 +198,134 @@ namespace RaidersHaveFamilies
             r.PendingSilver = Math.Max(0, silver);
             r.PendingGoodwill = goodwill;
             r.Negotiated = true;
+            r.Refused = false;
             r.OfferDeadlineTick = 0;
             Messages.Message("Договорённость достигнута. Отпустите " + r.Pawn.LabelShortCap +
                 ": награда будет доставлена после выхода пленника с карты.",
                 MessageTypeDefOf.NeutralEvent, false);
         }
 
-        public static int CounterOfferChancePercent(RHFHostageRecord r, float factor)
+        public static int NegotiatorSocial(Pawn negotiator)
+        {
+            return negotiator?.skills == null ? 0 :
+                Math.Max(0, negotiator.skills.GetSkill(SkillDefOf.Social)?.Level ?? 0);
+        }
+
+        public static int NegotiatedPrice(RHFHostageRecord r, Pawn negotiator)
+        {
+            if (r == null) return 0;
+            // Physical condition is already in SilverPrice. Social expertise and
+            // recorded hostility change the amount demanded in the current dialogue.
+            float social = 1f + Mathf.Clamp(NegotiatorSocial(negotiator) - 5, -5, 15) * .015f;
+            float tension = 1f + Math.Min(.32f,
+                r.HighDemandRejected * .04f + r.RefusalCount * .06f +
+                Math.Max(0, r.CrueltyScore - r.DisclosedCrueltyScore) * .003f);
+            return Math.Max(50, Mathf.RoundToInt(SilverPrice(r) * social * tension));
+        }
+
+        public static int CounterOfferChancePercent(RHFHostageRecord r, float factor,
+            Pawn negotiator = null)
         {
             if (r?.Pawn == null) return 0;
             float health = r.Pawn.health?.summaryHealth?.SummaryHealthPercent ?? 1f;
-            float chance = Mathf.Clamp(.70f + Math.Min(8,r.Importance)*.03f +
-                (health-.5f)*.22f - (factor-1f)*.63f -
-                Math.Min(.25f, r.CrueltyScore*.004f) +
-                Mathf.Clamp(RHFPoliticalReputation.Pressure(r.OriginalFaction)/500f, -.25f,.15f), .05f,.94f);
+            float skill = Mathf.Clamp(NegotiatorSocial(negotiator) - 6, -6, 14) * .018f;
+            float priorHistory = r.HighDemandRejected * .055f + r.RefusalCount * .075f;
+            float cruelty = Math.Min(.33f, r.CrueltyScore * .004f);
+            float anger = Math.Min(.24f, Math.Max(0,-RHFPoliticalReputation.Pressure(r.OriginalFaction)) * .0005f);
+            float fearOfLoss = Mathf.Min(.18f, r.Importance * .027f +
+                (1f-health) * .10f);
+            // Some factions may pay more under duress, but failed talks and public
+            // injury reports increase the risk of violent retaliation instead.
+            float chance = Mathf.Clamp(.67f + skill + fearOfLoss - (factor-1f)*.63f -
+                priorHistory - cruelty - anger, .04f, .96f);
             return Mathf.RoundToInt(chance * 100f);
         }
 
-        public static bool RequestHigherRansom(RHFHostageRecord r, float factor)
+        public static bool RequestHigherRansom(RHFHostageRecord r, float factor,
+            Pawn negotiator = null)
         {
             if (r?.OriginalFaction == null || !HostageEligible(r.Pawn) || r.Negotiated) return false;
-            if (Rand.RangeInclusive(1,100) <= CounterOfferChancePercent(r, factor))
+            if (Rand.RangeInclusive(1,100) <= CounterOfferChancePercent(r, factor, negotiator))
             {
-                AgreeRelease(r, Mathf.RoundToInt(SilverPrice(r)*factor), false);
+                AgreeRelease(r, Mathf.RoundToInt(NegotiatedPrice(r,negotiator)*factor), false);
                 return true;
             }
+            r.HighDemandRejected++;
+            r.LastRejectionTick = Find.TickManager.TicksGame;
             RHFPoliticalReputation.Change(r.OriginalFaction,-4);
-            if (r.Importance >= 5 && Rand.Chance(.35f)) QueueRetaliation(r);
+            if ((r.Importance >= 5 || r.RefusalCount > 0 || r.CrueltyScore > 20) &&
+                Rand.Chance(Mathf.Clamp(.16f + r.Importance*.035f + r.RefusalCount*.08f, .1f,.8f)))
+                QueueRetaliation(r, true);
             return false;
+        }
+
+        // A surgery job from a prisoner interaction mod may bypass RecipeWorker.ApplyOnPawn.
+        // This fallback is evaluated ONLY when opening a conversation and only for an
+        // explicit mutilation interaction with newly missing body parts.
+        public static void AuditInteractionMutilation(RHFHostageRecord r)
+        {
+            if (r?.Pawn?.guest?.interactionMode?.defName == null ||
+                RHFMod.Settings?.WCE2Events != true) return;
+            string mode = r.Pawn.guest.interactionMode.defName.ToLowerInvariant();
+            if (!mode.Contains("mutilat") && !mode.Contains("tortur")) return;
+            int newMissing = MissingParts(r.Pawn) - Math.Max(r.InitialMissing, r.LastAdmittedMissing);
+            if (newMissing <= 0) return;
+            r.LastAdmittedMissing = MissingParts(r.Pawn);
+            // No doctor identity is fabricated. This is a contextual WCE2 interaction,
+            // not a proven recipe hook: the log explicitly marks it as inferred.
+            r.WceOperations = Math.Min(1000, r.WceOperations + 1);
+            r.SurgicalCrueltyCount = Math.Min(1000, r.SurgicalCrueltyCount + newMissing);
+            int severity = Math.Min(12, 6 + newMissing * 2);
+            r.CrueltyScore = Math.Min(500, r.CrueltyScore + severity * newMissing);
+            r.LastConfirmedOperation = "Утрата частей тела в режиме увечий пленника (вероятное вмешательство WCE2)";
+            r.LastConfirmedOperationSeverity = severity;
+            r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;
+            if (RHFMod.Settings.VerboseLogging)
+                Log.Message("[RHF] Prisoner mutilation interaction inferred for " + r.Pawn +
+                    "; parts=" + newMissing);
+        }
+
+        public static int UnreportedMissing(RHFHostageRecord r)
+        {
+            return r?.Pawn == null ? 0 : Math.Max(0, MissingParts(r.Pawn) - r.LastReportedMissing);
+        }
+
+        public static bool HasNewEvidence(RHFHostageRecord r)
+        {
+            if (r == null || r.Pawn == null) return false;
+            AuditInteractionMutilation(r);
+            return UnreportedMissing(r) > 0 ||
+                r.WceOperations > r.DisclosedOperations ||
+                r.CrueltyScore > r.DisclosedCrueltyScore ||
+                (r.InitialMissing > 0 && !r.ReportedInitialInjuries);
+        }
+
+        public static bool CanAdmitMutilation(RHFHostageRecord r)
+        {
+            return r?.Pawn != null &&
+                MissingParts(r.Pawn) > Math.Max(r.InitialMissing, r.LastAdmittedMissing);
+        }
+
+        // Explicitly self-report deliberate injury when a third-party medical mod
+        // bypasses our recipe hooks. No automatic criminal attribution for battle wounds.
+        public static string AdmitMutilation(RHFHostageRecord r)
+        {
+            if (!CanAdmitMutilation(r))
+                return "Новых увечий, совершение которых вы можете подтвердить, не найдено.";
+            int missing = MissingParts(r.Pawn) - Math.Max(r.InitialMissing, r.LastAdmittedMissing);
+            r.LastAdmittedMissing = MissingParts(r.Pawn);
+            r.SelfAdmittedMutilations += missing;
+            r.CrueltyScore = Math.Min(500, r.CrueltyScore + missing * (10 + r.Importance * 2));
+            r.LastConfirmedOperation = "Признанное игроком умышленное увечье (" + missing + " частей тела)";
+            r.LastConfirmedOperationSeverity = Math.Min(12, 6 + missing * 2);
+            r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;
+            // ReportCondition applies diplomatic and mood consequences exactly once.
+            return ReportCondition(r);
         }
 
         public static string ReportCondition(RHFHostageRecord r)
         {
+            AuditInteractionMutilation(r);
             if (r?.OriginalFaction == null || r.Pawn == null)
                 return "Связь прервана: установить личность и фракцию пленника не удалось.";
             int extraMissing = Math.Max(0, MissingParts(r.Pawn) - r.LastReportedMissing);
@@ -267,7 +381,9 @@ namespace RaidersHaveFamilies
             r.DisclosedCrueltyScore = r.CrueltyScore;
             r.LastReportedMissing = MissingParts(r.Pawn);
             r.ReportedInitialInjuries = true;
-            if (newCruelty > 0 && r.Importance >= 3) QueueRetaliation(r);
+            if (newCruelty > 0 &&
+                Rand.Chance(Mathf.Clamp(.10f + r.Importance*.055f + r.RefusalCount*.08f +
+                    newCruelty*.008f, .1f, .92f))) QueueRetaliation(r, true);
             return crime + evidence + result;
         }
 
@@ -292,6 +408,8 @@ namespace RaidersHaveFamilies
         {
             if (r == null) return;
             r.Refused = true;
+            r.RefusalCount++;
+            r.LastRejectionTick = Find.TickManager.TicksGame;
             r.OfferDeadlineTick=0;
             r.PendingSilver = 0;
             r.PendingGoodwill = false;
@@ -300,12 +418,13 @@ namespace RaidersHaveFamilies
             Messages.Message(r.OriginalFaction.Name + " восприняла отказ как провокацию.", MessageTypeDefOf.ThreatSmall, false);
         }
 
-        private static void QueueRetaliation(RHFHostageRecord r)
+        private static void QueueRetaliation(RHFHostageRecord r, bool provoked = false)
         {
             if (RHFMod.Settings?.Retaliation != true || r.RetaliationIssued || r.NextRetaliationTick > 0) return;
-            // Schedule a response via a bounded map-local operation controller.
-            // One operation per captive; never a high-frequency global tick patch.
-            r.NextRetaliationTick = Find.TickManager.TicksGame + Rand.Range(100000, 220000);
+            // A direct public humiliation or repeat refusal can prompt a near-term
+            // response; otherwise the faction has to assemble an expedition.
+            r.NextRetaliationTick = Find.TickManager.TicksGame +
+                (provoked ? Rand.Range(15000, 100000) : Rand.Range(100000, 220000));
         }
 
         public static void UpdateOffers(RHFGameLedger ledger, int tick)
@@ -553,8 +672,18 @@ namespace RaidersHaveFamilies
             if (!wasReleased || previousMap == null || pawn == null || pawn.Dead) return;
             var ledger = Current.Game?.GetComponent<RHFGameLedger>();
             RHFHostageRecord r = ledger?.FindHostage(pawn);
-            if (r == null || !r.Negotiated || r.Paid || r.OriginalFaction == null) return;
+            if (r == null || r.Paid || r.OriginalFaction == null) return;
+            // A standard, unnegotiated prisoner release is also a genuine humane
+            // release. Never grant the RHF ransom payment or goodwill twice.
+            if (!r.Negotiated)
+            {
+                RHFMercy.TryAward(r, ordinarySale: false);
+                ledger.Hostages.Remove(r);
+                return;
+            }
             r.Paid = true;
+            if (r.PendingGoodwill && r.PendingSilver == 0)
+                RHFMercy.TryAward(r, ordinarySale: false);
             int goodwill = GoodwillReward(r);
             int undisclosed = Math.Max(0, r.CrueltyScore - r.DisclosedCrueltyScore);
             // Family discovers concealed cruelty when the released pawn returns.
@@ -575,34 +704,44 @@ namespace RaidersHaveFamilies
             }
             if (r.PendingSilver > 0)
             {
+                // Vanilla orbit-trade style delivery, NEVER a loose stack at the
+                // prisoner's exit edge. Drops near powered beacons/comms when possible.
+                var cargo = new List<Thing>();
                 int remaining = r.PendingSilver;
-                Thing firstDelivery = null;
-                IntVec3 deliveryCell = exitCell.IsValid && exitCell.InBounds(previousMap)
-                    ? exitCell : previousMap.Center;
                 while (remaining > 0)
                 {
                     Thing silver = ThingMaker.MakeThing(ThingDefOf.Silver);
-                    int stack = Math.Min(remaining, silver.def.stackLimit);
-                    silver.stackCount = stack;
-                    Thing placed;
-                    bool placedSuccessfully = GenPlace.TryPlaceThing(silver, deliveryCell, previousMap,
-                        ThingPlaceMode.Near, out placed);
-                    if (!placedSuccessfully && !silver.Destroyed)
-                        placedSuccessfully = GenPlace.TryPlaceThing(silver, previousMap.Center,
-                            previousMap, ThingPlaceMode.Near, out placed);
-                    if (placedSuccessfully)
-                    {
-                        if (firstDelivery == null) firstDelivery = placed;
-                    }
-                    else if (!silver.Destroyed) silver.Destroy(DestroyMode.Vanish);
-                    remaining -= stack;
+                    int count = Math.Min(remaining, silver.def.stackLimit);
+                    silver.stackCount = count;
+                    cargo.Add(silver);
+                    remaining -= count;
                 }
-                string notice = "Доставлен выкуп за " + pawn.LabelShortCap + ": " +
-                    r.PendingSilver + " серебра. Нажмите на уведомление, чтобы увидеть место доставки.";
-                if (firstDelivery != null)
-                    Messages.Message(notice, firstDelivery, MessageTypeDefOf.PositiveEvent, true);
-                else Messages.Message("Выкуп за " + pawn.LabelShortCap +
-                    " не удалось разместить на карте — проверьте журнал RHF.", MessageTypeDefOf.RejectInput, true);
+                try
+                {
+                    IntVec3 dropCenter = DropCellFinder.TradeDropSpot(previousMap);
+                    if (!dropCenter.IsValid || !dropCenter.InBounds(previousMap))
+                        dropCenter = previousMap.Center;
+                    // Creates incoming skyfallers and their ActiveDropPod containers.
+                    // Three stable arguments; vanilla decides suitable roof and
+                    // arrival handling for its incoming transport pods.
+                    DropPodUtility.DropThingsNear(dropCenter, previousMap, cargo);
+                    Messages.Message("Выкуп за " + pawn.LabelShortCap + ": " +
+                        r.PendingSilver + " серебра доставляется транспортными капсулами. " +
+                        "Нажмите для перехода в зону падения.",
+                        new LookTargets(dropCenter, previousMap),
+                        MessageTypeDefOf.PositiveEvent, true);
+                }
+                catch (Exception e)
+                {
+                    Log.Error("[RHF] Failed to send ransom drop pods: " + e);
+                    // Never silently claim a paid ransom arrived if drop pod spawning failed.
+                    Messages.Message("Ошибка доставки выкупа за " + pawn.LabelShortCap +
+                        ". Проверьте журнал ошибок RHF.", MessageTypeDefOf.RejectInput, true);
+                    // Unspawned cargo cannot be left free-floating in a world save.
+                    foreach (Thing item in cargo)
+                        if (item != null && !item.Spawned && !item.Destroyed &&
+                            item.ParentHolder == null) item.Destroy(DestroyMode.Vanish);
+                }
             }
             ledger.Hostages.Remove(r);
         }
@@ -644,6 +783,9 @@ namespace RaidersHaveFamilies
             int delta = (int)Math.Ceiling((severity + painBonus) * multiplier);
             r.CrueltyScore = Math.Min(500, r.CrueltyScore + delta);
             r.SurgicalCrueltyCount = Math.Min(1000, r.SurgicalCrueltyCount + 1);
+            // An actual recipe hook takes precedence over the contextual Mutilate audit.
+            // Do not count the same severed limb a second time on the next dialogue.
+            r.LastAdmittedMissing = Math.Max(r.LastAdmittedMissing, MissingParts(victim));
             r.LastConfirmedOperation = string.IsNullOrEmpty(label) ? recipe : label;
             r.LastConfirmedOperationSeverity = severity;
             r.LastConfirmedOperationTick = Find.TickManager?.TicksGame ?? 0;

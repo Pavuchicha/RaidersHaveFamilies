@@ -57,6 +57,62 @@ namespace RaidersHaveFamilies
             }
             return false;
         }
+        // This is a real descriptive role, distinct from the numeric importance score.
+        // For an actual faction leader, report the verified leadership fact. Other titles
+        // are descriptions of available game metadata or explicit DEBUG appointments.
+        public static string OfficeFor(Pawn pawn, int rank)
+        {
+            if (pawn?.Faction != null && pawn.Faction.leader == pawn)
+                return "глава фракции";
+            string title = pawn?.story?.title;
+            if (!string.IsNullOrEmpty(title) && RankOf(pawn) >= rank && rank >= 2)
+                return title;
+            switch (rank)
+            {
+                case 1: return "известный житель или ополченец";
+                case 2: return "ветеран или ведущий специалист";
+                case 3: return "староста или младший офицер";
+                case 4: return "старейшина или командир гарнизона";
+                case 5: return "руководитель поселения или округа";
+                case 6:
+                    return pawn?.Faction?.def != null && pawn.Faction.def.techLevel >= TechLevel.Industrial
+                        ? "региональный координатор снабжения" : "наместник нескольких поселений";
+                case 7: return "главнокомандующий соединением";
+                case 8: return "верховный представитель фракции";
+                default: return "обычный житель или рядовой";
+            }
+        }
+
+        public static string OfficeStory(Pawn pawn, int rank, string office, bool debug)
+        {
+            string role = string.IsNullOrEmpty(office) ? OfficeFor(pawn, rank) : office;
+            string scope;
+            switch (rank)
+            {
+                case 0: scope = "Не занимает известной RHF должности. Его выкуп зависит прежде всего от семьи, здоровья и отношений с фракцией."; break;
+                case 1: scope = "Известен небольшой местной общине; личная потеря заметна родственникам и соседям, но вряд ли меняет управление фракцией."; break;
+                case 2: scope = "Имеет ценный опыт и связи среди коллег. Потеря такого специалиста ослабляет отдельную группу или мастерскую."; break;
+                case 3: scope = "Может руководить небольшим поселением, отрядом или ремесленным объединением. За его возвращение способны поручиться местные семьи и сослуживцы."; break;
+                case 4: scope = "Отвечает за людей, общинные решения или гарнизон. При угрозе его жизни к родственникам подключаются местные власти и командование."; break;
+                case 5: scope = "Выполняет административные или командные обязанности на уровне города и соседних поселений; влияет на распределение сил и припасов."; break;
+                case 6: scope = "Региональная должность: координирует склады, маршруты и поставки для нескольких поселений, либо распоряжается местными администрациями. Изоляция такого человека срывает договоры и снабжение, поэтому фракция готова платить крупные суммы и рисковать солдатами."; break;
+                case 7: scope = "Управляет крупными воинскими соединениями или политическими объединениями. Решения такого лица затрагивают целые районы и стратегические операции."; break;
+                default: scope = "Лицо общегосударственного масштаба: его пленение затрагивает власть фракции и может вызвать организованное вмешательство. Этот рейтинг не меняет фактического лидера, назначенного самой игрой."; break;
+            }
+            return "Должность: " + role + ".\n" + scope +
+                (debug ? "\nДолжность назначена командой разработчика для проверки сценария: это не замена действующего лидера фракции." :
+                "\nНазначение оценено по доступным игровым данным и роли пешки; не является самостоятельной карьерной симуляцией.");
+        }
+
+        // Never pretend that a test pawn is the real Faction.leader.
+        public static string AssignTestOffice(Pawn pawn, int rank)
+        {
+            string office = OfficeFor(pawn, rank);
+            if (pawn?.story != null && rank >= 2)
+                pawn.story.title = office;
+            return office;
+        }
+
         public static float RansomMultiplier(int rank)
         {
             switch(Math.Max(0,Math.Min(8,rank)))

@@ -67,63 +67,63 @@ namespace RaidersHaveFamilies
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Rank8() { PrepareAt(UI.MouseCell(), 8); }
 
-        [DebugAction(Category, "01 - Rescue: breach and escape", actionType = DebugActionType.Action,
+        [DebugAction(Category, "01 — Спасение: пролом и побег", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Rescue() { Start(RHFDebugScenario.Rescue); }
 
-        [DebugAction(Category, "02 - Rescue: mass prisoners", actionType = DebugActionType.Action,
+        [DebugAction(Category, "02 — Спасение: группа пленников", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void MassRescue() { Start(RHFDebugScenario.MassRescue); }
 
-        [DebugAction(Category, "03 - Rescue: important prisoner", actionType = DebugActionType.Action,
+        [DebugAction(Category, "03 — Спасение: важный пленник", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void VipRescue() { Start(RHFDebugScenario.VipRescue); }
 
-        [DebugAction(Category, "04 - Rescue: field pod prototype", actionType = DebugActionType.Action,
+        [DebugAction(Category, "04 — Спасение: полевая капсула (прототип)", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void FieldPod() { Start(RHFDebugScenario.FieldPod); }
 
-        [DebugAction(Category, "05 - Rescue: hired mercenaries", actionType = DebugActionType.Action,
+        [DebugAction(Category, "05 — Спасение: наёмники", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Mercenaries() { Start(RHFDebugScenario.MercenaryRescue); }
 
-        [DebugAction(Category, "06 - Rescue: coalition (all captive factions + optional hire)", actionType = DebugActionType.Action,
+        [DebugAction(Category, "06 — Спасение: коалиция фракций", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Coalition() { Start(RHFDebugScenario.CoalitionRescue); }
 
-        [DebugAction(Category, "07 - Vengeance: direct assault", actionType = DebugActionType.Action,
+        [DebugAction(Category, "07 — Месть: прямой штурм", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Vengeance() { Start(RHFDebugScenario.Vengeance); }
 
-        [DebugAction(Category, "08 - Vengeance: tribal animals", actionType = DebugActionType.Action,
+        [DebugAction(Category, "08 — Месть: племя с боевыми животными", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void TribalVengeance() { Start(RHFDebugScenario.TribalVengeance); }
 
-        [DebugAction(Category, "09 - Vengeance: high-tech drop", actionType = DebugActionType.Action,
+        [DebugAction(Category, "09 — Месть: десант с воздуха", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void HighTechDrop() { Start(RHFDebugScenario.HighTechDrop); }
 
-        [DebugAction(Category, "10 - Vengeance: high-tech siege", actionType = DebugActionType.Action,
+        [DebugAction(Category, "10 — Месть: высокотехнологичная осада", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void HighTechSiege() { Start(RHFDebugScenario.HighTechSiege); }
 
-        [DebugAction(Category, "11 - Combined strike: one faction splits rescue / diversion", actionType = DebugActionType.Action,
+        [DebugAction(Category, "11 — Комбинированный: спасение и отвлечение", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void CombinedSingle() { Start(RHFDebugScenario.CombinedSingleFaction); }
 
-        [DebugAction(Category, "12 - Coalition: three or more hostage factions", actionType = DebugActionType.Action,
+        [DebugAction(Category, "12 — Коалиция: три и более фракции", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void ThreeFactions() { Start(RHFDebugScenario.CoalitionManyFactions); }
 
-        [DebugAction(Category, "13 - Coalition: hostage faction + hired distraction", actionType = DebugActionType.Action,
+        [DebugAction(Category, "13 — Коалиция: наёмники и отвлекающий штурм", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void HiredDistraction() { Start(RHFDebugScenario.CoalitionHiredDiversion); }
 
-        [DebugAction(Category, "14 - Combined: rescue, breach, drop or frontal diversion", actionType = DebugActionType.Action,
+        [DebugAction(Category, "14 — Комбинированный: пролом и штурм", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void MixedCombined() { Start(RHFDebugScenario.CombinedMixedApproach); }
 
-        [DebugAction(Category, "15 - Combined: rescue by pods + frontal diversion", actionType = DebugActionType.Action,
+        [DebugAction(Category, "15 — Комбинированный: десант и отвлечение", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void DropRescue() { Start(RHFDebugScenario.DropRescueWithDiversion); }
 
@@ -135,7 +135,7 @@ namespace RaidersHaveFamilies
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void OtherRank8() { PrepareAt(UI.MouseCell(), 8, true); }
 
-        [DebugAction(ChecksCategory, "17 - Inspect active rescue/coalition parties", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "17 — Проверить состав отрядов операции", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void CoalitionDiagnostics()
         {
@@ -144,7 +144,7 @@ namespace RaidersHaveFamilies
                 Find.WindowStack.Add(new Dialog_MessageBox(controller.DebugStatus()));
         }
 
-        [DebugAction(ChecksCategory, "18 - Cancel RHF test operations (not spawned pawns)", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "18 — Отменить сценарии (не удаляет рейдеров)", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void CancelTestOperations()
         {
@@ -154,11 +154,11 @@ namespace RaidersHaveFamilies
                     controller.CancelDebugOperations() + ". Уже созданные рейдеры НЕ удалены.");
         }
 
-        [DebugAction(ChecksCategory, "11 - Show test setup and limitations", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "11 — Правила и ограничения тестов", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Explain() { ExplainCurrentMap(); }
 
-        [DebugAction(ChecksCategory, "12 - Inspect selected pawn: rank and RHF origins", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "12 — Проверить ранг и происхождение связей", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void InspectSelectedPawn()
         {
@@ -168,7 +168,7 @@ namespace RaidersHaveFamilies
             RHFRankUI.OpenDetails(pawn);
         }
 
-        [DebugAction(ChecksCategory, "13 - Add family to selected outsider (test)", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "13 — Добавить семью выбранной чужой пешке", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void EnrichSelectedPawn()
         {
@@ -180,7 +180,7 @@ namespace RaidersHaveFamilies
             RHFRankUI.OpenDetails(pawn);
         }
 
-        [DebugAction(ChecksCategory, "14 - Show surgery hooks / selected prisoner evidence", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "14 — Проверить перехват операций WCE2", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void MedicalDiagnostics()
         {
@@ -196,7 +196,7 @@ namespace RaidersHaveFamilies
             Find.WindowStack.Add(new Dialog_MessageBox(text));
         }
 
-        [DebugAction(ChecksCategory, "15 - Test disclosure on selected prisoner", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "15 — Тест: раскрыть травмы выбранного пленника", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void TestDisclosure()
         {
@@ -206,7 +206,73 @@ namespace RaidersHaveFamilies
             else Messages.Message("Выберите пленника, уже зарегистрированного RHF.", MessageTypeDefOf.RejectInput, false);
         }
 
-        [DebugAction(ChecksCategory, "16 - Simulate recorded surgery on selected hostage", actionType = DebugActionType.Action,
+        [DebugAction(ChecksCategory, "21 — Роль и вооружение выбранного бойца RHF", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void InspectTacticalPawn()
+        {
+            Pawn pawn = Find.Selector?.SingleSelectedThing as Pawn;
+            if (pawn == null || pawn.Map == null)
+            { Notify(Find.CurrentMap, "Сначала выбери бойца на карте."); return; }
+            RHFTacticalMember member = pawn.Map.GetComponent<RHFOperationController>()?
+                .TacticalMember(pawn);
+            string status = member == null ? "Пешка не состоит в активном специальном отряде RHF." :
+                pawn.LabelShortCap + ": " + RHFTactical.RoleName(member.Role) +
+                "; вооружён=" + (!member.WeaponMissing) +
+                "; инструменты для взлома=" + RHFTactical.HasBreachKit(pawn) +
+                "; медицинские припасы=" + member.MedicalSupplies +
+                "; штатное оружие/патроны не заменены.";
+            Find.WindowStack.Add(new Dialog_MessageBox(status));
+        }
+
+        [DebugAction(ChecksCategory, "20 — Аудит боевых ролей и снаряжения отрядов RHF", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void AuditTacticalSquads()
+        {
+            Map map = Find.CurrentMap;
+            RHFOperationController controller = map?.GetComponent<RHFOperationController>();
+            Find.WindowStack.Add(new Dialog_MessageBox(RHFTactical.Audit(controller)));
+        }
+
+        [DebugAction(ChecksCategory, "19 — Проверить бонусы идеологии и милосердия", actionType = DebugActionType.Action,
+            allowedGameStates = AllowedGameStates.PlayingOnMap)]
+        public static void MoodDiagnostic()
+        {
+            Pawn p = Find.Selector?.SingleSelectedThing as Pawn;
+            RHFHostageRecord r = p == null ? null :
+                Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("RHF: проверка условий мыслей (ничего не выдаёт)");
+            if (r != null)
+            {
+                sb.AppendLine("Пленник: " + p.LabelShortCap);
+                sb.AppendLine("Издевательства: " + r.CrueltyScore +
+                    "; операции: " + r.WceOperations +
+                    "; уже раскрыто: " + r.DisclosedCrueltyScore);
+                sb.AppendLine("Можно наградить за милосердие: " + RHFMercy.Eligible(r));
+            }
+            else sb.AppendLine("Выбери пленника RHF для проверки истории операций.");
+            Map map = Find.CurrentMap;
+            if (map != null)
+                foreach (Pawn colonist in map.mapPawns.FreeColonistsSpawned)
+                {
+                    if (colonist?.needs?.mood == null) continue;
+                    int mercy = RHFMercy.PreceptLevel(colonist);
+                    bool torture = false;
+                    if (ModsConfig.IdeologyActive && colonist.Ideo != null)
+                        foreach (Precept precept in colonist.Ideo.PreceptsListForReading)
+                        {
+                            string n = precept?.def?.defName?.ToLowerInvariant() ?? "";
+                            if (n == "wce2_torture_alwaysrespected" ||
+                                (n == "wce2_torture_respectedguilty" && p?.guilt?.IsGuilty == true))
+                                torture = true;
+                        }
+                    sb.AppendLine(colonist.LabelShortCap + ": милосердие " + mercy +
+                        "/3, пытки по идеологии " + torture);
+                }
+            Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
+        }
+
+        [DebugAction(ChecksCategory, "16 — Имитировать хирургическое увечье", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void SimulateSurgery()
         {
@@ -249,7 +315,13 @@ namespace RaidersHaveFamilies
                 GenSpawn.Spawn(test, place, map);
                 test.guest.SetGuestStatus(Faction.OfPlayer, GuestStatus.Prisoner);
                 RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(test);
-                if (record != null) { record.Importance = Mathf.Clamp(rank, 0, 8); record.RankSchema = 3; }
+                if (record != null)
+                {
+                    record.Importance = Mathf.Clamp(rank, 0, 8);
+                    record.RankSchema = 3;
+                    record.OfficeName = RHFRankResolver.AssignTestOffice(test, rank);
+                    record.DebugOffice = true;
+                }
                 Notify(map, "Создан тестовый пленник с рангом RHF " + rank + "/8 фракции " + faction.Name +
                     ". При желании добавь VIP другой фракции для коалиции.");
             }

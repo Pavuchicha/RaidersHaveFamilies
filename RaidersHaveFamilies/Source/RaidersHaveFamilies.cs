@@ -28,6 +28,8 @@ namespace RaidersHaveFamilies
         public bool WCE2Events = true;
         public bool EnableRescueOperations = true;
         public bool FieldEvacPod = true;
+        public bool TacticalCombat = true;
+        public bool RoleEquipment = true;
         public float InterventionStrength = 1f;
         public float FactionRelativeChance = 0.80f;
 
@@ -76,6 +78,8 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref WCE2Events, "wce2Events", true);
             Scribe_Values.Look(ref EnableRescueOperations, "enableRescueOperations", true);
             Scribe_Values.Look(ref FieldEvacPod, "enableFieldEvacPod", true);
+            Scribe_Values.Look(ref TacticalCombat, "rhfTacticalCombatV9", true);
+            Scribe_Values.Look(ref RoleEquipment, "rhfRoleEquipmentV9", true);
             Scribe_Values.Look(ref InterventionStrength, "interventionStrength", 1f);
             Scribe_Values.Look(ref FactionRelativeChance, "factionRelativeChance", 0.45f);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
@@ -154,6 +158,10 @@ namespace RaidersHaveFamilies
                 ref Settings.EnableRescueOperations);
             listing.CheckboxLabeled("Полевые капсулы эвакуации VIP (эксперимент)",
                 ref Settings.FieldEvacPod);
+            listing.CheckboxLabeled("RHF: групповая тактика спасателей/прикрытия (TPS)",
+                ref Settings.TacticalCombat);
+            listing.CheckboxLabeled("RHF: реальные расходуемые комплекты роли (ограниченный бюджет)",
+                ref Settings.RoleEquipment);
             listing.Label("Мощность интервенций: " + Settings.InterventionStrength.ToString("P0"));
             Settings.InterventionStrength=listing.Slider(Settings.InterventionStrength,.5f,2f);
             listing.CheckboxLabeled("RHF_Logging".Translate(), ref Settings.VerboseLogging);
@@ -201,6 +209,14 @@ namespace RaidersHaveFamilies
                         if (old.A.relations != null && old.A.relations.DirectRelationExists(old.Relation, old.B))
                             ProvenanceLinks.Add(new RHFProvenanceLink(old.A, old.B, old.Relation.defName + " (RHF до v0.4.0)"));
                     }
+                }
+                // The vanilla social tab hides world pawns with everSeenByPlayer=false.
+                // Restore visibility for edges that RHF itself documented, including old saves.
+                for (int i = 0; i < ProvenanceLinks.Count; i++)
+                {
+                    RHFProvenanceLink edge = ProvenanceLinks[i];
+                    if (edge?.A?.relations != null && edge.B?.relations != null)
+                    { edge.A.relations.everSeenByPlayer = true; edge.B.relations.everSeenByPlayer = true; }
                 }
                 if (GeneratedKin == null) GeneratedKin = new List<RHFWorldKin>();
                 if (FactionStandings == null) FactionStandings = new List<RHFFactionStanding>();
@@ -283,6 +299,10 @@ namespace RaidersHaveFamilies
                     return;
             }
             ProvenanceLinks.Add(new RHFProvenanceLink(a, b, kind));
+            // SocialCardUtility.ShouldShowPawnRelations checks this exact vanilla flag.
+            // Only reveal relationships explicitly created/reused by RHF.
+            if (a.relations != null) a.relations.everSeenByPlayer = true;
+            if (b.relations != null) b.relations.everSeenByPlayer = true;
         }
 
         public int ConfirmedLinks(Pawn p)
