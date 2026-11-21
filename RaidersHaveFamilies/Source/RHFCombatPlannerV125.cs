@@ -83,7 +83,7 @@ namespace RaidersHaveFamilies
                 using (PawnPath path = map.pathFinder.FindPathNow(
                     rescuer.Position, captive,
                     TraverseParms.For(rescuer, Danger.Deadly, TraverseMode.PassAllDestroyableThings),
-                    PathEndMode.Touch))
+                    null, PathEndMode.Touch))
                 {
                     if (path == null || !path.Found) return null;
                     IntVec3 before;
