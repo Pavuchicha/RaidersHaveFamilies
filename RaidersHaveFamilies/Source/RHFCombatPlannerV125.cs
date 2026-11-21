@@ -399,6 +399,45 @@ namespace RaidersHaveFamilies
             }
         }
 
+        // The cover wing itself must not use the vanilla Goto pathfinder to
+        // cross a turret field just to reach a theoretically good firing tile.
+        // This is a conservative sampling safeguard; no assumption about a
+        // particular modded turret name or material.
+        private static bool UnsafeCombatApproach(Map map,IntVec3 start,
+            IntVec3 end,RHFCombatStateV125 state)
+        {
+            int deltaX=end.x-start.x,deltaZ=end.z-start.z;
+            int steps=Math.Max(Math.Abs(deltaX),Math.Abs(deltaZ));
+            if(steps<=1)return false;
+            int samples=Math.Min(steps,8);
+            int exposedSamples=0;
+            for(int index=1;index<=samples;index++)
+            {
+                int at=index*steps/samples;
+                IntVec3 point=new IntVec3(start.x+deltaX*at/steps,
+                    0,start.z+deltaZ*at/steps);
+                int overlapping=0;
+                for(int i=0;i<state.Threats.Count;i++)
+                {
+                    if(!(state.Threats[i] is Building turret) ||
+                       !turret.Spawned || !IsTurret(turret))continue;
+                    float range=0f;
+                    ThingDef gun=turret.def?.building?.turretGunDef;
+                    if(gun?.Verbs!=null)
+                        for(int j=0;j<gun.Verbs.Count;j++)
+                            if(gun.Verbs[j]!=null && gun.Verbs[j].range>range)
+                                range=gun.Verbs[j].range;
+                    if(range<=0f)range=30f;
+                    if((point-turret.Position).LengthHorizontalSquared>range*range)continue;
+                    if(GenSight.LineOfSight(turret.Position,point,map))overlapping++;
+                    if(overlapping>=2)return true; // no direct entry into crossfire
+                }
+                if(overlapping>0)exposedSamples++;
+            }
+            // A fire-team may advance briefly under ONE turret to enter its
+            // own weapon range, but never march a long exposed corridor.
+            return exposedSamples>4 && steps>12;
+        }
         private static IntVec3 FlankCell(Pawn fighter, Thing enemy, Map map,
             RHFCombatStateV125 state)
         {
@@ -424,6 +463,9 @@ namespace RaidersHaveFamilies
                     !fighter.CanReach(c,PathEndMode.OnCell,Danger.Deadly)) continue;
                 bool targetVisible = GenSight.LineOfSight(c,enemy.Position,map);
                 if (range>0f && !targetVisible) continue;
+                if(range>0f && (c-enemy.Position).LengthHorizontalSquared>range*range)
+                    continue; // a visual position is not necessarily in firing range
+                if(UnsafeCombatApproach(map,fighter.Position,c,state))continue;
                 int otherThreats = 0;
                 for (int t = 0; t < state.Threats.Count; t++)
                 {
@@ -481,7 +523,7 @@ namespace RaidersHaveFamilies
         // Returns the support subset. Remaining mission pawns MUST continue
         // breaching / reaching / escorting rather than standing around in defence.
         internal static HashSet<Pawn> Response(RHFOperation op, Map map, Pawn captive,
-            List<Pawn> fighters, int now, bool extraction)
+            List<Pawn> fighters, int now, bool extraction, bool blockedByTurrets=false)
         {
             RHFCombatStateV125 state = States.GetValue(op,_=>new RHFCombatStateV125());
             state.Engaged.Clear();
@@ -492,6 +534,11 @@ namespace RaidersHaveFamilies
             { state.Decision="активных защитников рядом с маршрутом не обнаружено";return state.Engaged; }
             int alive=AliveCount(fighters,map);
             int maxSupport=alive<=2 ? 1 : Mathf.Clamp(Math.Max(state.Threats.Count,alive/3),1,alive-2);
+            // When the safe route ends at an unavoidable turret firing line,
+            // most of the armed team fights it rather than waiting for the
+            // entire breach squad to run through the killing zone.
+            if(blockedByTurrets && alive>3)
+                maxSupport=Math.Max(maxSupport,Math.Min(alive-2,(alive*2)/3));
             maxSupport=Math.Min(maxSupport,MaxTacticalOrders);
             var assignments=new Dictionary<Thing,int>();
             // Keep previously assigned shooters on their standoff movement job.

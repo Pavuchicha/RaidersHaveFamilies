@@ -31,7 +31,7 @@ for required in (
     'RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now)',
     'RHFObjectiveRouteV128.Waypoint(route,rescuer,map)',
     'if (canApproach && !route.Valid',
-    'RHFObjectiveRouteV128.IsOnCorridor(route,current.targetA.Cell)',
+    'RHFObjectiveRouteV128.IsAllowedWaypoint(route,current.targetA.Cell)',
     'if (approaching && now-moved<900 && now-closer<1200 &&',
     'IntVec3 staged = route.Valid ?',
     'state.CurrentBarrier = missionRoute.Valid ? missionRoute.FirstBarrier : null;',
@@ -40,7 +40,7 @@ for required in (
 assert mission.index('RHFObjectiveRouteV128.TryObjective') < mission.index('RHFCombatPlannerV125.FirstObjectiveObstacle('), 'legacy fallback must not win over objective route'
 assert 'if (covering.Contains(rescuer)) continue;' in mission, 'cover fire must keep its assignment'
 assert 'tests/rhf_128_route_control.py' in workflow
-assert 'v0.12.8-ACTUAL-ROUTE-CONTROL-TEST' in workflow
+assert 'v0.12.9-FIREBREAK-TACTICS-TEST' in workflow
 assert route.count('{')==route.count('}') and route.count('(')==route.count(')')
 # Independent reference model: one weighted route through a map, not merely an
 # arithmetic comparison of two obstacles. Mimics cardinal movement and the HP

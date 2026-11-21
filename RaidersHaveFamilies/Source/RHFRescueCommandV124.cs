@@ -438,12 +438,14 @@ namespace RaidersHaveFamilies
                 RHFCombatPlannerV125.ImproveAttack(op,map,now);
             // Combat-aware allocation: at least most of the team continues to
             // the prisoner while a bounded wing shoots or flanks real threats.
-            HashSet<Pawn> covering = RHFCombatPlannerV125.Response(
-                op,map,captive,op.Squad,now,false);
-            // Do not calculate a safe-looking destination and then issue a vanilla
-            // Goto straight through a turret's fire. Follow the actual planned
-            // chain in short segments, preserving its first real obstruction.
+            // Route selection must happen BEFORE splitting the squad: if the
+            // route still crosses direct turret fire, allocate extra shooters
+            // and hold the assault wing before the first exposed cell.
             RHFRoutePlanV128 route = RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now);
+            bool needsFireSuppression = route.Valid &&
+                route.FirstTurretExposureIndex >= 0;
+            HashSet<Pawn> covering = RHFCombatPlannerV125.Response(
+                op,map,captive,op.Squad,now,false,needsFireSuppression);
             IntVec3 safeApproach = route.Valid ||
                 route.Explanation!="неверная цель или карта" ? IntVec3.Invalid :
                 RHFCombatPlannerV125.SafeApproach(op,map,lead,captive,now);
@@ -494,7 +496,7 @@ namespace RaidersHaveFamilies
                 // be allowed to finish unless the soldier has genuinely stalled.
                 if (route.Valid && current?.def==JobDefOf.Goto &&
                     current.targetA.Thing==null &&
-                    RHFObjectiveRouteV128.IsOnCorridor(route,current.targetA.Cell) &&
+                    RHFObjectiveRouteV128.IsAllowedWaypoint(route,current.targetA.Cell) &&
                     now-moved<900) continue;
                 bool approaching = current?.def == JobDefOf.Goto &&
                     (current.targetA.Thing==captive ||
@@ -512,7 +514,8 @@ namespace RaidersHaveFamilies
                     RHFCombatPlannerV125.FormationCell(safeApproach,rescuer,map) :
                     IntVec3.Invalid;
                 if (staged.IsValid && !attacking &&
-                    (rescuer.Position-staged).LengthHorizontalSquared>16 &&
+                    (rescuer.Position-staged).LengthHorizontalSquared>
+                        (route.Valid ? 0 : 16) &&
                     (rescuer.Position-captive.Position).LengthHorizontalSquared>16 &&
                     rescuer.CanReach(staged,PathEndMode.OnCell,Danger.Deadly))
                 {
@@ -527,6 +530,22 @@ namespace RaidersHaveFamilies
                 {
                     if (Give(rescuer, JobDefOf.Goto, captive, state, now))
                     { orders++; state.OrderedApproach++; }
+                    continue;
+                }
+                // A geometrically possible breach is NOT permission to march
+                // through a firing arc just to reach that wall. First deal with
+                // the turret using the separate, combat-capable cover wing.
+                if (route.Valid && needsFireSuppression &&
+                    (route.FirstBarrierIndex<0 ||
+                     route.FirstBarrierIndex>=route.FirstTurretExposureIndex))
+                {
+                    if(current?.def==JobDefOf.Goto &&
+                       current.targetA.Thing==null &&
+                       !RHFObjectiveRouteV128.IsAllowedWaypoint(route,current.targetA.Cell))
+                        Give(rescuer,JobDefOf.Wait,rescuer.Position,state,now);
+                    stalled++;
+                    state.LastDecision="огневой рубеж: сначала подавить турели, " +
+                        "затем продолжить прорыв";
                     continue;
                 }
                 Thing barrier = sharedBarrier;
@@ -561,6 +580,20 @@ namespace RaidersHaveFamilies
             }
             op.LastOrderTick = now;
             if (orders > 0) op.LastProgressTick = now;
+            // No available route and no effective covering fire is a mission
+            // failure, not a license to march the main squad into turrets for
+            // hours. Withdraw survivors after a sustained, observable stalemate.
+            if(needsFireSuppression && stalled>0 && orders==0 &&
+                now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>24000)
+            {
+                state.LastDecision="штурм отменён: оборону не удалось подавить; " +
+                    "организованный отход без освобождения пленника";
+                op.Phase=2;
+                op.PhaseStartTick=now;
+                Log.Warning("[RHF][FirebreakV129] Rescue withdrew after failing to " +
+                    "neutralize stationary defences; captive="+captive.LabelShortCap);
+                return;
+            }
             if (stalled > 0 && now-state.LastDiagnosticTick >= 1800)
             {
                 state.LastDiagnosticTick = now;

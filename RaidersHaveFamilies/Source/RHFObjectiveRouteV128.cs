@@ -24,6 +24,10 @@ namespace RaidersHaveFamilies
         internal List<IntVec3> Cells = new List<IntVec3>();
         internal Thing FirstBarrier;
         internal int FirstBarrierIndex = -1;
+        // A physical turret fire corridor is a STOP, not a route waypoint.
+        // The assault wing holds at the last genuinely unexposed map cell.
+        internal int FirstTurretExposureIndex = -1;
+        internal int ExposedTurretCells;
         internal int TotalCost;
         internal int TotalStructuralHP;
         internal int DangerCost;
@@ -48,10 +52,12 @@ namespace RaidersHaveFamilies
         private const int ReplanTicks = 900;
         private const int MaxCells = 100000;
         private const int MaxExpanded = 85000;
-        private const int MaxThreatEmitters = 30;
+        private const int MaxThreatEmitters = 40;
         private const int ScanStructures = 2600;
         // Only real emitted attacks affect danger, not an arbitrary 35-tile ring.
-        private const int ExposedCost = 470;
+        // A few steps under concentrated direct fire must cost more than
+        // breaching several ordinary walls; never trade soldiers for trivial distance.
+        private const int ExposedCost = 4000;
         private static readonly ConditionalWeakTable<RHFOperation, RHFRouteStoreV128> Cache =
             new ConditionalWeakTable<RHFOperation, RHFRouteStoreV128>();
 
@@ -177,9 +183,24 @@ namespace RaidersHaveFamilies
                 if(!GenSight.LineOfSight(t.Origin,cell,map))continue;
                 cost+=ExposedCost*t.Importance;
                 if(dist<t.RangeSquared*0.32f)cost+=180*t.Importance;
-                if(cost>=8000)return 8000;
+                if(cost>=60000)return 60000;
             }
             return cost;
+        }
+        // This is an objective safety gate, not a synthetic movement cost.
+        // Only actual, visible stationary guns cause a hard advance hold;
+        // human defenders are handled by the tactical combat wing.
+        private static bool ExposedToTurret(Map map,IntVec3 cell,List<Emitter> threats)
+        {
+            for(int i=0;i<threats.Count;i++)
+            {
+                Emitter source=threats[i];
+                if(source.Importance<2)continue;
+                int distance=(cell-source.Origin).LengthHorizontalSquared;
+                if(distance>source.RangeSquared || distance<=1)continue;
+                if(GenSight.LineOfSight(source.Origin,cell,map))return true;
+            }
+            return false;
         }
         private static int Step(Map map,IntVec3 cell, out Thing obstacle)
         {
@@ -275,6 +296,8 @@ namespace RaidersHaveFamilies
             plan.FirstBarrier=null;
             plan.FirstBarrierIndex=-1;
             plan.Walls=plan.Doors=plan.TotalStructuralHP=plan.DangerCost=0;
+            plan.FirstTurretExposureIndex=-1;
+            plan.ExposedTurretCells=0;
             for(int i=1;i<reverse.Count;i++)
             {
                 IntVec3 c=reverse[i];
@@ -289,10 +312,19 @@ namespace RaidersHaveFamilies
                 }
                 int index=(c.z-minZ)*width+c.x-minX;
                 if(hazard[index]>=0)plan.DangerCost+=hazard[index];
+                if(ExposedToTurret(map,c,threats))
+                {
+                    plan.ExposedTurretCells++;
+                    if(plan.FirstTurretExposureIndex<0)
+                        plan.FirstTurretExposureIndex=i;
+                }
             }
             plan.Valid=true;
             plan.Explanation="маршрут построен: "+plan.Cells.Count+" клеток; " +
-                "дверей="+plan.Doors+", стен="+plan.Walls;
+                "дверей="+plan.Doors+", стен="+plan.Walls+
+                (plan.FirstTurretExposureIndex>=0 ?
+                    "; обнаружен сектор огня турели — требуется прикрытие" :
+                    "; сектор огня турелей не пересекается");
             return true;
         }
 
@@ -351,33 +383,91 @@ namespace RaidersHaveFamilies
                 if(route.Cells[i]==cell)return true;
             return false;
         }
+        internal static int SafeAdvanceLimit(RHFRoutePlanV128 route)
+        {
+            if(route==null || !route.Valid)return -1;
+            int end=route.Cells.Count-1;
+            if(route.FirstBarrierIndex>=0)
+                end=Math.Min(end,route.FirstBarrierIndex-1);
+            if(route.FirstTurretExposureIndex>=0)
+                end=Math.Min(end,route.FirstTurretExposureIndex-1);
+            return end;
+        }
+        // This must be checked before allowing an already-active Goto to continue.
+        // Otherwise old jobs can pass the new fire-exposure gate after replanning.
+        internal static bool IsAllowedWaypoint(RHFRoutePlanV128 route,IntVec3 cell)
+        {
+            if(route==null || !route.Valid || !cell.IsValid)return false;
+            int end=SafeAdvanceLimit(route);
+            for(int i=0;i<=end;i++)
+                if(route.Cells[i]==cell)return true;
+            return false;
+        }
         internal static IntVec3 Waypoint(RHFRoutePlanV128 route,Pawn soldier,Map map)
         {
             if(route==null || !route.Valid || soldier==null || soldier.Map!=map ||
                route.Cells.Count<2)return IntVec3.Invalid;
-            int maxIndex=route.FirstBarrierIndex>=0 ? route.FirstBarrierIndex-1 :
-                route.Cells.Count-1;
-            if(maxIndex<1)return IntVec3.Invalid;
+            int limit=SafeAdvanceLimit(route);
+            if(limit<1)return IntVec3.Invalid;
             int nearest=0,best=int.MaxValue;
-            for(int i=0;i<=maxIndex;i++)
+            for(int i=0;i<=limit;i++)
             {
-                int d=(soldier.Position-route.Cells[i]).LengthHorizontalSquared;
-                if(d<best){best=d;nearest=i;}
+                int distance=(soldier.Position-route.Cells[i]).LengthHorizontalSquared;
+                if(distance<best){best=distance;nearest=i;}
             }
-            // The team is scattered or separated by a wall; the Commander can
-            // regroup them before following this shared corridor.
             if(best>225)return IntVec3.Invalid;
-            // Slight longitudinal spacing avoids a grenade-sized bunch on the
-            // same six-cell waypoint without deviating into the fire corridor.
-            int ahead=Math.Min(maxIndex,nearest+4+Math.Abs(soldier.thingIDNumber%3));
-            for(int i=ahead;i>nearest;i--)
+            // Off-corridor soldiers must join at a nearby SAFE cell. A Goto
+            // several tiles ahead is unsafe because the vanilla pathfinder may
+            // cut a corner across a defended killing field.
+            if(best>2)
             {
-                IntVec3 cell=route.Cells[i];
-                if(!cell.InBounds(map) || !cell.Standable(map))continue;
-                if(soldier.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))
-                { if((soldier.Position-cell).LengthHorizontalSquared>4)return cell;break; }
+                IntVec3 join=route.Cells[nearest];
+                if(join!=soldier.Position && soldier.CanReach(join,PathEndMode.OnCell,Danger.Deadly) &&
+                   !CrossesKnownFire(route,soldier.Position,join,map))return join;
+                return IntVec3.Invalid;
+            }
+            if(nearest>=limit)return IntVec3.Invalid;
+            // Follow one uninterrupted CARDINAL corridor leg at a time.
+            // A bend is a separate job; the vanilla pathfinder cannot replace
+            // a planned right-angle detour with a diagonal shortcut into fire.
+            int end=nearest+1;
+            IntVec3 previous=route.Cells[nearest];
+            IntVec3 step=route.Cells[end]-previous;
+            for(int i=end+1;i<=limit && i<=nearest+5;i++)
+            {
+                IntVec3 nextStep=route.Cells[i]-route.Cells[i-1];
+                if(nextStep!=step)break;
+                end=i;
+            }
+            for(int i=end;i>nearest;i--)
+            {
+                IntVec3 destination=route.Cells[i];
+                if(!destination.InBounds(map) || !destination.Standable(map))continue;
+                if(soldier.CanReach(destination,PathEndMode.OnCell,Danger.Deadly) &&
+                   !CrossesKnownFire(route,soldier.Position,destination,map))
+                    return destination;
             }
             return IntVec3.Invalid;
+        }
+        // The route hazard cache can be stale after the world changes; this
+        // geometric check rejects a direct Goto whose segment crosses a cell
+        // that is absent from the selected route. Changes to visible stationary
+        // defence trigger re-evaluation on the next mission planning pulse.
+        private static bool CrossesKnownFire(RHFRoutePlanV128 route,IntVec3 from,
+            IntVec3 to,Map map)
+        {
+            if(route.FirstTurretExposureIndex<0)return false;
+            // A joining move is allowed only when its intermediate grid cells
+            // occur on the safe prefix of the pre-calculated corridor.
+            int dx=to.x-from.x,dz=to.z-from.z;
+            int steps=Math.Max(Math.Abs(dx),Math.Abs(dz));
+            if(steps<=1)return false;
+            for(int k=1;k<steps;k++)
+            {
+                IntVec3 c=new IntVec3(from.x+dx*k/steps,0,from.z+dz*k/steps);
+                if(!IsAllowedWaypoint(route,c))return true;
+            }
+            return false;
         }
         internal static string Audit(Map map)
         {
@@ -395,11 +485,14 @@ namespace RaidersHaveFamilies
                 if(!Cache.TryGetValue(op,out RHFRouteStoreV128 store) || store.Plan==null)
                 {sb.AppendLine("Маршрут ещё не рассчитывался");continue;}
                 RHFRoutePlanV128 p=store.Plan;
-                sb.AppendLine("RHF v0.12.8: маршрут "+(p.Valid?"найден":"не найден"));
+                sb.AppendLine("RHF v0.12.9: маршрут "+(p.Valid?"найден":"не найден"));
                 sb.AppendLine("От "+p.From+" к "+p.To+"; причина: "+p.Explanation);
                 sb.AppendLine("Полная стоимость="+p.TotalCost+", ОЗ преград="+
                     p.TotalStructuralHP+", стен="+p.Walls+", дверей="+p.Doors);
                 sb.AppendLine("Стоимость опасности="+p.DangerCost+", исследовано клеток="+p.Expanded);
+                sb.AppendLine("Клеток под прямым огнём турелей="+p.ExposedTurretCells+
+                    "; первая опасная="+p.FirstTurretExposureIndex+
+                    "; разрешённое продвижение до="+SafeAdvanceLimit(p));
                 sb.AppendLine("Первый пролом: "+(p.FirstBarrier?.LabelShortCap??"нет")+
                     "; живой объект="+(p.FirstBarrier!=null && !p.FirstBarrier.Destroyed));
             }
