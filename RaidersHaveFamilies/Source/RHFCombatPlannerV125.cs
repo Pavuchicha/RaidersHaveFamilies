@@ -278,7 +278,7 @@ namespace RaidersHaveFamilies
             return null;
         }
 
-        private static bool IsTurret(Building building)
+        internal static bool IsTurret(Building building)
         {
             if (building == null || building.Destroyed || !building.Spawned ||
                 building.Faction != Faction.OfPlayer) return false;

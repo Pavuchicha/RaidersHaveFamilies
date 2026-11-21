@@ -245,3 +245,8 @@ v0.6.x (коалиции, UI, диалоги, тестовые рейды).
 ## v0.10.1 — реальные строки настроения у принципов Ideology
 
 Исправлено P0: прежняя текстовая приписка к описанию принципа **не добавляла** RHF в ванильный раздел «Настроение». Теперь RHF регистрирует UI-only `PreceptComp_SelfTookMemoryThought` для принципов WCE2 Torture (AlwaysRespected/RespectedGuilty), подходящих Cannibalism и Charity/Mercy. Они показывают условный бонус RHF рядом с другими эффектами настроения, с опорой на реальные `ThoughtDef`. Сам бонус по-прежнему появляется только после соответствующего сообщения или гуманной передачи пленника. Отдельный компонент не раздаёт настроение без события. Команда №19 выводит количество зарегистрированных строк RHF для идеологии колониста. См. `RHF_101_REVIEW_RU.md`.
+
+
+## v0.13.0 (experimental) — VIP & coalition
+
+Test-only 1.7 build: vanilla PodLauncher and TransportPod stage construction, mission-scoped friendly identification for hired and coalition rescue, controlled insertion and one RHF mission arrival letter. See `RHF_V0130_IMPLEMENTATION_AND_TEST_RU.md` for limitations and tests; build and gameplay unconfirmed.

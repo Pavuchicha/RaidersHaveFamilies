@@ -645,6 +645,12 @@ namespace RaidersHaveFamilies
             float factor = scenario == RHFDebugScenario.MassRescue ? 2f :
                 tribal ? 2.2f : scenario == RHFDebugScenario.HighTechSiege ? 2f : 1.65f;
             float total = Mathf.Clamp(Mathf.Max(500f, basePoints) * factor, 650f, 12000f);
+            // Manual field-pod tests are tests of the PHYSICAL build, not a
+            // lottery in which a tiny early-game raid cannot afford any pod.
+            // The vanilla structure cost is still subtracted from these points.
+            if (scenario == RHFDebugScenario.FieldPod ||
+                scenario == RHFDebugScenario.FortifiedVipExtraction)
+                total=Mathf.Max(total,1200f);
             RHFOperation op = new RHFOperation
             {
                 DebugForced = true, Sponsor = sponsor, Executor = executor,
@@ -669,6 +675,8 @@ namespace RaidersHaveFamilies
                     RHFDoctrine.FortifiedVipExtraction :
                     scenario==RHFDebugScenario.RescueThenRaze ?
                     RHFDoctrine.RescueThenAssault :
+                    scenario==RHFDebugScenario.MassRescue ?
+                    RHFDoctrine.InfiltrationAndExit :
                     rescue ? RHFDoctrine.PrisonBreakout : RHFDoctrine.PunitiveAssault),
                 CreatedTick = now, SpawnTick = now,
                 ExpiryTick = now + 180000, ThreatPoints = total

@@ -61,5 +61,5 @@ assert break_cost(600) == break_cost(600)
 # Modded materials of arbitrary strength must retain ordering (no 900-HP clamp).
 assert break_cost(3000) > break_cost(1500) > break_cost(500)
 assert 'tests/rhf_127_faction_and_strength.py' in workflow
-assert 'RaidersHaveFamilies_v0.12.9_RimWorld_1.7_INSTALL.zip' in workflow
+assert 'RaidersHaveFamilies_v0.13.0_RimWorld_1.7_INSTALL.zip' in workflow
 print('PASS: modded faction PawnKind, rotation/pinning, VIP rank, industrial mercenaries, universal actual-HP path cost')

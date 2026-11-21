@@ -104,6 +104,14 @@ namespace RaidersHaveFamilies
             int id = pawn.thingIDNumber;
             AuthorizedExits.Add(id);
             try { pawn.ExitMap(false, Rot4.Invalid); }
+            catch(Exception e)
+            {
+                // Preserve the error for diagnosis, but one bad NPC state
+                // must not spam the console every 90 ticks forever.
+                Log.ErrorOnce("[RHF][Evacuation] ExitMap rejected " +
+                    pawn.LabelShortCap + ": " + e.GetBaseException(),
+                    pawn.thingIDNumber ^ 130013);
+            }
             finally { AuthorizedExits.Remove(id); }
         }
 
@@ -161,7 +169,13 @@ namespace RaidersHaveFamilies
             if (!IsRescue(op) || map == null || op.Squad == null) return;
             string key = Key(op);
             Pawn goal = Target(op, map);
-            IntVec3 focus = op.Phase >= 2 && op.ExitCell.IsValid ? op.ExitCell :
+            // Phase 3 is a HOLD/BUILD operation, NOT an exit order.
+            // The old code focused the whole Lord on ExitCell as soon as VIP
+            // was liberated, leaving nobody to construct the field launcher.
+            IntVec3 focus = op.Phase == 3 ?
+                (op.PodCell.IsValid ? op.PodCell :
+                    op.Vip != null && op.Vip.Spawned ? op.Vip.Position : op.ExitCell) :
+                op.Phase >= 2 && op.ExitCell.IsValid ? op.ExitCell :
                 goal != null ? goal.Position : op.ExitCell;
             var factions = new List<Faction>(5);
             for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
@@ -640,7 +654,8 @@ namespace RaidersHaveFamilies
             {
                 Pawn p = op.Squad[i];
                 if (!ActivePawn(p, map) || p.Faction == null || captive.Faction == null ||
-                    p.Faction.HostileTo(captive.Faction)) continue;
+                    (p.Faction.HostileTo(captive.Faction) &&
+                     !RHFMissionIntegrityV130.MayEscort(op,p,captive))) continue;
                 int score = (p.Position-captive.Position).LengthHorizontalSquared;
                 RHFTacticalMember member=RHFTactical.Member(op,p);
                 if (member?.Role == (int)RHFCombatRole.Escort) score -= 36;
@@ -674,6 +689,21 @@ namespace RaidersHaveFamilies
                 RelinquishVanilla(captive);
                 missionLord.AddPawn(captive);
                 return;
+            }
+            // A hired rescue team may belong to a DIFFERENT and ordinarily
+            // hostile faction. Its captive still needs a coherent independent
+            // mission duty rather than the freed-pawn flee/attack think tree.
+            if(captive.Faction!=null)
+            {
+                RelinquishVanilla(captive);
+                try
+                {
+                    LordMaker.MakeNewLord(captive.Faction,
+                        new RHFRescueLordJobV124(key,captive.Position),
+                        captive.Map,new List<Pawn>{captive});
+                }
+                catch(Exception e)
+                { Log.Warning("[RHF] Freed captive mission Lord could not be created: " + e.Message); }
             }
         }
 
@@ -784,7 +814,18 @@ namespace RaidersHaveFamilies
                     anyLeft=true;
                     if((rescuer.Position-exit).LengthHorizontalSquared<=10)
                         MissionExit(rescuer);
-                    else if(orders<MaxOrders && Give(rescuer,JobDefOf.Goto,exit,state,now))orders++;
+                    else if(orders<MaxOrders &&
+                        rescuer.CanReach(exit,PathEndMode.OnCell,Danger.Deadly) &&
+                        Give(rescuer,JobDefOf.Goto,exit,state,now))orders++;
+                    else if(now-op.PhaseStartTick>3600)
+                    {
+                        // Change a blocked rally edge instead of keeping a
+                        // survivor indefinitely at an unreachable boundary.
+                        IntVec3 alternate=ExitCell(controller,op,rescuer,map);
+                        if(alternate.IsValid && alternate != exit &&
+                            rescuer.CanReach(alternate,PathEndMode.OnCell,Danger.Deadly))
+                        {exit=alternate;op.ExitCell=alternate;}
+                    }
                 }
                 if(!anyLeft)
                 { op.Phase=4; op.Finished=true; }

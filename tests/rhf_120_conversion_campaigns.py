@@ -30,7 +30,7 @@ assert 'RHFHostageDiplomacy.ReportConversion(r)' in dia
 assert 'RHFHostageDiplomacy.ReportRecruitment(r)' in dia
 assert 'r.IdeologyConverted' in dia and 'r.Recruited' in dia
 # Slave's location controls the near-field landing, not a generic prison or colony center.
-assert 'captive.IsSlaveOfColony' in ops and 'radius <= 5' in ops
+assert 'prisoner.IsSlaveOfColony' in ops and 'radius=14;radius<=22' in ops
 assert 'DropCellFinder.IsGoodDropSpot' in ops and 'parms.spawnCenter = nearPrison' in ops
 assert 'IsSlaveOfColony' in host and 'IsSlaveOfColony' in ops
 assert 'r.Pawn.IsSlaveOfColony' in host
@@ -48,8 +48,8 @@ assert 'Scribe_Values.Look(ref BarricadesBuilt' in ops
 assert 'Scribe_Values.Look(ref PodBudgetPaid' in ops
 assert 'party.Points - party.SupplyBudget' in ops
 assert 'op.PodSupplyCost=cost' in ops
-assert 'if (!op.PodBudgetPaid)' in ops
-assert 'supplied.stackCount' in ops and 'ThingDefOf.Steel' in ops
+assert 'if(!op.PodBudgetPaid' in ops
+assert 'FieldMaterialsPresent(op,requiredSteel,requiredComponents)' in ops and 'ThingDefOf.Steel' in ops
 # Actual physical VIP container + departing skyfaller; never unexplained disappearance.
 for name in ['TryLaunchPhysicalVipPod(', 'ActiveTransporter', 'ActiveTransporterInfo',
              'FlyShipLeaving', 'SkyfallerMaker.MakeSkyfaller', 'ThingDefOf.DropPodLeaving',
@@ -69,7 +69,7 @@ for stage in (1,2,3):
         assert name in defs
         assert defs[name].findtext('durationDays')=='5'
 assert '26 — Аудит вербовки' in dbg and '27 — Аудит боевой доктрины' in dbg
-assert '0.12.1' in (r/'.github/workflows/build.yml').read_text()
+assert '0.13.0' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: actual conversion/recruitment hooks, mood reporting, slave drop, real pod cargo, phased mission orders and debug diagnostics')
 # A durable trace of all gathered requirements and their distinct tactical cases
 # must survive the next archive transfer, not just appear in prose once.

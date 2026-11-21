@@ -19,7 +19,7 @@ for name in ['PreparePrisoner','Rescue','MassRescue','VipRescue','FieldPod','Mer
     'CombinedSingle','ThreeFactions','HiredDistraction','MixedCombined',
     'CoalitionDiagnostics','CancelTestOperations','OtherRank8']:
     assert 'void '+name+'()' in debug,name
-assert 'IncidentDefOf.RaidEnemy.Worker.TryExecute(parms)' in ops
+assert 'RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms)' in ops
 assert 'Find.Storyteller.incidentQueue.Add' not in debug
 assert 'DelayTicks = 150' not in debug
 assert 'controller.ForceDeployNow(op)' in debug

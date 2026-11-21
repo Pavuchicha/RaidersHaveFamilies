@@ -118,6 +118,13 @@ namespace RaidersHaveFamilies
         public bool TryPod;
         public bool PodSuppliesIssued;
         public Thing PodSteel;
+        public Thing PodSteelExtra;
+        public Thing PodComponents;
+        public Thing PodLauncherThing;
+        public Thing PodVehicleThing;
+        public IntVec3 PodLauncherCell = IntVec3.Invalid;
+        public int PodConstructionStage;
+        public int PodConstructionTick;
         public bool PodReady;
         public bool SupportUsed;
         public float ThreatPoints;
@@ -183,6 +190,13 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref TryPod, "tryPod", false);
             Scribe_Values.Look(ref PodSuppliesIssued, "podSuppliesIssued", false);
             Scribe_References.Look(ref PodSteel, "podSteel");
+            Scribe_References.Look(ref PodSteelExtra, "rhfPodSteelExtraV130");
+            Scribe_References.Look(ref PodComponents, "rhfPodComponentsV130");
+            Scribe_References.Look(ref PodLauncherThing, "rhfVanillaLauncherV130");
+            Scribe_References.Look(ref PodVehicleThing, "rhfVanillaPodV130");
+            Scribe_Values.Look(ref PodLauncherCell, "rhfVanillaLauncherCellV130", IntVec3.Invalid);
+            Scribe_Values.Look(ref PodConstructionStage, "rhfPodBuildStageV130", 0);
+            Scribe_Values.Look(ref PodConstructionTick, "rhfPodBuildTimeV130", 0);
             Scribe_Values.Look(ref PodReady, "podReady", false);
             Scribe_Values.Look(ref SupportUsed, "supportUsed", false);
             Scribe_Values.Look(ref ThreatPoints, "threatPoints", 0f);
@@ -441,67 +455,52 @@ namespace RaidersHaveFamilies
         private IntVec3 RescueDropCenter(RHFOperation op, RHFStrikeParty party)
         {
             if (op?.Targets == null || party == null) return IntVec3.Invalid;
-            // Choose a real, physically valid cell IN the prison room first.
-            // Vanilla TryFindDropSpotNear picks a random reachable cell; that
-            // often lands an "RHF rescue drop" in the colony's central yard.
-            // This bounded 11x11 local search runs ONCE per landing party.
-            for (int i = 0; i < op.Targets.Count && i < MaxTargets; i++)
+            // A rescue is NOT an excuse to land on the VIP's head. Land outside
+            // the detention room, at least six tiles from every named captive.
+            // Airdropped squads then enter normally and may be intercepted.
+            IntVec3 best = IntVec3.Invalid;
+            int bestScore = int.MaxValue;
+            for (int i=0; i<op.Targets.Count && i<MaxTargets;i++)
             {
-                Pawn captive = op.Targets[i];
-                if (captive == null || !captive.Spawned || captive.Map != map ||
-                    !(captive.IsPrisonerOfColony || captive.IsSlaveOfColony)) continue;
-                RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(captive);
-                Faction owner = record?.OriginalFaction ?? captive.Faction;
-                bool partyHasOwnCaptive = op.Sponsors != null && op.Sponsors.Contains(party.Faction);
-                if (partyHasOwnCaptive && owner != party.Faction) continue;
-                if (captive.IsSlaveOfColony)
+                Pawn prisoner=op.Targets[i];
+                if(prisoner==null || !prisoner.Spawned || prisoner.Map!=map ||
+                    !(prisoner.IsPrisonerOfColony || prisoner.IsSlaveOfColony))continue;
+                RHFHostageRecord record=Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(prisoner);
+                Faction sponsor=record?.OriginalFaction ?? prisoner.Faction;
+                bool partySponsor=op.Sponsors!=null && op.Sponsors.Contains(party.Faction);
+                if(partySponsor && sponsor!=party.Faction)continue;
+                Room prisonRoom=prisoner.Position.GetRoom(map);
+                // Bounded, deterministic 27x27 annulus around the objective.
+                for(int radius=14;radius<=22;radius++)
+                for(int dx=-radius;dx<=radius;dx++)
+                for(int dz=-radius;dz<=radius;dz++)
                 {
-                    // Slaves may be working anywhere; do not look for a prison room.
-                    // Landing radius is strictly <= 5, then nearest physically
-                    // possible cell (only fallback if the immediate area is blocked).
-                    for (int radius = 0; radius <= 5; radius++)
-                    for (int dx = -radius; dx <= radius; dx++)
-                    for (int dz = -radius; dz <= radius; dz++)
+                    if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                    IntVec3 cell=new IntVec3(prisoner.Position.x+dx,0,prisoner.Position.z+dz);
+                    if(!cell.InBounds(map) || !DropCellFinder.IsGoodDropSpot(cell,map,true,true) ||
+                        map.roofGrid.RoofAt(cell)!=null ||
+                        (prisonRoom!=null && cell.GetRoom(map)==prisonRoom))continue;
+                    bool nearHostage=false;
+                    for(int j=0;j<op.Targets.Count && j<MaxTargets;j++)
+                        if(op.Targets[j]?.Map==map &&
+                           (op.Targets[j].Position-cell).LengthHorizontalSquared<196)
+                        {nearHostage=true;break;}
+                    if(nearHostage)continue;
+                    // Do not prioritize the first / nearest cell inside turret fire.
+                    int danger=0, checkedTurrets=0;
+                    foreach(Building building in map.listerBuildings.allBuildingsColonist)
                     {
-                        if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius) continue;
-                        IntVec3 c = new IntVec3(captive.Position.x + dx, 0, captive.Position.z + dz);
-                        if (c.InBounds(map) && DropCellFinder.IsGoodDropSpot(c,map,true,true))
-                            return c;
+                        if(++checkedTurrets>160)break;
+                        if(RHFCombatPlannerV125.IsTurret(building) &&
+                            (building.Position-cell).LengthHorizontalSquared<900 &&
+                            GenSight.LineOfSight(building.Position,cell,map))danger+=1500;
                     }
-                    // If there is no legal drop in 5 tiles, the shared perimeter
-                    // search below still runs. Never silently drop in map center.
+                    int score=danger + (cell-prisoner.Position).LengthHorizontalSquared;
+                    if(score<bestScore){best=cell;bestScore=score;}
                 }
-                Room prison = captive.Position.GetRoom(map);
-                IntVec3 selected = IntVec3.Invalid;
-                int best = int.MaxValue;
-                for (int radius = 0; radius <= 5; radius++)
-                for (int dx = -radius; dx <= radius; dx++)
-                for (int dz = -radius; dz <= radius; dz++)
-                {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius) continue;
-                    IntVec3 cell = new IntVec3(captive.Position.x+dx, 0, captive.Position.z+dz);
-                    if (!cell.InBounds(map) || !DropCellFinder.IsGoodDropSpot(cell,map,true,true) ||
-                        map.roofGrid.RoofAt(cell)==RoofDefOf.RoofRockThick) continue;
-                    // Prefer the actual detention room, even when it is roofed
-                    // with a destructible roof. Thick overhead rock cannot be
-                    // breached by ordinary drop pods and must not be faked.
-                    if (prison != null && cell.GetRoom(map) != prison) continue;
-                    int score = dx*dx + dz*dz;
-                    if (score < best) { best = score; selected = cell; }
-                }
-                if (selected.IsValid) return selected;
-                // No internal insertion cell: prefer a nearby exterior cell,
-                // with the raid described truthfully as a perimeter landing.
-                for (int radius = 1; radius <= 10; radius++)
-                for (int dx=-radius;dx<=radius;dx++)
-                for (int dz=-radius;dz<=radius;dz++)
-                {
-                    if (Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius) continue;
-                    IntVec3 cell=new IntVec3(captive.Position.x+dx,0,captive.Position.z+dz);
-                    if (cell.InBounds(map) && DropCellFinder.IsGoodDropSpot(cell,map,true,true))
-                        return cell;
-                }
+                if(best.IsValid)return best;
             }
+            // No safe insertion: refuse the drop, never fake a spawn inside VIP.
             return IntVec3.Invalid;
         }
 
@@ -529,22 +528,25 @@ namespace RaidersHaveFamilies
                     if (op.TryPod && party.Role==(int)RHFStrikeRole.Rescue &&
                         !op.PodBudgetPaid)
                     {
-                        // A field launcher and its steel are funded from the SAME
-                        // threat budget as the fighters, not duplicated for free.
-                        float steelUnits=op.FortifyPrison ? 110f : 90f;
-                        float cost=steelUnits * ThingDefOf.Steel.BaseMarketValue;
-                        if (effectivePoints >= cost+350f)
-                        {
-                            effectivePoints-=cost;
-                            op.PodSupplyCost=cost;
-                            op.PodBudgetPaid=true;
-                        }
+                        // Genuine vanilla PodLauncher/TransportPod have separate
+                        // Steel and ComponentIndustrial costs. Both are charged
+                        // from this party's threat budget (and are placed physically).
+                        ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher");
+                        ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod");
+                        int steel=FieldCost(launcher,ThingDefOf.Steel) +
+                            FieldCost(pod,ThingDefOf.Steel) + (op.FortifyPrison?20:0);
+                        int components=FieldCost(launcher,ThingDefOf.ComponentIndustrial) +
+                            FieldCost(pod,ThingDefOf.ComponentIndustrial);
+                        float cost=steel*ThingDefOf.Steel.BaseMarketValue+
+                            components*ThingDefOf.ComponentIndustrial.BaseMarketValue;
+                        if(launcher!=null && pod!=null && steel>0 && components>0 &&
+                            effectivePoints>=cost+350f)
+                        {effectivePoints-=cost;op.PodSupplyCost=cost;op.PodBudgetPaid=true;}
                         else
                         {
-                            // No affordable technology/logistics: perform ordinary
-                            // escort extraction rather than spawning unpaid steel.
-                            op.TryPod=false;
-                            op.FortifyPrison=false;
+                            op.TryPod=false;op.FortifyPrison=false;
+                            Log.Warning("[RHF] VIP field construction unavailable: vanilla defs, " +
+                                "components or affordable resources missing. Land extraction selected.");
                         }
                     }
                     var parms = new IncidentParms
@@ -585,7 +587,7 @@ namespace RaidersHaveFamilies
                     }
                     // RaidEnemy.Worker.TryExecute fires *now*. The Harmony SpawnSetup
                     // hook binds each generated pawn to this specific party.
-                    accepted = IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
+                    accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms);
                     // If a special strategy is invalid for this modded faction,
                     // retry a plain immediate assault only when no pawns spawned.
                     if (!accepted && !party.Drop && party.Members == 0)
@@ -594,7 +596,7 @@ namespace RaidersHaveFamilies
                         // Keep the selected arrival mode and insertion point.
                         parms.raidStrategy = RaidStrategyDefOf.ImmediateAttack;
                         if (!party.Drop && op.Type != (int)RHFOperationType.Rescue) parms.raidArrivalMode = null;
-                        accepted = IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
+                        accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms);
                     }
                 }
                 catch (Exception e)
@@ -644,7 +646,7 @@ namespace RaidersHaveFamilies
                             points=Mathf.Clamp(reserve.Points-reserve.SupplyBudget,650f,15000f),
                             raidStrategy=RaidStrategyDefOf.ImmediateAttack };
                         reserve.Attempted=true;
-                        reserve.Succeeded=IncidentDefOf.RaidEnemy.Worker.TryExecute(parms);
+                        reserve.Succeeded=RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms);
                     }
                     catch(Exception e)
                     { Log.Warning("[RHF] Reserve raider " + alternate.Name + " failed: " + e.Message); }
@@ -717,6 +719,7 @@ namespace RaidersHaveFamilies
                 // location. A second letter pointing at map.Center looks like a
                 // duplicate or phantom raid. Keep the tactical report in the log.
                 Log.Message("[RHF] " + report.ToString());
+                RHFMissionIntegrityV130.ShowMissionLetter(op,map);
             }
             return success > 0;
         }
@@ -1197,7 +1200,8 @@ namespace RaidersHaveFamilies
                 Pawn rescuer=op.Squad[i];
                 if (rescuer == null || rescuer.Dead || rescuer.Downed || rescuer.Map != map ||
                     rescuer.Faction == null || captive.Faction == null ||
-                    rescuer.Faction.HostileTo(captive.Faction)) continue;
+                    (rescuer.Faction.HostileTo(captive.Faction) &&
+                     !RHFMissionIntegrityV130.MayEscort(op,rescuer,captive))) continue;
                 RHFTacticalMember member=RHFTactical.Member(op,rescuer);
                 int dist=(rescuer.Position-captive.Position).LengthHorizontalSquared;
                 int score=dist + (member?.Role == (int)RHFCombatRole.Escort ? -36 : 0);
@@ -1213,8 +1217,12 @@ namespace RaidersHaveFamilies
             if (current == null)
             { current=new RHFEscortLink(captive,chosen); op.Escorts.Add(current); }
             else current.Escort=chosen;
+            // Never detach a rescuer from the mission Lord just because he
+            // was assigned to escort a prisoner. Coalition mercenaries remain
+            // mission allies even when their persistent factions are hostile.
             Lord lord = chosen.GetLord();
-            if (lord != null) lord.Notify_PawnLost(chosen,PawnLostCondition.LeftVoluntarily);
+            if (lord != null && !(lord.LordJob is RHFRescueLordJobV124))
+                lord.Notify_PawnLost(chosen,PawnLostCondition.LeftVoluntarily);
             return current;
         }
 
@@ -1368,8 +1376,10 @@ namespace RaidersHaveFamilies
         // No global construction AI override; at most 2 tiles and ~100 probes.
         private void TryBuildPrisonBarricade(RHFOperation op, Pawn vip, int now)
         {
-            if(op.PodSteel==null || op.PodSteel.Destroyed || op.PodSteel.Map!=map ||
-               op.PodSteel.stackCount < 90+10 || vip==null || !vip.Spawned)return;
+            if(!HasFieldSteel(op, FieldCost(
+                   DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher"),ThingDefOf.Steel)+
+                   FieldCost(DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod"),ThingDefOf.Steel)+10) ||
+               vip==null || !vip.Spawned)return;
             if(!op.BarricadeCell.IsValid)
             {
                 Room room=vip.Position.GetRoom(map);
@@ -1437,7 +1447,7 @@ namespace RaidersHaveFamilies
                 Thing wall=ThingMaker.MakeThing(ThingDefOf.Wall,ThingDefOf.Steel);
                 wall.SetFaction(engineer.Faction);
                 GenSpawn.Spawn(wall,op.BarricadeCell,map);
-                op.PodSteel.stackCount-=10;
+                SpendFieldSteel(op,10);
                 op.CompletedBarricades.Add(op.BarricadeCell);
                 op.BarricadesBuilt++;
                 Messages.Message("RHF: сапёр возвёл стальную баррикаду у тюремного входа.",
@@ -1589,141 +1599,297 @@ namespace RaidersHaveFamilies
             if(orders==0 && now-op.PhaseStartTick>8000)op.Phase=4;
         }
 
-        // VIP rescue option: a field launcher is actually placed on the map; no free
-        // out-of-nowhere teleport. Engineers must hold the area for several hours.
-        // If the game cannot accept the cell/roof/resources, fall back to a breakout.
-        private void BuildAndLaunch(RHFOperation op, int now)
+        // Native building definitions, cost lists and physical VIP cargo.
+        // Materials, work intervals and the structures are all saved on the op.
+        private static int FieldCost(ThingDef building, ThingDef material)
         {
-            if (!op.PodBudgetPaid)
-            { op.Phase=2; op.PhaseStartTick=now; return; }
-            Pawn vip=op.Vip;
-            if (vip == null || vip.Dead || vip.Map != map || vip.Downed || op.Squad.Count < 2)
-            { op.Phase=2; op.PhaseStartTick=now; return; }
-            if (!op.PodSuppliesIssued)
+            if(building?.costList==null || material==null)return 0;
+            int cost=0;
+            foreach(ThingDefCountClass component in building.costList)
+                if(component?.thingDef==material)cost+=component.count;
+            return cost;
+        }
+
+        private bool FieldFootprintFree(IntVec3 cell, ThingDef def, Pawn vip)
+        {
+            if(def==null || !cell.IsValid)return false;
+            for(int dx=0;dx<def.size.x;dx++)
+            for(int dz=0;dz<def.size.z;dz++)
             {
-                op.PodCell = FindLandingCell(vip.Position);
-                if (op.PodCell == IntVec3.Invalid)
-                { op.Phase=2; op.PhaseStartTick=now; return; }
-                // Supplies are part of the special raid's strategic points budget.
-                // Explicit physical materials can be taken by the colony.
-                Thing materials=ThingMaker.MakeThing(ThingDefOf.Steel);
-                // Ninety steel for launcher/pod plus at most two actual
-                // steel walls at ten units each. No colony stock consumed.
-                materials.stackCount=op.FortifyPrison ? 110 : 90;
-                IntVec3 supplyCell=IntVec3.Invalid;
-                for(int dx=-2;dx<=2 && !supplyCell.IsValid;dx++)
-                for(int dz=-2;dz<=2;dz++)
-                {
-                    IntVec3 c=op.PodCell+new IntVec3(dx,0,dz);
-                    if(!c.InBounds(map) || !c.Standable(map) || c.GetEdifice(map)!=null)
-                        continue;
-                    // Avoid merging with pre-existing player steel (or any
-                    // existing item), which would make ownership unknowable.
-                    bool occupied=false;
-                    foreach(Thing item in map.thingGrid.ThingsListAt(c))
-                        if(item.def.category==ThingCategory.Item)
-                        {occupied=true;break;}
-                    if(!occupied){supplyCell=c;break;}
-                }
-                if(!supplyCell.IsValid)
-                { op.Phase=2;op.PhaseStartTick=now;return; }
-                GenSpawn.Spawn(materials,supplyCell,map);
-                op.PodSteel=materials;
-                op.PodSuppliesIssued=true;
-                op.PhaseStartTick=now;
-                Find.LetterStack.ReceiveLetter("Полевой эвакуационный комплекс",
-                    "Спасатели привезли материалы и готовят эвакуационную капсулу. " +
-                    "Им понадобится время и свободное место без горной кровли.", LetterDefOf.ThreatSmall, vip);
+                IntVec3 c=cell+new IntVec3(dx,0,dz);
+                if(!c.InBounds(map) || !c.Standable(map) ||
+                    map.roofGrid.RoofAt(c)!=null || c.GetEdifice(map)!=null ||
+                    c.GetFirstBuilding(map)!=null || c==vip.Position)return false;
             }
-            // Engineers will not construct while everyone is incapacitated or gone.
+            return true;
+        }
+
+        // Two non-overlapping footprints, at least six cells from the captive.
+        // Modded map roofs/buildings are read from actual cells, not DefNames.
+        private bool FindFieldConstructionSite(Pawn vip,ThingDef launcher,ThingDef pod,
+            out IntVec3 launchCell,out IntVec3 podCell)
+        {
+            launchCell=IntVec3.Invalid;podCell=IntVec3.Invalid;
+            for(int radius=6;radius<=20;radius++)
+            for(int dx=-radius;dx<=radius;dx++)
+            for(int dz=-radius;dz<=radius;dz++)
+            {
+                if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                IntVec3 cell=new IntVec3(vip.Position.x+dx,0,vip.Position.z+dz);
+                if(!FieldFootprintFree(cell,launcher,vip) ||
+                    !vip.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                // A genuine launcher has its own footprint; put the transport
+                // pod on a separate adjacent free tile. Never wipe the launcher.
+                IntVec3 vehicle=cell+new IntVec3(launcher.size.x,0,0);
+                if(!FieldFootprintFree(vehicle,pod,vip))continue;
+                // Do not create the flight assembly in the hostile kill corridor
+                // if a safe outdoor position is available.
+                bool exposed=false;int inspected=0;
+                foreach(Building defense in map.listerBuildings.allBuildingsColonist)
+                {
+                    if(++inspected>180)break;
+                    if(!RHFCombatPlannerV125.IsTurret(defense))continue;
+                    if((defense.Position-cell).LengthHorizontalSquared<625 &&
+                        GenSight.LineOfSight(defense.Position,cell,map))
+                    {exposed=true;break;}
+                }
+                if(exposed)continue;
+                launchCell=cell;podCell=vehicle;return true;
+            }
+            return false;
+        }
+
+        private bool HasFieldSteel(RHFOperation op,int required)
+        {
+            int total=0;
+            Thing[] stocks={op.PodSteel,op.PodSteelExtra};
+            foreach(Thing stack in stocks)
+                if(stack!=null && !stack.Destroyed && stack.Map==map &&
+                   (stack.Position-op.PodCell).LengthHorizontalSquared<=100)
+                    total+=stack.stackCount;
+            return total>=required;
+        }
+
+        private bool SpendFieldSteel(RHFOperation op,int amount)
+        {
+            if(!HasFieldSteel(op,amount))return false;
+            foreach(Thing stack in new Thing[]{op.PodSteel,op.PodSteelExtra})
+            {
+                if(amount==0)break;
+                if(stack==null || stack.Destroyed || stack.Map!=map)continue;
+                int take=Math.Min(stack.stackCount,amount);
+                UseFieldMaterial(stack,take);
+                amount-=take;
+            }
+            return amount==0;
+        }
+
+        private IntVec3 FieldSupplyCell(IntVec3 center,IntVec3 skip1,IntVec3 skip2)
+        {
+            for(int radius=1;radius<=5;radius++)
+            for(int dx=-radius;dx<=radius;dx++)
+            for(int dz=-radius;dz<=radius;dz++)
+            {
+                if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                IntVec3 c=center+new IntVec3(dx,0,dz);
+                if(c==skip1 || c==skip2 || !c.InBounds(map) || !c.Standable(map) ||
+                   c.GetEdifice(map)!=null || c.GetFirstBuilding(map)!=null)continue;
+                bool occupied=false;
+                foreach(Thing t in map.thingGrid.ThingsListAt(c))
+                    if(t.def.category==ThingCategory.Item){occupied=true;break;}
+                if(!occupied)return c;
+            }
+            return IntVec3.Invalid;
+        }
+
+        private bool FieldMaterialsPresent(RHFOperation op,int steel,int components)
+        {
+            return HasFieldSteel(op,steel) &&
+                op.PodComponents!=null && !op.PodComponents.Destroyed &&
+                op.PodComponents.Map==map && op.PodComponents.stackCount>=components &&
+                (op.PodComponents.Position-op.PodCell).LengthHorizontalSquared<=100;
+        }
+
+        private static void UseFieldMaterial(Thing item,int count)
+        {
+            if(count<=0 || item==null || item.Destroyed)return;
+            if(item.stackCount<=count)item.Destroy();
+            else item.stackCount-=count;
+        }
+
+        // Field builders must be real, present, capable soldiers with a legal
+        // approach. They do not simply spawn structures from across the map.
+        private Pawn FieldEngineer(RHFOperation op,IntVec3 workCell)
+        {
+            Pawn best=null;int distance=int.MaxValue;
+            for(int i=0;i<op.Squad.Count && i<48;i++)
+            {
+                Pawn p=op.Squad[i];
+                if(p==null || !p.Spawned || p.Map!=map || p.Dead || p.Downed ||
+                    p.jobs==null || p.health?.capacities==null ||
+                    !p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
+                    !p.CanReach(workCell,PathEndMode.Touch,Danger.Deadly))continue;
+                int d=(p.Position-workCell).LengthHorizontalSquared;
+                if(d<distance){best=p;distance=d;}
+            }
+            return best;
+        }
+
+        private void FallBackToLand(RHFOperation op,int now,string reason)
+        {
+            op.Phase=2;op.PhaseStartTick=now;
+            Log.Warning("[RHF][VIP] Native transport fallback to ground exit: " + reason);
+        }
+
+        private void BuildAndLaunch(RHFOperation op,int now)
+        {
+            Pawn vip=op.Vip;
+            if(!op.PodBudgetPaid || vip==null || vip.Dead || vip.Map!=map ||
+                !vip.Spawned || vip.Downed)
+            {FallBackToLand(op,now,"resources or live mobile VIP unavailable");return;}
+            ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher");
+            ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod");
+            if(launcher==null || pod==null)
+            {FallBackToLand(op,now,"vanilla transport definitions missing");return;}
+            int launcherSteel=FieldCost(launcher,ThingDefOf.Steel);
+            int podSteel=FieldCost(pod,ThingDefOf.Steel);
+            int launcherComponents=FieldCost(launcher,ThingDefOf.ComponentIndustrial);
+            int podComponents=FieldCost(pod,ThingDefOf.ComponentIndustrial);
+            if(launcherSteel<=0 || podSteel<=0 ||
+                launcherComponents<=0 || podComponents<=0)
+            {FallBackToLand(op,now,"vanilla transport cost lists incomplete");return;}
+            if(!op.PodSuppliesIssued)
+            {
+                if(!FindFieldConstructionSite(vip,launcher,pod,
+                    out IntVec3 launchCell,out IntVec3 podCell))
+                {FallBackToLand(op,now,"no uncovered buildable double footprint");return;}
+                op.PodLauncherCell=launchCell;op.PodCell=podCell;
+                // Supplies from the raid budget, not the colony's storage.
+                int steel=launcherSteel+podSteel+(op.FortifyPrison?20:0);
+                int components=launcherComponents+podComponents;
+                Thing materials=ThingMaker.MakeThing(ThingDefOf.Steel);
+                Thing extra=null;
+                int first=Math.Min(steel,ThingDefOf.Steel.stackLimit);
+                materials.stackCount=first;
+                if(steel>first)
+                {
+                    extra=ThingMaker.MakeThing(ThingDefOf.Steel);
+                    extra.stackCount=steel-first;
+                }
+                Thing parts=ThingMaker.MakeThing(ThingDefOf.ComponentIndustrial);
+                parts.stackCount=components;
+                // Keep the transport pad clear; deposits remain recoverable loot
+                // if the squad loses the objective or the player steals them.
+                IntVec3 supply=FieldSupplyCell(launchCell,IntVec3.Invalid,IntVec3.Invalid);
+                IntVec3 extraCell=extra!=null ? FieldSupplyCell(launchCell,supply,IntVec3.Invalid) :
+                    IntVec3.Invalid;
+                IntVec3 componentCell=FieldSupplyCell(launchCell,supply,extraCell);
+                if(!supply.IsValid || (extra!=null && !extraCell.IsValid) ||
+                    !componentCell.IsValid)
+                {
+                    materials.Destroy();
+                    if(extra!=null)extra.Destroy();
+                    parts.Destroy();
+                    FallBackToLand(op,now,"no safe separated supply deposits");
+                    return;
+                }
+                GenSpawn.Spawn(materials,supply,map);
+                if(extra!=null)GenSpawn.Spawn(extra,extraCell,map);
+                GenSpawn.Spawn(parts,componentCell,map);
+                op.PodSteel=materials;op.PodSteelExtra=extra;
+                op.PodComponents=parts;
+                op.PodSuppliesIssued=true;
+                op.PodConstructionStage=0;
+                op.PodConstructionTick=0;
+                op.PhaseStartTick=now;
+                // VIP waits with the unit, not in a drifting vanilla flee job.
+                // Keep out of the footprint until the structure is finished.
+                IntVec3 waiting=podCell+IntVec3.South*2;
+                if(waiting.InBounds(map) && waiting.Standable(map) &&
+                    vip.CanReach(waiting,PathEndMode.OnCell,Danger.Deadly))
+                    OrderGotoIfNeeded(vip,waiting,4);
+            }
             int active=0;
             for(int i=0;i<op.Squad.Count;i++)
-                if (op.Squad[i]!=null && op.Squad[i].Map==map && !op.Squad[i].Downed &&
-                    !op.Squad[i].Dead) active++;
-            if (active<2) return;
-            // Construction occurs in actual pulses next to the prison door,
-            // not by spawning walls for free or taking player-owned steel.
-            if (op.FortifyPrison && op.BarricadesBuilt < 2 &&
-                now-op.PhaseStartTick < 16000)
-                TryBuildPrisonBarricade(op,vip,now);
-            if(now-op.PhaseStartTick<16500) return;
-            if(op.PodReady)
+                if(op.Squad[i]!=null && op.Squad[i].Spawned &&
+                    op.Squad[i].Map==map && !op.Squad[i].Downed && !op.Squad[i].Dead)active++;
+            if(active<1)
             {
-                // Boarding is physical; cannot launch a prisoner on the other side of the map.
-                if((vip.Position-op.PodCell).LengthHorizontalSquared > 2)
-                {
-                    if(vip.jobs?.curJob?.def!=JobDefOf.Goto)
-                        Order(vip,JobDefOf.Goto,op.PodCell);
-                    if(now-op.PhaseStartTick > 36000)
-                    { op.Phase=2;op.PhaseStartTick=now; }
-                    return;
-                }
-                if (!TryLaunchPhysicalVipPod(op, vip))
-                {
-                    // Never fake a launched capsule or disappear the pawn when
-                    // RimWorld rejected the actual transport-container operation.
-                    op.Phase=2; op.PhaseStartTick=now;
-                    Messages.Message("RHF: эвакуационная капсула недоступна; " +
-                        "отряд переходит к выводу пленников по земле.",
-                        MessageTypeDefOf.ThreatSmall, false);
-                    return;
-                }
-                op.PodLaunchCompleted=true;
-                Find.LetterStack.ReceiveLetter("Эвакуация важного пленника",
-                    "Полевой комплекс действительно запущен: " + vip.LabelShortCap +
-                    " находится в контейнере улетающей капсулы.",
-                    LetterDefOf.ThreatBig,new LookTargets(op.PodCell,map));
-                op.Phase=2; op.PhaseStartTick=now;
+                if(now-op.PhaseStartTick>5000)
+                    FallBackToLand(op,now,"no surviving engineers");
                 return;
             }
-            RoofDef roof=map.roofGrid.RoofAt(op.PodCell);
-            if(roof!=null)
+            if(op.PodConstructionStage==0 && op.FortifyPrison && op.BarricadesBuilt<2 &&
+                now-op.PhaseStartTick<3000)
+                TryBuildPrisonBarricade(op,vip,now);
+
+            if(op.PodReady)
             {
-                // No instant removal of the colony's roof. A capable raider
-                // must reach the site and work on a *constructed* roof.
-                if(roof!=RoofDefOf.RoofConstructed)
-                {op.Phase=2;op.PhaseStartTick=now;return;}
-                Pawn engineer=null;
-                for(int i=0;i<op.Squad.Count && i<32;i++)
+                if(!op.PodCell.IsValid || !op.PodCell.InBounds(map))
+                {FallBackToLand(op,now,"pod site invalidated");return;}
+                if((vip.Position-op.PodCell).LengthHorizontalSquared>2)
                 {
-                    Pawn p=op.Squad[i];
-                    if(p==null || p.Map!=map || p.Downed || p.Dead ||
-                       p.health?.capacities==null ||
-                       !p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
-                       !p.CanReach(op.PodCell,PathEndMode.Touch,Danger.Deadly))continue;
-                    engineer=p;break;
+                    if(vip.CanReach(op.PodCell,PathEndMode.OnCell,Danger.Deadly))
+                        OrderGotoIfNeeded(vip,op.PodCell,1);
+                    if(now-op.PhaseStartTick>23000)
+                        FallBackToLand(op,now,"VIP cannot board built pod");
+                    return;
                 }
-                if(engineer==null)return;
-                if((engineer.Position-op.PodCell).LengthHorizontalSquared>9)
-                {OrderGotoIfNeeded(engineer,op.PodCell,6);op.RoofRemovalStartTick=0;return;}
-                if(op.RoofRemovalStartTick==0)op.RoofRemovalStartTick=now;
-                if(now-op.RoofRemovalStartTick<2100)return;
-                map.roofGrid.SetRoof(op.PodCell,null);
+                if(!TryLaunchPhysicalVipPod(op,vip))
+                {FallBackToLand(op,now,"physical cargo boarding failed");return;}
+                op.PodLaunchCompleted=true;
+                op.Phase=2;op.PhaseStartTick=now;
+                // This outcome is available in the operation diagnostics. No
+                // redundant letter: the mission plan was in the arrival letter.
+                return;
             }
-            ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("RHF_ExtractionPod");
-            ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("RHF_FieldLauncher");
-            if(pod==null || launcher==null || !op.PodCell.Standable(map))
-            { op.Phase=2; op.PhaseStartTick=now; return; }
-            // Spend only the materials delivered by this operation. If the player
-            // took/moved the steel, the raiders must abandon the field launch.
-            Thing supplied=op.PodSteel;
-            if (supplied==null || supplied.Destroyed || supplied.Map!=map ||
-                supplied.def!=ThingDefOf.Steel || supplied.stackCount<90 ||
-                (supplied.Position-op.PodCell).LengthHorizontalSquared>16)
-            { op.Phase=2; op.PhaseStartTick=now; return; }
-            if (supplied.stackCount==90) supplied.Destroy();
-            else supplied.stackCount-=90;
-            op.PodSteel=null;
-            IntVec3 adjacent=op.PodCell+IntVec3.East;
-            if(!adjacent.InBounds(map) || !adjacent.Standable(map))
-                adjacent=op.PodCell+IntVec3.West;
-            if(!adjacent.InBounds(map) || !adjacent.Standable(map))
-            { op.Phase=2; op.PhaseStartTick=now; return; }
-            GenSpawn.Spawn(ThingMaker.MakeThing(pod),op.PodCell,map);
-            GenSpawn.Spawn(ThingMaker.MakeThing(launcher),adjacent,map);
-            op.PodReady=true;
-            // Boarding happens in a subsequent decision cycle, after the VIP
-            // reaches the physical pod. The same plan survives save/load.
+            int stage=op.PodConstructionStage;
+            IntVec3 site=stage==0?op.PodLauncherCell:op.PodCell;
+            if(!site.IsValid || !site.InBounds(map))
+            {FallBackToLand(op,now,"site disappeared");return;}
+            Pawn engineer=FieldEngineer(op,site);
+            if(engineer==null)
+            {
+                if(now-op.PhaseStartTick>9000)
+                    FallBackToLand(op,now,"work location unreachable");
+                return;
+            }
+            if((engineer.Position-site).LengthHorizontalSquared>9)
+            {
+                OrderGotoIfNeeded(engineer,site,6);
+                op.PodConstructionTick=0;
+                return;
+            }
+            if(op.PodConstructionTick==0)op.PodConstructionTick=now;
+            int stageWork=stage==0?3000:1600;
+            if(now-op.PodConstructionTick<stageWork)
+            {
+                // Work time is spent by a nearby real engineer; combat can
+                // interrupt the process and the saved clock is not reset.
+                return;
+            }
+            int requiredSteel=stage==0?launcherSteel:podSteel;
+            int requiredComponents=stage==0?launcherComponents:podComponents;
+            if(!FieldMaterialsPresent(op,requiredSteel,requiredComponents))
+            {FallBackToLand(op,now,"construction supplies stolen or destroyed");return;}
+            ThingDef construction=stage==0?launcher:pod;
+            if(!FieldFootprintFree(site,construction,vip))
+            {FallBackToLand(op,now,"build site occupied");return;}
+            try
+            {
+                Thing completed=ThingMaker.MakeThing(construction);
+                completed.SetFaction(engineer.Faction);
+                GenSpawn.Spawn(completed,site,map);
+                SpendFieldSteel(op,requiredSteel);
+                UseFieldMaterial(op.PodComponents,requiredComponents);
+                if(stage==0)op.PodLauncherThing=completed;
+                else op.PodVehicleThing=completed;
+                op.PodConstructionStage++;
+                op.PodConstructionTick=0;
+                if(op.PodConstructionStage>=2)op.PodReady=true;
+            }
+            catch(Exception e)
+            {FallBackToLand(op,now,"native construction failed: "+e.GetBaseException().Message);}
         }
 
         // A real Skyfaller and ThingOwner transport. No teleport and no free
@@ -1757,9 +1923,10 @@ namespace RaidersHaveFamilies
                 departed=skyfaller.Spawned;
                 if(departed)
                 {
-                    Thing structure=op.PodCell.GetFirstBuilding(map);
-                    if(structure!=null && structure.def.defName=="RHF_ExtractionPod")
-                        structure.Destroy();
+                    // The REAL vanilla TransportPod shell is consumed by launch;
+                    // leave the real PodLauncher behind as recoverable structure.
+                    if(op.PodVehicleThing!=null && !op.PodVehicleThing.Destroyed &&
+                        op.PodVehicleThing.Map==map)op.PodVehicleThing.Destroy();
                 }
                 return departed;
             }
@@ -1789,20 +1956,6 @@ namespace RaidersHaveFamilies
             }
         }
 
-        private IntVec3 FindLandingCell(IntVec3 origin)
-        {
-            for (int radius=1; radius<=6; radius++)
-            for (int x=-radius;x<=radius;x++)
-            for (int z=-radius;z<=radius;z++)
-            {
-                IntVec3 c=new IntVec3(origin.x+x,0,origin.z+z);
-                if(!c.InBounds(map) || !c.Standable(map))continue;
-                RoofDef roof=map.roofGrid.RoofAt(c);
-                if(roof!=null && roof!=RoofDefOf.RoofConstructed)continue;
-                return c;
-            }
-            return IntVec3.Invalid;
-        }
 
         private IntVec3 ChooseExit(IntVec3 from)
         {
