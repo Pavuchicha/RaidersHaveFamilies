@@ -308,13 +308,19 @@ namespace RaidersHaveFamilies
             state.CurrentBarrier = null;
             state.NextBarrierSearch = now + 600;
             state.BarrierForCaptive = captive.Position;
+            // First check the actual destructible path to the hostage. The
+            // old nearest-door search sometimes chose the storage/battery room.
+            Thing goalObstacle = RHFCombatPlannerV125.FirstObjectiveObstacle(leader,captive);
+            if (goalObstacle != null && !goalObstacle.Destroyed &&
+                leader.CanReach(goalObstacle.Position,PathEndMode.Touch,Danger.Deadly))
+            { state.CurrentBarrier=goalObstacle; return goalObstacle; }
             try
             {
                 if (FindBarrierMethod != null)
                 {
                     Thing immediate = FindBarrierMethod.Invoke(controller,
                         new object[] { captive, leader }) as Thing;
-                    if (immediate != null && !immediate.Destroyed &&
+                    if (RHFCombatPlannerV125.IsBreachableStructure(immediate) &&
                         leader.CanReach(immediate.Position, PathEndMode.Touch, Danger.Deadly))
                     { state.CurrentBarrier = immediate; return immediate; }
                 }
@@ -331,8 +337,7 @@ namespace RaidersHaveFamilies
                 IntVec3 cell = new IntVec3(captive.Position.x+dx, 0, captive.Position.z+dz);
                 if (!cell.InBounds(map)) continue;
                 Building edifice = cell.GetEdifice(map);
-                if (edifice == null || edifice.Destroyed || edifice.Faction != Faction.OfPlayer ||
-                    (!(edifice is Building_Door) && edifice.def.passability != Traversability.Impassable))
+                if (!RHFCombatPlannerV125.IsBreachableStructure(edifice))
                     continue;
                 bool door = edifice is Building_Door;
                 bool prisonEdge = false;
@@ -349,7 +354,7 @@ namespace RaidersHaveFamilies
                 }
                 // Lower is better. Never demolish an inner wall when there is
                 // a reachable doorway serving the same enclosure.
-                int score = (door ? 0 : 1500) + (prisonEdge ? 0 : 300) +
+                int score = (prisonEdge ? 0 : 8000) + (door ? 0 : 1000) +
                     (cell - captive.Position).LengthHorizontalSquared / 4 +
                     (cell - leader.Position).LengthHorizontalSquared / 8;
                 int at = 0;
@@ -400,6 +405,18 @@ namespace RaidersHaveFamilies
                 op.Finished = true;
                 return;
             }
+            // Tactical coverage also applies to diversion wings; their existing
+            // vanilla Lord is still responsible for the overarching assault.
+            if(op.Diversion != null && op.Diversion.Count > 0)
+                RHFCombatPlannerV125.ImproveAttack(op,map,now);
+            // Combat-aware allocation: at least most of the team continues to
+            // the prisoner while a bounded wing shoots or flanks real threats.
+            HashSet<Pawn> covering = RHFCombatPlannerV125.Response(
+                op,map,captive,op.Squad,now,false);
+            IntVec3 safeApproach = RHFCombatPlannerV125.SafeApproach(
+                op,map,lead,captive,now);
+            int assignedBreaches=0;
+            int breachLimit=Math.Max(2,Math.Min(4,op.Squad.Count/3));
             bool routeOpen = lead.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
             int leadLastMove = LastMove(lead, state, now);
             int leadLastCloser = LastCloser(lead,captive,state,now);
@@ -412,6 +429,7 @@ namespace RaidersHaveFamilies
                 Pawn rescuer = op.Squad[(start+j) % op.Squad.Count];
                 if (!ActivePawn(rescuer, map)) continue;
                 alive++;
+                if (covering.Contains(rescuer)) continue; // keep real suppressive fire
                 int moved = LastMove(rescuer, state, now);
                 int closer = LastCloser(rescuer,captive,state,now);
                 int sqdist = (rescuer.Position-captive.Position).LengthHorizontalSquared;
@@ -433,13 +451,33 @@ namespace RaidersHaveFamilies
                 // a fixed frequency even when navigation is temporarily complex.
                 Job current=rescuer.jobs.curJob;
                 bool attacking = current?.def == JobDefOf.AttackMelee &&
-                    current.targetA.Thing != null && !current.targetA.Thing.Destroyed;
-                if (attacking && now-moved<1600) continue;
+                    sharedBarrier != null && current.targetA.Thing == sharedBarrier &&
+                    !sharedBarrier.Destroyed;
+                bool canPlaceBreach = attacking &&
+                    RHFTactical.Member(op,rescuer)?.Role==(int)RHFCombatRole.Breacher &&
+                    RHFTactical.HasBreachKit(rescuer);
+                if (attacking && !canPlaceBreach && now-moved<1600) continue;
                 bool approaching = current?.def == JobDefOf.Goto &&
                     (current.targetA.Thing==captive ||
                      (current.targetA.Cell-captive.Position).LengthHorizontalSquared<=9);
-                if (approaching && now-moved<900 && now-closer<1200) continue;
+                if (approaching && now-moved<900 && now-closer<1200 &&
+                    (!safeApproach.IsValid ||
+                     (rescuer.Position-safeApproach).LengthHorizontalSquared<=16)) continue;
 
+                // A safer staging flank around static defence takes precedence
+                // over a suicidal shortest path down the main kill corridor.
+                IntVec3 staged = safeApproach.IsValid ?
+                    RHFCombatPlannerV125.FormationCell(safeApproach,rescuer,map) :
+                    IntVec3.Invalid;
+                if (staged.IsValid && !attacking &&
+                    (rescuer.Position-staged).LengthHorizontalSquared>16 &&
+                    (rescuer.Position-captive.Position).LengthHorizontalSquared>225 &&
+                    rescuer.CanReach(staged,PathEndMode.OnCell,Danger.Deadly))
+                {
+                    if(Give(rescuer,JobDefOf.Goto,staged,state,now))
+                    {orders++;state.OrderedApproach++;}
+                    continue;
+                }
                 bool canApproach = rescuer.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
                 if (canApproach && now-moved<900 && now-closer<1200)
                 {
@@ -451,11 +489,17 @@ namespace RaidersHaveFamilies
                 if (barrier == null || barrier.Destroyed ||
                     !rescuer.CanReach(barrier.Position, PathEndMode.Touch, Danger.Deadly))
                     barrier = AccessObstacle(controller, rescuer, captive, state, now);
-                if (barrier != null && !barrier.Destroyed)
+                if (RHFCombatPlannerV125.IsBreachableStructure(barrier))
                 {
-                    if (Give(rescuer, JobDefOf.AttackMelee, barrier, state, now))
-                    { orders++; state.OrderedBreach++; }
-                    state.LastDecision = "вскрытие входа: " + barrier.LabelShortCap;
+                    // Only a few sappers assault the same obstacle. Others
+                    // keep a rear guard and are free to defend against fire.
+                    if(assignedBreaches>=breachLimit)continue;
+                    assignedBreaches++;
+                    bool placed = RHFCombatPlannerV125.TryPaidBreach(
+                        controller,op,captive,barrier,rescuer,now);
+                    if (placed || Give(rescuer, JobDefOf.AttackMelee, barrier, state, now))
+                    {orders++;state.OrderedBreach++;}
+                    state.LastDecision="целенаправленный пролом: "+barrier.LabelShortCap;
                 }
                 else
                 {
@@ -569,6 +613,14 @@ namespace RaidersHaveFamilies
                     return false;
             ClaimGroup(op,map);
             var state=States.GetValue(op, _ => new RHFRescueCommandStateV124());
+            // Extraction is still a combat operation. A small rear guard may
+            // shoot turrets/hostiles instead of receiving compulsory Exit Goto.
+            Pawn threatAnchor=null;
+            for(int t=0;t<op.Freed.Count;t++)
+                if(op.Freed[t]!=null && op.Freed[t].Spawned && op.Freed[t].Map==map)
+                {threatAnchor=op.Freed[t];break;}
+            HashSet<Pawn> covering=RHFCombatPlannerV125.Response(
+                op,map,threatAnchor,op.Squad,now,true);
             Pawn anchor=null;
             for(int i=0;i<op.Freed.Count && i<MaxTargets;i++)
                 if(op.Freed[i]!=null && op.Freed[i].Spawned && op.Freed[i].Map==map && !op.Freed[i].Dead)
@@ -672,7 +724,7 @@ namespace RaidersHaveFamilies
                         if(link?.Escort==rescuer && link.Captive!=null &&
                             link.Captive.MapHeld==map && !link.Captive.Dead)
                         {paired=true;break;}
-                    if(paired)continue;
+                    if(paired || covering.Contains(rescuer))continue;
                     if((rescuer.Position-rally).LengthHorizontalSquared>64 &&
                         Give(rescuer,JobDefOf.Goto,rally,state,now))orders++;
                 }
