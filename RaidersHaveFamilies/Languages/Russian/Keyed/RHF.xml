@@ -1,11 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <LanguageData>
   <RHF_Enable>Добавлять социальные связи рейдерам</RHF_Enable>
   <RHF_Parents>Вероятность создать родителя: {0}</RHF_Parents>
   <RHF_Partners>Вероятность создать партнёра вне карты: {0}</RHF_Partners>
-  <RHF_RaidPartners>Вероятность романа между участниками рейда: {0}</RHF_RaidPartners>
-  <RHF_Siblings>Вероятность общей семьи среди рейдеров: {0}</RHF_Siblings>
-  <RHF_PerWave>Максимум новых персонажей за одну волну: {0}</RHF_PerWave>
-  <RHF_PerSave>Максимум новых персонажей на сохранение: {0}</RHF_PerSave>
-  <RHF_Logging>Подробная диагностика в Player.log</RHF_Logging>
+  <RHF_RaidPartners>Вероятность пары среди рейдеров: {0}</RHF_RaidPartners>
+  <RHF_Siblings>Вероятность общего родителя для двух рейдеров: {0}</RHF_Siblings>
+  <RHF_PerCycle>Максимум попыток создания родных вне карты за одно прибытие: {0}</RHF_PerCycle>
+  <RHF_PerSave>Лимит созданных родных вне карты за сохранение: {0}</RHF_PerSave>
+  <RHF_ZeroWorldPawns>Установите лимит за прибытие в 0 для максимального TPS: связи внутри групп останутся.</RHF_ZeroWorldPawns>
+  <RHF_Logging>Подробные логи (выключено по умолчанию)</RHF_Logging>
+  <RHF_Visitors>Создавать связи также гостям и торговцам</RHF_Visitors>
+  <RHF_Negotiations>Разрешить выкупы и контакты с семьями пленников</RHF_Negotiations>
+  <RHF_Retaliation>Разрешить усиленные рейды возмездия</RHF_Retaliation>
+  <RHF_WCE2>Учитывать операции War Crimes Expanded 2</RHF_WCE2>
+  <RHF_FactionRelatives>Вероятность родственных связей внутри группы: {0}</RHF_FactionRelatives>
 </LanguageData>

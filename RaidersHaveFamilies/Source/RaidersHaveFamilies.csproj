@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='utf-8'?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -13,5 +14,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Krafs.Rimworld.Ref" Version="1.7.5014-unstable" PrivateAssets="all" />
+    <PackageReference Include="Lib.Harmony" Version="3.0.0-rc.7" PrivateAssets="all" />
   </ItemGroup>
 </Project>

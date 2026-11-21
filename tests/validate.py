@@ -1,28 +1,33 @@
+"""Static verification only; actual DLL compilation is done by GitHub Actions."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
-
-root = Path(__file__).resolve().parents[1]
-mod = root / 'RaidersHaveFamilies'
-for relative in [
-    'About/About.xml',
-    'Languages/English/Keyed/RHF.xml',
-    'Languages/Russian/Keyed/RHF.xml',
-    'Source/RaidersHaveFamilies.csproj',
-]:
-    ET.parse(mod / relative)
-
-code = (mod / 'Source/RaidersHaveFamilies.cs').read_text(encoding='utf-8')
-for expected in ['RHFMapComponent', 'RHFGameLedger', 'CanCreate(', 'NewWorldPawn(', 'PassToWorld(', 'AddDirectRelation(']:
-    assert expected in code, f'Missing required source feature: {expected}'
-
-meta = ET.parse(mod / 'About/About.xml').getroot()
-assert [e.text for e in meta.findall('./supportedVersions/li')] == ['1.7'], 'Supported game version must be exactly 1.7'
-project = ET.parse(mod / 'Source/RaidersHaveFamilies.csproj').getroot()
+ROOT = Path(__file__).resolve().parents[1]
+MOD = ROOT/'RaidersHaveFamilies'
+xmls = list(MOD.rglob('*.xml'))
+assert len(xmls) >= 4
+for f in xmls:
+    ET.parse(f)
+meta = ET.parse(MOD/'About/About.xml').getroot()
+assert [x.text for x in meta.findall('./supportedVersions/li')] == ['1.7']
+assert meta.findtext('packageId') == 'pavuk.raidshavefamilies'
+project = ET.parse(MOD/'Source/RaidersHaveFamilies.csproj').getroot()
 assert project.findtext('./PropertyGroup/TargetFramework') == 'net10.0'
-packages = {p.attrib['Include']: p.attrib['Version'] for p in project.findall('.//PackageReference')}
-assert packages['Krafs.Rimworld.Ref'] == '1.7.5014-unstable'
-assert 'Microsoft.NETFramework.ReferenceAssemblies.net472' not in packages
-workflow = (root / '.github/workflows/build.yml').read_text(encoding='utf-8')
-assert '10.0.x' in workflow and '1.7' in workflow
-assert 'RimWorld 1.6' not in workflow and 'RimWorld-1.6' not in workflow
-print('Static validation passed; next step is C# compilation, not a runtime game test.')
+packages = {x.attrib['Include']: x.attrib['Version'] for x in project.findall('.//PackageReference')}
+assert packages['Krafs.Rimworld.Ref'].startswith('1.7.')
+assert packages['Lib.Harmony'].startswith('3.')
+files = {p.name:p.read_text(encoding='utf-8') for p in (MOD/'Source').glob('*.cs')}
+assert {'RaidersHaveFamilies.cs','RHFPatches.cs','RHFHostageSystems.cs'} <= set(files)
+patch = files['RHFPatches.cs']
+for needle in ['Pawn.SpawnSetup', 'Pawn.ExitMap', 'Pawn.Kill', 'SetGuestStatus',
+    'Building_CommsConsole', 'GetFloatMenuOptions', 'PatchAll', 'HarmonyPostfix',
+    'RHFWarCrimesIntegration', 'WCE2_', 'ApplyOnPawn']:
+    assert needle in patch, f'Missing {needle}'
+diplomacy = files['RHFHostageSystems.cs']
+for needle in ['SilverPrice(', 'OnPrisonerExit(', 'UpdateOffers(', 'QueueRetaliation(',
+    'TryAffectGoodwillWith(', 'RecordWceOperation(', 'CrueltyScore', 'InitialIdeology',
+    'ImprovedProsthetics(', 'RankOf(', 'HostageEligible(']:
+    assert needle in diplomacy, f'Missing {needle}'
+assert len(list((MOD/'Defs/ThoughtDefs').glob('*.xml'))) > 0
+assert '0.2.0' in (ROOT/'.github/workflows/build.yml').read_text()
+assert 'dotnet build' in (ROOT/'.github/workflows/build.yml').read_text()
+print('PASS: mod metadata, XML, RimWorld 1.7, Harmony 3, source interfaces, CI contracts.')

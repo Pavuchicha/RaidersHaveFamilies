@@ -1,0 +1,81 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Defs>
+  <ThoughtDef>
+    <defName>RHF_PublicCruelty1</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>publicly announced cruelty</label>
+        <description>Their family heard what was done to the prisoner.</description>
+        <baseMoodEffect>2</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_PublicCruelty2</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>publicly announced cruelty</label>
+        <description>Their family heard what was done to the prisoner.</description>
+        <baseMoodEffect>4</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_PublicCruelty3</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>publicly announced cruelty</label>
+        <description>Their family heard what was done to the prisoner.</description>
+        <baseMoodEffect>8</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_PublicCruelty4</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>publicly announced cruelty</label>
+        <description>Their family heard what was done to the prisoner.</description>
+        <baseMoodEffect>16</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_PublicCruelty5</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>publicly announced cruelty</label>
+        <description>Their family heard what was done to the prisoner.</description>
+        <baseMoodEffect>32</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+  <ThoughtDef>
+    <defName>RHF_PublicCruelty6</defName>
+    <thoughtClass>Thought_Memory</thoughtClass>
+    <durationDays>5</durationDays>
+    <stackLimit>1</stackLimit>
+    <stages>
+      <li>
+        <label>publicly announced cruelty</label>
+        <description>Their family heard what was done to the prisoner.</description>
+        <baseMoodEffect>48</baseMoodEffect>
+      </li>
+    </stages>
+  </ThoughtDef>
+</Defs>

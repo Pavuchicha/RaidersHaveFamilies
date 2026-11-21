@@ -1,44 +1,51 @@
-name: Build Raiders Have Families for RimWorld 1.7
+name: Build Raiders Have Families 0.2.0 (RimWorld 1.7, Harmony 3)
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'RaidersHaveFamilies/**'
       - 'tests/**'
       - '.github/workflows/build.yml'
-  workflow_dispatch:
+      - 'README.md'
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  compile-and-validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Install .NET SDK
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Validate mod files
-        run: python3 tests/validate.py
-      - name: Restore RimWorld 1.7 reference assemblies from NuGet
-        run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
-      - name: Compile mod DLL
-        run: dotnet build RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj --configuration Release --no-restore
-      - name: Verify DLL exists
-        run: test -s RaidersHaveFamilies/Assemblies/RaidersHaveFamilies.dll
-      - name: Prepare installable ZIP
-        shell: bash
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify metadata, source contracts, and budget invariants
         run: |
+          python3 tests/validate.py
+          python3 tests/performance_contract.py
+      - name: Restore RimWorld 1.7 / Harmony 3 references
+        run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
+      - name: Compile mod DLL (fail on errors)
+        run: dotnet build RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj -c Release --no-restore
+      - name: Verify compiled DLL
+        run: test -s RaidersHaveFamilies/Assemblies/RaidersHaveFamilies.dll
+      - name: Package installable mod
+        run: |
+          set -euxo pipefail
           mkdir -p _release/RaidersHaveFamilies
-          cp -a RaidersHaveFamilies/About RaidersHaveFamilies/Languages RaidersHaveFamilies/Assemblies _release/RaidersHaveFamilies/
+          cp -a RaidersHaveFamilies/About RaidersHaveFamilies/Languages RaidersHaveFamilies/Defs RaidersHaveFamilies/Assemblies _release/RaidersHaveFamilies/
           cd _release
-          zip -qr ../RaidersHaveFamilies_0.1.2_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
-      - name: Upload ZIP to GitHub Actions artifacts
+          zip -qr ../RaidersHaveFamilies_v0.2.0_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
+      - name: Upload test build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: RaidersHaveFamilies-RimWorld-1.7-v0.1.2-TEST
-          path: RaidersHaveFamilies_0.1.2_RimWorld_1.7_INSTALL.zip
+          name: RaidersHaveFamilies-RimWorld-1.7-v0.2.0-EXPERIMENTAL
+          path: RaidersHaveFamilies_v0.2.0_RimWorld_1.7_INSTALL.zip
           if-no-files-found: error

@@ -1,11 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <LanguageData>
   <RHF_Enable>Add social ties to raiders</RHF_Enable>
   <RHF_Parents>Chance to create a parent: {0}</RHF_Parents>
-  <RHF_Partners>Chance to create an off-map partner: {0}</RHF_Partners>
-  <RHF_RaidPartners>Chance to link two raiders romantically: {0}</RHF_RaidPartners>
-  <RHF_Siblings>Chance to create a shared raider parent: {0}</RHF_Siblings>
-  <RHF_PerWave>Maximum new world pawns per wave: {0}</RHF_PerWave>
-  <RHF_PerSave>Maximum new world pawns per save: {0}</RHF_PerSave>
-  <RHF_Logging>Verbose logging to Player.log</RHF_Logging>
+  <RHF_Partners>Chance for an off-map partner: {0}</RHF_Partners>
+  <RHF_RaidPartners>Chance to pair existing raiders: {0}</RHF_RaidPartners>
+  <RHF_Siblings>Chance to create a shared parent for two raiders: {0}</RHF_Siblings>
+  <RHF_PerCycle>Max new off-map relative generation attempts per arrival: {0}</RHF_PerCycle>
+  <RHF_PerSave>Max new off-map relatives in this save: {0}</RHF_PerSave>
+  <RHF_ZeroWorldPawns>For peak TPS, set per-arrival budget to 0. Same-group ties remain enabled.</RHF_ZeroWorldPawns>
+  <RHF_Logging>Verbose logging (off by default)</RHF_Logging>
+  <RHF_Visitors>Include visiting and trading groups</RHF_Visitors>
+  <RHF_Negotiations>Enable prisoner-family communication and ransom</RHF_Negotiations>
+  <RHF_Retaliation>Allow amplified vanilla reprisal raids</RHF_Retaliation>
+  <RHF_WCE2>Record War Crimes Expanded 2 operations</RHF_WCE2>
+  <RHF_FactionRelatives>Family ties among same-group pawns: {0}</RHF_FactionRelatives>
 </LanguageData>

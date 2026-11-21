@@ -1,30 +1,40 @@
-# Raiders Have Families — RimWorld 1.7
+# Raiders Have Families — 0.2.0 EXPERIMENTAL
 
-Прототип мода, добавляющего рейдерам реальные игровые связи: родителей, супругов, любовные отношения и родство между участниками рейда. Связи сохраняются с помощью штатных систем RimWorld. Генерация ограничена настройками, чтобы не раздувать сохранение.
+**RimWorld 1.7 | .NET 10 | Harmony 3 | optional Ideology and War Crimes Expanded 2**
 
-## Собрать через GitHub, без компилятора на компьютере
+**NOT a fully tested release.** GitHub Actions compiles the DLL from source. The authoring environment has no game executable, .NET SDK or NuGet access. Static checks pass; compile and in-game runtime must still be confirmed.
 
-1. Создай пустой репозиторий на GitHub (например, `RaidersHaveFamilies`).
-2. Помести **содержимое этой папки** в корень репозитория, сохранив `.github/workflows/build.yml` и другие каталоги.
-3. Открой вкладку **Actions** и выбери **Build Raiders Have Families for RimWorld 1.7**. Если сборка не началась после загрузки файлов, нажми **Run workflow**.
-4. После зелёной сборки скачай артефакт **RaidersHaveFamilies-RimWorld-1.7-v0.1.2-TEST**. Внутри будет установочный ZIP.
-5. Распакуй установочный ZIP в папку `RimWorld/Mods`. Должно получиться `RimWorld/Mods/RaidersHaveFamilies/About`, `.../Assemblies`, `.../Languages`.
-6. Активируй мод в RimWorld и перезапусти игру.
+## Implemented in this preview
 
-**Важно:** наличие исходников или успешное выполнение статических проверок не гарантирует, что DLL компилируется или мод корректно работает в игре. Сначала проверь лог сборки GitHub Actions, затем игру на резервной копии сохранения.
+- Harmony post-spawn event, groups non-player humanlike pawn arrivals from raids, visitors, traders, and modded factions. Does not patch combat or the storyteller tick.
+- Direct partner/fiancé/spouse/ex relations among newcomers where plausible. Parent-child and shared parents create game-derived sibling/half-sibling and further family ties. Creates a bounded number of off-map human relatives; exotic-race off-map generation is intentionally disabled pending race-specific integration.
+- Per-visit budgets: 144 newcomer processing limit, 32 pair probes per pawn, 8 off-map pawn generation attempts maximum per arrival, maximum 512 active generated world relatives per save. Default values are adjustable and lower. World pawns created by this mod are pruned when they have no live relevant playable relatives; other mods' pawns are never deleted.
+- Ransom menu added to a powered Comms Console's right-click interaction menu. Choose colony prisoner, demand silver or offer free release for goodwill. Payment follows the actual release and safe map exit. Return value depends on rank, missing parts, health and improved replacement body parts, including prosthetics from external mods.
+- Faction-importance heuristic: regular member, notable member, officer, high official, actual faction leader. More important captives can trigger automatic ransom offers; rejecting them or disclosing serious abuses can schedule one amplified **vanilla** reprisal raid.
+- Optional War Crimes Expanded 2 integration: patches only surgery workers attached to WCE2 recipes, recording deliberate operations by player doctors on prisoners; effects appear on disclosure, not at operation time. Records severity and current pain as a capped score. Ideology's pro-torture precepts and Bloodlust trait may give public cruelty memories with escalating but bounded effects.
+- Detects slave state / changed ideology of tracked prisoners during rare maintenance. Concealed operation consequences are applied if a negotiated prisoner returns without prior disclosure; battle wounds do not automatically count as abuse.
 
-## Что в версии 0.1.2
+## Explicit limitations (NOT implemented)
 
-- Обработка враждебных человеческих пешек на домашних картах колонии раз в 250 тиков.
-- Родственные и романтические связи между участниками рейда.
-- Некоторые родственники создаются как реальные внесценические мировые пешки.
-- Настройки шансов и лимитов; стандартно максимум 12 внесценических пешек за цикл обработки и 300 за всё сохранение.
-- Vanilla/Human; модифицированные расы, отсутствие Harmony, мировая генерация семей для всех фракций и будущие появления родственников пока не поддерживаются.
+- Independent prison-breach AI, silent rescue, escape corridor / tactical demolition, drop-pod construction, roof removal, multi-faction coalition rescue and mercenary sponsorship.
+- Hostage exchange by a dedicated visiting escort: currently the original prisoner Release option must be used, including for VIPs. Exiting alive completes the negotiated transfer.
+- Custom hostile-settlement prisoner-rescue quests, talk-to-follow companion AI and escort-to-map-edge quest completion.
+- Full event-level integration with all WCE2 operation outcomes, execution, body consumption, prisoner sale and religious conversion. WCE surgery hooks are experimental; missing/failed operations may not be distinguished reliably until the exact updated mod source is reviewed.
+- Same-tile world-wide search for relatives in every modded race and faction hierarchy beyond the role heuristic. There is no guarantee of zero Harmony patch conflicts with other comms or ransom mods.
 
-## Зависимости сборки
+## GitHub build and install
 
-GitHub Actions скачивает `Krafs.Rimworld.Ref` 1.7.5014-unstable и .NET 10 SDK из NuGet. Игровые DLL в репозиторий не добавляются. Runtime mod использует только игровые сборки.
+Upload the **contents** of this archive to repository root, replacing previous files. Actions → latest `Build Raiders Have Families 0.2.0` → Artifacts → `RaidersHaveFamilies-RimWorld-1.7-v0.2.0-EXPERIMENTAL`. Install the **inside** `RaidersHaveFamilies` folder into RimWorld Mods. Remove the old 0.1.x folder and back up your save.
 
-## Для диагностики
+If `dotnet build` fails, read the error in the workflow log. Do not install an old 0.1.x DLL with 0.2 files.
 
-При красном кресте сборки — открой failed job, пришли мне содержимое шага **Compile mod DLL**. При красных ошибках в игре — пришли `Player.log`.
+## Performance and compatibility contract
+
+- No per-tick pawn scans. On uneventful ticks, only scheduler comparisons and fast guards.
+- Group relations processed once 120 ticks after spawned pawns enter a map, with explicit hard bounds.
+- Only the colony prisoner list is checked once every 30,000 ticks. No WCE hediff polling in combat or pawn ticks.
+- No direct patches to CE, prosthetic defs, xenotypes or modded faction defs. WCE2 compatibility is late-bound and optional.
+- The active-kin cap prevents indefinite world pawn growth. Normal world pawn GC remains the game's responsibility.
+- No Multiplayer synchronization integration is provided. Test separately alongside HostageTaker, Prisoner Diplomacy and other ransom mods to avoid overlapping offers.
+
+**Performance is an architectural expectation, not a measured FPS/TPS claim.** Profile large raids and long saves with RimWorld's 1.7 Frame Profiler or Dubs Performance Analyzer.
