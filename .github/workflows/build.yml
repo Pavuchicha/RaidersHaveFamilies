@@ -1,4 +1,4 @@
-name: Build Raiders Have Families 0.12.7 (RimWorld 1.7, Harmony 3)
+name: Build Raiders Have Families 0.12.8 (RimWorld 1.7, Harmony 3)
 # Retains regression requirements introduced in 0.12.1 through 0.12.4.
 
 on:
@@ -55,6 +55,7 @@ jobs:
           python3 tests/rhf_125_combat_planner.py
           python3 tests/rhf_126_smart_routes_and_cover.py
           python3 tests/rhf_127_faction_and_strength.py
+          python3 tests/rhf_128_route_control.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)
@@ -67,10 +68,10 @@ jobs:
           mkdir -p _release/RaidersHaveFamilies
           cp -a RaidersHaveFamilies/About RaidersHaveFamilies/Languages RaidersHaveFamilies/Defs RaidersHaveFamilies/Textures RaidersHaveFamilies/Assemblies _release/RaidersHaveFamilies/
           cd _release
-          zip -qr ../RaidersHaveFamilies_v0.12.7_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
+          zip -qr ../RaidersHaveFamilies_v0.12.8_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
       - name: Upload test build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: RaidersHaveFamilies-RimWorld-1.7-v0.12.7-UNIVERSAL-STRUCTURES-AND-FACTIONS-TEST
-          path: RaidersHaveFamilies_v0.12.7_RimWorld_1.7_INSTALL.zip
+          name: RaidersHaveFamilies-RimWorld-1.7-v0.12.8-ACTUAL-ROUTE-CONTROL-TEST
+          path: RaidersHaveFamilies_v0.12.8_RimWorld_1.7_INSTALL.zip
           if-no-files-found: error

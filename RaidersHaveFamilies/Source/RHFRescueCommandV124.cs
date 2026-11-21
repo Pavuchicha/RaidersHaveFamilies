@@ -294,9 +294,27 @@ namespace RaidersHaveFamilies
         // and only then a load-bearing wall. The search is shared by the wing,
         // bounded to a 65x65 square with at most 80 path probes per 600 ticks.
         private static Thing AccessObstacle(RHFOperationController controller,
-            Pawn leader, Pawn captive, RHFRescueCommandStateV124 state, int now)
+            RHFOperation op, Pawn leader, Pawn captive, RHFRescueCommandStateV124 state, int now)
         {
             Map map = captive.Map;
+            // 0.12.8: one authoritative end-to-end path (movement AND breach).
+            // Do not fall back to the nearest unrelated wall when it is blocked.
+            if (RHFObjectiveRouteV128.TryObjective(op,map,leader,captive,now,
+                out RHFRoutePlanV128 missionRoute))
+            {
+                state.CurrentBarrier = missionRoute.Valid ? missionRoute.FirstBarrier : null;
+                state.BarrierForCaptive = captive.Position;
+                state.NextBarrierSearch = now + 600;
+                if (!missionRoute.Valid)
+                {
+                    state.LastDecision = "маршрут не построен: " + missionRoute.Explanation;
+                    return null;
+                }
+                if (state.CurrentBarrier!=null && !state.CurrentBarrier.Destroyed &&
+                    leader.CanReach(state.CurrentBarrier.Position,PathEndMode.Touch,Danger.Deadly))
+                    return state.CurrentBarrier;
+                return null; // proceed to the stored corridor's staging waypoint
+            }
             if (state.CurrentBarrier != null && !state.CurrentBarrier.Destroyed &&
                 state.BarrierForCaptive == captive.Position && now < state.NextBarrierSearch &&
                 leader.CanReach(state.CurrentBarrier.Position, PathEndMode.Touch, Danger.Deadly))
@@ -422,8 +440,13 @@ namespace RaidersHaveFamilies
             // the prisoner while a bounded wing shoots or flanks real threats.
             HashSet<Pawn> covering = RHFCombatPlannerV125.Response(
                 op,map,captive,op.Squad,now,false);
-            IntVec3 safeApproach = RHFCombatPlannerV125.SafeApproach(
-                op,map,lead,captive,now);
+            // Do not calculate a safe-looking destination and then issue a vanilla
+            // Goto straight through a turret's fire. Follow the actual planned
+            // chain in short segments, preserving its first real obstruction.
+            RHFRoutePlanV128 route = RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now);
+            IntVec3 safeApproach = route.Valid ||
+                route.Explanation!="неверная цель или карта" ? IntVec3.Invalid :
+                RHFCombatPlannerV125.SafeApproach(op,map,lead,captive,now);
             int assignedBreaches=0;
             int breachLimit=Math.Max(2,Math.Min(4,op.Squad.Count/3));
             bool routeOpen = lead.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
@@ -431,7 +454,7 @@ namespace RaidersHaveFamilies
             int leadLastCloser = LastCloser(lead,captive,state,now);
             Thing sharedBarrier = (!routeOpen || now-leadLastMove>=900 ||
                 now-leadLastCloser>=1200) ?
-                AccessObstacle(controller, lead, captive, state, now) : null;
+                AccessObstacle(controller, op, lead, captive, state, now) : null;
 
             for (int j=0;j<op.Squad.Count && j<MaxSquad && orders<MaxOrders;j++)
             {
@@ -466,21 +489,31 @@ namespace RaidersHaveFamilies
                     RHFTactical.Member(op,rescuer)?.Role==(int)RHFCombatRole.Breacher &&
                     RHFTactical.HasBreachKit(rescuer);
                 if (attacking && !canPlaceBreach && now-moved<1600) continue;
+                // Do not reissue a different waypoint every 90 ticks. The
+                // current waypoint is still on the costed corridor and must
+                // be allowed to finish unless the soldier has genuinely stalled.
+                if (route.Valid && current?.def==JobDefOf.Goto &&
+                    current.targetA.Thing==null &&
+                    RHFObjectiveRouteV128.IsOnCorridor(route,current.targetA.Cell) &&
+                    now-moved<900) continue;
                 bool approaching = current?.def == JobDefOf.Goto &&
                     (current.targetA.Thing==captive ||
                      (current.targetA.Cell-captive.Position).LengthHorizontalSquared<=9);
                 if (approaching && now-moved<900 && now-closer<1200 &&
+                    !route.Valid &&
                     (!safeApproach.IsValid ||
                      (rescuer.Position-safeApproach).LengthHorizontalSquared<=16)) continue;
 
                 // A safer staging flank around static defence takes precedence
                 // over a suicidal shortest path down the main kill corridor.
-                IntVec3 staged = safeApproach.IsValid ?
+                IntVec3 staged = route.Valid ?
+                    RHFObjectiveRouteV128.Waypoint(route,rescuer,map) :
+                    safeApproach.IsValid ?
                     RHFCombatPlannerV125.FormationCell(safeApproach,rescuer,map) :
                     IntVec3.Invalid;
                 if (staged.IsValid && !attacking &&
                     (rescuer.Position-staged).LengthHorizontalSquared>16 &&
-                    (rescuer.Position-captive.Position).LengthHorizontalSquared>225 &&
+                    (rescuer.Position-captive.Position).LengthHorizontalSquared>16 &&
                     rescuer.CanReach(staged,PathEndMode.OnCell,Danger.Deadly))
                 {
                     if(Give(rescuer,JobDefOf.Goto,staged,state,now))
@@ -488,7 +521,9 @@ namespace RaidersHaveFamilies
                     continue;
                 }
                 bool canApproach = rescuer.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
-                if (canApproach && now-moved<900 && now-closer<1200)
+                if (canApproach && !route.Valid &&
+                    route.Explanation=="неверная цель или карта" &&
+                    now-moved<900 && now-closer<1200)
                 {
                     if (Give(rescuer, JobDefOf.Goto, captive, state, now))
                     { orders++; state.OrderedApproach++; }
@@ -497,7 +532,7 @@ namespace RaidersHaveFamilies
                 Thing barrier = sharedBarrier;
                 if (barrier == null || barrier.Destroyed ||
                     !rescuer.CanReach(barrier.Position, PathEndMode.Touch, Danger.Deadly))
-                    barrier = AccessObstacle(controller, rescuer, captive, state, now);
+                    barrier = AccessObstacle(controller, op, rescuer, captive, state, now);
                 if (RHFCombatPlannerV125.IsBreachableStructure(barrier))
                 {
                     // Only a few sappers assault the same obstacle. Others
@@ -516,7 +551,10 @@ namespace RaidersHaveFamilies
                     // If a route is reachable for this individual but the
                     // previously assigned job failed, retry it once rather than
                     // inventing a teleport or silently ordering a retreat.
-                    if (canApproach && Give(rescuer, JobDefOf.Goto, captive, state, now))
+                    if (canApproach && (
+                        (!route.Valid && route.Explanation=="неверная цель или карта") ||
+                        (route.Valid && (rescuer.Position-captive.Position).LengthHorizontalSquared<=16)) &&
+                        Give(rescuer, JobDefOf.Goto, captive, state, now))
                     { orders++; state.OrderedApproach++; }
                     state.LastDecision = "маршрут к пленнику заблокирован, доступный вход не найден";
                 }
