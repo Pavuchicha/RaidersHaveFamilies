@@ -179,13 +179,10 @@ namespace RaidersHaveFamilies
         {
             return req.Thing is Pawn p ? RHFRankUI.EffectiveRank(p) : 0f;
         }
-        public override string GetStatDrawEntryLabel(StatDef stat, float value,
-            ToStringNumberSense numberSense, StatRequest optionalReq)
-        {
-            Pawn p = optionalReq.Thing as Pawn;
-            return p == null ? "—" : RHFRankUI.EffectiveRank(p) + "/8 — " +
-                RHFRankResolver.RankLabel(RHFRankUI.EffectiveRank(p));
-        }
+        // RimWorld 1.7 reference assemblies no longer expose the previous
+        // virtual GetStatDrawEntryLabel signature. Let the engine render the
+        // numeric rank (0..8); the human-readable category remains available
+        // via GetExplanationUnfinalized and the RHF card on pawn tabs.
         public override string GetExplanationUnfinalized(StatRequest req, ToStringNumberSense numberSense)
         {
             return req.Thing is Pawn p ? RHFRankUI.Details(p) : "";
@@ -202,11 +199,8 @@ namespace RaidersHaveFamilies
         {
             return req.Thing is Pawn p ? Current.Game?.GetComponent<RHFGameLedger>()?.ConfirmedLinks(p) ?? 0 : 0;
         }
-        public override string GetStatDrawEntryLabel(StatDef stat, float value,
-            ToStringNumberSense numberSense, StatRequest optionalReq)
-        {
-            return ((int)value) + " подтверждено (с v0.4.0)";
-        }
+        // RimWorld 1.7 renders the numeric count. Provenance details are
+        // available via GetExplanationUnfinalized and the RHF pawn-tab button.
         public override string GetExplanationUnfinalized(StatRequest req, ToStringNumberSense numberSense)
         {
             return req.Thing is Pawn p ? RHFRankUI.Details(p) : "";

@@ -1,4 +1,4 @@
-name: Build Raiders Have Families 0.6.0 (RimWorld 1.7, Harmony 3)
+name: Build Raiders Have Families 0.6.1 (RimWorld 1.7, Harmony 3)
 
 on:
   workflow_dispatch:
@@ -38,6 +38,7 @@ jobs:
           python3 tests/precept_notes_032.py
           python3 tests/csharp_lexical_050.py
           python3 tests/rhf_060_coalitions.py
+          python3 tests/rhf_061_compile_contract.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)
@@ -50,10 +51,10 @@ jobs:
           mkdir -p _release/RaidersHaveFamilies
           cp -a RaidersHaveFamilies/About RaidersHaveFamilies/Languages RaidersHaveFamilies/Defs RaidersHaveFamilies/Textures RaidersHaveFamilies/Assemblies _release/RaidersHaveFamilies/
           cd _release
-          zip -qr ../RaidersHaveFamilies_v0.6.0_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
+          zip -qr ../RaidersHaveFamilies_v0.6.1_RimWorld_1.7_INSTALL.zip RaidersHaveFamilies
       - name: Upload test build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: RaidersHaveFamilies-RimWorld-1.7-v0.6.0-COALITION-TEST
-          path: RaidersHaveFamilies_v0.6.0_RimWorld_1.7_INSTALL.zip
+          name: RaidersHaveFamilies-RimWorld-1.7-v0.6.1-COALITION-TEST
+          path: RaidersHaveFamilies_v0.6.1_RimWorld_1.7_INSTALL.zip
           if-no-files-found: error

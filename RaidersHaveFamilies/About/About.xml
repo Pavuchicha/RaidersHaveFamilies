@@ -12,5 +12,5 @@
     </li>
   </modDependencies>
   <loadAfter><li>Mersid.WCE2Updated.Core</li></loadAfter>
-  <description>RimWorld 1.7: real faction-radio prisoner negotiations after arrival at comms console; multi-stage hostage dialogue; proper distinction between ransom amounts and acceptance probability; surgery evidence for WCE2 and vanilla organ harvesting; actual goodwill vs internal faction tension; clickable ransom-delivery notification; ranks 0-8 and social provenance; bounded event-driven AI and dedicated developer test actions with rank-by-click spawns. Experimental v0.6.0, save backup advised.</description>
+  <description>RimWorld 1.7: real faction-radio prisoner negotiations after arrival at comms console; multi-stage hostage dialogue; proper distinction between ransom amounts and acceptance probability; surgery evidence for WCE2 and vanilla organ harvesting; actual goodwill vs internal faction tension; clickable ransom-delivery notification; ranks 0-8 and social provenance; bounded event-driven AI and dedicated developer test actions with rank-by-click spawns. Experimental v0.6.1, save backup advised.</description>
 </ModMetaData>
