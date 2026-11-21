@@ -1,4 +1,4 @@
-// Raiders Have Families v0.1.0 — RimWorld 1.6
+// Raiders Have Families v0.1.2 — RimWorld 1.7
 // Standalone MapComponent, no Harmony patches; game-owned relationships only.
 using System;
 using System.Collections.Generic;

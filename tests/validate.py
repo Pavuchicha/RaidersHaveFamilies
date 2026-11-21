@@ -16,5 +16,13 @@ for expected in ['RHFMapComponent', 'RHFGameLedger', 'CanCreate(', 'NewWorldPawn
     assert expected in code, f'Missing required source feature: {expected}'
 
 meta = ET.parse(mod / 'About/About.xml').getroot()
-assert '1.6' in [e.text for e in meta.findall('./supportedVersions/li')]
+assert [e.text for e in meta.findall('./supportedVersions/li')] == ['1.7'], 'Supported game version must be exactly 1.7'
+project = ET.parse(mod / 'Source/RaidersHaveFamilies.csproj').getroot()
+assert project.findtext('./PropertyGroup/TargetFramework') == 'net10.0'
+packages = {p.attrib['Include']: p.attrib['Version'] for p in project.findall('.//PackageReference')}
+assert packages['Krafs.Rimworld.Ref'] == '1.7.5014-unstable'
+assert 'Microsoft.NETFramework.ReferenceAssemblies.net472' not in packages
+workflow = (root / '.github/workflows/build.yml').read_text(encoding='utf-8')
+assert '10.0.x' in workflow and '1.7' in workflow
+assert 'RimWorld 1.6' not in workflow and 'RimWorld-1.6' not in workflow
 print('Static validation passed; next step is C# compilation, not a runtime game test.')

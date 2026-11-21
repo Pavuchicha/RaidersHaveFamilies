@@ -4,7 +4,7 @@
   <author>Pavuchicha</author>
   <packageId>pavuk.raidshavefamilies</packageId>
   <supportedVersions>
-    <li>1.6</li>
+    <li>1.7</li>
   </supportedVersions>
-  <description>Adds genuine RimWorld family and romantic relations to newly appearing human raiders. Creates both links among raid members and a capped number of persistent off-map relatives. Configurable in Mod Settings. Experimental v0.1.1; back up saves before testing.</description>
+  <description>Adds genuine RimWorld family and romantic relations to newly appearing human raiders. Creates both links among raid members and a capped number of persistent off-map relatives. Configurable in Mod Settings. Experimental v0.1.2; back up saves before testing.</description>
 </ModMetaData>
