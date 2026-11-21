@@ -39,7 +39,7 @@ for token in (
 ):
     assert token in combat, f'cover team lost fire discipline: {token}'
 assert 'tests/rhf_129_firebreak.py' in workflow
-assert 'v0.13.1-VIP-ESCORT-RECOVERY-TEST' in workflow
+assert 'v0.13.2-MISSION-AUTHORITY-TEST' in workflow
 
 # Exact-cost reference implementation: a small deterministic grid, for checking
 # relative path choice under HP and weapon exposure. Does NOT execute Verse pathfinder.

@@ -1006,8 +1006,10 @@ namespace RaidersHaveFamilies
                 ThreatPoints = points, ExpiryTick = fireTick + 180000,
                 HuntTarget = r.Recruited && r.Pawn?.Faction==Faction.OfPlayer ? r.Pawn : null,
                 SourceImportance = r.Importance,
-                CombinedStrike = type == RHFOperationType.Rescue &&
-                    (sponsors.Count>1 || hired!=null || Rand.Chance(.44f))
+                // A hostage rescue is not permission to vandalize the colony.
+                // An independently funded diversion exists only when a hired
+                // diversion party is actually present in the operation plan.
+                CombinedStrike = type == RHFOperationType.Rescue && hired != null
             };
             RHFMissionProfiles.Configure(op, r);
             if (type == RHFOperationType.Vengeance)

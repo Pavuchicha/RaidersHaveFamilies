@@ -67,6 +67,8 @@ namespace RaidersHaveFamilies
         public readonly Dictionary<int, int> LastCloserAt = new Dictionary<int, int>();
         public readonly Dictionary<int, int> LastOrderedAt = new Dictionary<int, int>();
         public Thing CurrentBarrier;
+        public Thing ProgressBarrier;
+        public int ProgressBarrierHP;
         public int NextBarrierSearch;
         public int LastDiagnosticTick;
         public int LastCohesionTick;
@@ -123,8 +125,7 @@ namespace RaidersHaveFamilies
 
         private static bool IsRescue(RHFOperation op)
         { return op != null && op.Deployed && !op.Finished &&
-            op.Type == (int)RHFOperationType.Rescue &&
-            string.IsNullOrEmpty(op.CaseKeyV10); }
+            op.Type == (int)RHFOperationType.Rescue; }
 
         private static string Key(RHFOperation op)
         {
@@ -176,7 +177,9 @@ namespace RaidersHaveFamilies
                 (op.PodCell.IsValid ? op.PodCell :
                     op.Vip != null && op.Vip.Spawned ? op.Vip.Position : op.ExitCell) :
                 op.Phase >= 2 && op.ExitCell.IsValid ? op.ExitCell :
-                goal != null ? goal.Position : op.ExitCell;
+                goal != null ? goal.Position :
+                !string.IsNullOrEmpty(op.CaseKeyV10) && op.CaseSearchCellV10.IsValid ?
+                    op.CaseSearchCellV10 : op.ExitCell;
             var factions = new List<Faction>(5);
             for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
             {
@@ -227,6 +230,28 @@ namespace RaidersHaveFamilies
                 {
                     job.Focus = focus;
                     missionLord.CurLordToil?.UpdateAllDuties();
+                }
+                // Fail closed: unclaimed rescue members cannot remain in a
+                // vanilla ImmediateAttack/Breaching lord while a mission is live.
+                // If a modded pawn cannot join our Lord, detach it and hold
+                // position, recording the problem instead of wrecking furniture.
+                foreach (Pawn p in members)
+                {
+                    if (!ActivePawn(p,map)) continue;
+                    Lord actual=p.GetLord();
+                    if (actual?.LordJob is RHFRescueLordJobV124 assigned &&
+                        assigned.MissionKey==key) continue;
+                    if (actual!=null) RelinquishVanilla(p);
+                    if (p.GetLord()==null)
+                    {
+                        try { p.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.Wait,p.Position)); }
+                        catch (Exception e)
+                        { Log.ErrorOnce("[RHF][MissionV132] Uncontrolled pawn: "+e.GetBaseException(),
+                            p.thingIDNumber ^ 132500); }
+                    }
+                    Log.ErrorOnce("[RHF][MissionV132] Rescue soldier without mission Lord: "+
+                        p.LabelShortCap+"; mission="+key+"; vanilla assault disabled",
+                        p.thingIDNumber ^ 132210);
                 }
             }
         }
@@ -423,7 +448,7 @@ namespace RaidersHaveFamilies
 
         internal static void Infiltrate(RHFOperationController controller, RHFOperation op, int now)
         {
-            if (!IsRescue(op)) return;
+            if (!IsRescue(op) || !string.IsNullOrEmpty(op.CaseKeyV10)) return;
             Map map = MapFor(controller);
             if (map == null) return;
             ClaimGroup(op, map);
@@ -478,9 +503,22 @@ namespace RaidersHaveFamilies
             bool routeOpen = lead.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
             int leadLastMove = LastMove(lead, state, now);
             int leadLastCloser = LastCloser(lead,captive,state,now);
-            Thing sharedBarrier = (!routeOpen || now-leadLastMove>=900 ||
-                now-leadLastCloser>=1200) ?
-                AccessObstacle(controller, op, lead, captive, state, now) : null;
+            Thing sharedBarrier = route.Valid ? route.FirstBarrier : null;
+            // No valid plan means NO wall-permission. Previous fallback picked
+            // unrelated doors, batteries, and colony infrastructure.
+            if (sharedBarrier != null && sharedBarrier.Destroyed) sharedBarrier=null;
+            bool objectiveProgress = false;
+            Thing lastBarrier = state.ProgressBarrier;
+            if (sharedBarrier != lastBarrier)
+            {
+                state.ProgressBarrier=sharedBarrier;
+                state.ProgressBarrierHP=sharedBarrier?.HitPoints ?? 0;
+            }
+            else if (sharedBarrier != null && sharedBarrier.HitPoints < state.ProgressBarrierHP)
+            {
+                state.ProgressBarrierHP=sharedBarrier.HitPoints;
+                objectiveProgress=true;
+            }
 
             for (int j=0;j<op.Squad.Count && j<MaxSquad && orders<MaxOrders;j++)
             {
@@ -491,6 +529,9 @@ namespace RaidersHaveFamilies
                 int moved = LastMove(rescuer, state, now);
                 int closer = LastCloser(rescuer,captive,state,now);
                 int sqdist = (rescuer.Position-captive.Position).LengthHorizontalSquared;
+                // Real progress: approaching the target or damaging the planned
+                // obstacle, NOT merely reissuing an identical ordered job.
+                if (now-moved<=Step && now-closer<=Step) objectiveProgress=true;
                 if (sqdist<=5 && rescuer.CanReach(captive, PathEndMode.Touch, Danger.Deadly))
                 {
                     if (FreeMethod == null)
@@ -573,9 +614,11 @@ namespace RaidersHaveFamilies
                     continue;
                 }
                 Thing barrier = sharedBarrier;
-                if (barrier == null || barrier.Destroyed ||
-                    !rescuer.CanReach(barrier.Position, PathEndMode.Touch, Danger.Deadly))
-                    barrier = AccessObstacle(controller, op, rescuer, captive, state, now);
+                if (barrier != null && (!barrier.Spawned || barrier.Destroyed ||
+                    !rescuer.CanReach(barrier.Position, PathEndMode.Touch, Danger.Deadly)))
+                    barrier=null;
+                // Only the first obstacle of the costed objective route can be
+                // breached; do not choose unrelated visible destructibles.
                 if (RHFCombatPlannerV125.IsBreachableStructure(barrier))
                 {
                     // Only a few sappers assault the same obstacle. Others
@@ -603,15 +646,15 @@ namespace RaidersHaveFamilies
                 }
             }
             op.LastOrderTick = now;
-            if (orders > 0) op.LastProgressTick = now;
+            if (objectiveProgress) op.LastProgressTick = now;
             // No available route and no effective covering fire is a mission
             // failure, not a license to march the main squad into turrets for
             // hours. Withdraw survivors after a sustained, observable stalemate.
-            if(needsFireSuppression && stalled>0 && orders==0 &&
+            if(stalled>0 && orders==0 &&
                 now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>24000)
             {
-                state.LastDecision="штурм отменён: оборону не удалось подавить; " +
-                    "организованный отход без освобождения пленника";
+                state.LastDecision="спасение отменено: безопасный маршрут/пролом " +
+                    "не найден или оборону не удалось подавить; организованный отход";
                 op.Phase=2;
                 op.PhaseStartTick=now;
                 Log.Warning("[RHF][FirebreakV129] Rescue withdrew after failing to " +

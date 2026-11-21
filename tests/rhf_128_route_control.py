@@ -40,7 +40,7 @@ for required in (
 assert mission.index('RHFObjectiveRouteV128.TryObjective') < mission.index('RHFCombatPlannerV125.FirstObjectiveObstacle('), 'legacy fallback must not win over objective route'
 assert 'if (covering.Contains(rescuer)) continue;' in mission, 'cover fire must keep its assignment'
 assert 'tests/rhf_128_route_control.py' in workflow
-assert 'v0.13.1-VIP-ESCORT-RECOVERY-TEST' in workflow
+assert 'v0.13.2-MISSION-AUTHORITY-TEST' in workflow
 assert route.count('{')==route.count('}') and route.count('(')==route.count(')')
 # Independent reference model: one weighted route through a map, not merely an
 # arithmetic comparison of two obstacles. Mimics cardinal movement and the HP

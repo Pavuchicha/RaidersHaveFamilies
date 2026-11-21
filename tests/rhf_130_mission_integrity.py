@@ -91,9 +91,9 @@ assert 'int stageWork=stage==0?3000:1600' in ops
 
 # Release archives must offer the installable DLL ZIP after CI compilation.
 assert 'python3 tests/rhf_130_mission_integrity.py' in wf
-assert 'Build Raiders Have Families 0.13.1' in wf
-assert 'RaidersHaveFamilies_v0.13.1_RimWorld_1.7_INSTALL.zip' in wf
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.1-VIP-ESCORT-RECOVERY-TEST' in wf
+assert 'Build Raiders Have Families 0.13.2' in wf
+assert 'RaidersHaveFamilies_v0.13.2_RimWorld_1.7_INSTALL.zip' in wf
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.2-MISSION-AUTHORITY-TEST' in wf
 for f in (root/'RaidersHaveFamilies').rglob('*.xml'):
     ET.parse(f)
 print('PASS: mission letters, vanilla VIP buildings, paid supplies, safe drops, mission friendlies, group exit safeguards, CI metadata')

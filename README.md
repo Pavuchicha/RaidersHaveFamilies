@@ -250,3 +250,7 @@ v0.6.x (коалиции, UI, диалоги, тестовые рейды).
 ## v0.13.0 (experimental) — VIP & coalition
 
 Test-only 1.7 build: vanilla PodLauncher and TransportPod stage construction, mission-scoped friendly identification for hired and coalition rescue, controlled insertion and one RHF mission arrival letter. See `RHF_V0130_IMPLEMENTATION_AND_TEST_RU.md` for limitations and tests; build and gameplay unconfirmed.
+
+
+### v0.13.2 — Mission authority and rescue regression guard
+Standard rescue teams no longer donate arbitrary soldiers to vanilla destructive assault. Pure coalition rescue does not automatically become a diversion. Rescue command uses direct MapComponent and RHFRescueCommandV124 calls; delayed drop-pod arrivals are reclaimed on each mission pulse. The first structural target comes only from the objective route. Orders are not counted as objective progress unless the actual pawn has approached or the chosen barrier has lost HP. Rescue searches for missing VIPs also receive persistent mission command. Debug action 33 reports real Lord/job state. This is a safety regression patch; the remaining VIP pod and general combat tactics require live validation.

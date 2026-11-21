@@ -31,5 +31,5 @@ assert 'parms.spawnCenter = nearPrison' in ops and 'RescueDropCenter' in ops
 assert 'DropCellFinder.IsGoodDropSpot(cell,map,true,true)' in ops and 'cell.GetRoom(map)==prisonRoom' in ops
 assert 'Рейд отменён' in ops or 'рейд отменён' in ops
 assert '19 — Проверить бонусы идеологии и милосердия' in dbg
-assert '0.13.1' in (r/'.github/workflows/build.yml').read_text()
+assert '0.13.2' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: 0.8 mercy/charity, sale vs ransom, physical ransom pods, prison-side rescue drop, diagnostics.')

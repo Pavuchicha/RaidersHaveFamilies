@@ -536,7 +536,10 @@ namespace RaidersHaveFamilies
                 scenario == RHFDebugScenario.CoalitionHiredDiversion ||
                 scenario == RHFDebugScenario.CombinedMixedApproach ||
                 scenario == RHFDebugScenario.DropRescueWithDiversion;
-            bool combined = coalition || scenario == RHFDebugScenario.CombinedSingleFaction;
+            bool combined = scenario == RHFDebugScenario.CombinedSingleFaction ||
+                scenario == RHFDebugScenario.CoalitionHiredDiversion ||
+                scenario == RHFDebugScenario.CombinedMixedApproach ||
+                scenario == RHFDebugScenario.DropRescueWithDiversion;
             bool tribal = scenario == RHFDebugScenario.TribalVengeance;
             bool industrial = scenario == RHFDebugScenario.HighTechDrop ||
                 scenario == RHFDebugScenario.HighTechSiege;
@@ -723,7 +726,8 @@ namespace RaidersHaveFamilies
                 // 1..4 hostage sponsors + optional hired assault wing. They need
                 // not all have captives, and the mercenary never requires its own.
                 int rescueCount = sponsors.Count;
-                bool addHire = mercenary != null && rescueCount < MaxCoalitionParties &&
+                bool addHire = combined && mercenary != null &&
+                    rescueCount < MaxCoalitionParties &&
                     scenario != RHFDebugScenario.CoalitionManyFactions;
                 int partyCount = rescueCount + (addHire ? 1 : 0);
                 total = Mathf.Max(total, 350f * partyCount);
@@ -736,7 +740,7 @@ namespace RaidersHaveFamilies
                         drop: scenario == RHFDebugScenario.CombinedMixedApproach &&
                               mercenary.def.techLevel >= TechLevel.Industrial));
                 // Even without hired soldiers, split one sponsor into a distraction.
-                else if (sponsors.Count == 1)
+                else if (sponsors.Count == 1 && combined)
                 {
                     op.Parties[0].Points = total * .60f;
                     op.Parties.Add(new RHFStrikeParty(sponsor, RHFStrikeRole.Diversion,

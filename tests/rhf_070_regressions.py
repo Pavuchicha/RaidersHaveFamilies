@@ -39,5 +39,5 @@ assert 'ЦЕЛЬ ОПЕРАЦИИ' in ops and 'new LookTargets(map.Center, map)'
 assert '01 — Спасение' in source['RHFDebugActions']
 assert '09 — Месть' in source['RHFDebugActions']
 assert 'RHFPreceptMoodEntry : PreceptComp_SelfTookMemoryThought' in source['RHFPreceptNotes']
-assert '0.13.1' in (root/'.github/workflows/build.yml').read_text()
+assert '0.13.2' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: rank, family, medical, WCE2, single raid notification, and updated dialogs')

@@ -680,6 +680,11 @@ namespace RaidersHaveFamilies
                 }
             }
             if (op.CombinedStrike) SplitRescueWing(op);
+            // This is the actual operation owner. Never depend on a chain of
+            // Harmony-postfixed old rescue controllers to capture vanilla raid lords.
+            if (success > 0 && op.Type == (int)RHFOperationType.Rescue)
+                RHFRescueCommandV124.OnDeploy(this, op, true);
+
             if (op.Type == (int)RHFOperationType.Rescue && op.Squad.Count == 0 && success > 0)
                 Log.Warning("[RHF] Rescue dispatched but no active on-map rescuers yet. " +
                     "Drop pods may still be opening.");
@@ -736,20 +741,12 @@ namespace RaidersHaveFamilies
 
         private void SplitRescueWing(RHFOperation op)
         {
-            if (op.SplitApplied || op.Type != (int)RHFOperationType.Rescue) return;
-            if (op.Diversion.Count != 0) { op.SplitApplied=true; return; }
-            if (op.Squad.Count < 5) return;
+            if (op == null || op.SplitApplied || op.Type != (int)RHFOperationType.Rescue) return;
+            // V132: an arbitrary fraction of the rescue squad must never be
+            // detached into a VANILLA destructive raid. A distinct diversion
+            // exists ONLY when a separate RHFStrikeParty was explicitly funded.
+            // All rescue members retain their hostage objectives.
             op.SplitApplied = true;
-            // Keep >=3 dedicated rescuers. Non-rescuers retain their vanilla Lord
-            // and pursue its hostile assault behavior as a distraction.
-            int amount = Math.Min(op.Squad.Count / 3, op.Squad.Count - 3);
-            for (int i=0;i<amount;i++)
-            {
-                int index = op.Squad.Count - 1 - i;
-                Pawn p = op.Squad[index];
-                op.Squad.RemoveAt(index);
-                op.Diversion.Add(p);
-            }
         }
 
         public override void MapComponentTick()
@@ -817,11 +814,22 @@ namespace RaidersHaveFamilies
                     if (op.ExitCell == IntVec3.Invalid) op.ExitCell = ChooseExit(op.Squad[0].Position);
                 }
                 if (op.CombinedStrike) SplitRescueWing(op);
+                // One source of truth for rescue authority. Reconcile late
+                // capsule arrivals before AI gets another assault ThinkTree tick.
+                RHFRescueCommandV124.OnDeploy(this, op, true);
                 if (!string.IsNullOrEmpty(op.CaseKeyV10) && op.Targets.Count == 0 &&
                     op.Type == (int)RHFOperationType.Rescue && op.Phase == 1)
                     SearchMissingVip(op, now);
-                else if (op.Phase == 1) Infiltrate(op, now);
-                else if (op.Phase == 2) Extract(op, now);
+                else if (op.Phase == 1)
+                {
+                    if (string.IsNullOrEmpty(op.CaseKeyV10))
+                        RHFRescueCommandV124.Infiltrate(this, op, now);
+                    else Infiltrate(op, now);
+                }
+                else if (op.Phase == 2)
+                {
+                    if (!RHFRescueCommandV124.Extract(this, op, now)) Extract(op, now);
+                }
                 else if (op.Phase == 3) BuildAndLaunch(op, now);
                 else if (op.Phase == 5) PostExtractionAssault(op, now);
                 else if (op.Phase == 4) { op.Finished = true; operations.RemoveAt(i); }
@@ -883,7 +891,8 @@ namespace RaidersHaveFamilies
                     p.jobs?.curJob?.def != JobDefOf.Goto)
                 {
                     Lord oldLord = p.GetLord();
-                    if (oldLord != null) oldLord.Notify_PawnLost(p, PawnLostCondition.LeftVoluntarily);
+                    if (oldLord != null && !(oldLord.LordJob is RHFRescueLordJobV124))
+                        oldLord.Notify_PawnLost(p, PawnLostCondition.LeftVoluntarily);
                     Order(p, JobDefOf.Goto, op.CaseSearchCellV10);
                     ordered++;
                 }
