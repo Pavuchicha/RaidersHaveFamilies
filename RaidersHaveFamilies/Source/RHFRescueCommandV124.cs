@@ -1,0 +1,820 @@
+// RHF v0.12.4 - persistent rescue command, explicit access planning and cohesive extraction.
+// These patches supersede the experimental 0.12.3 controller where necessary.
+// All work is event-scoped or limited to active RHF missions at most once every 90 ticks.
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text;
+using HarmonyLib;
+using LudeonTK;
+using RimWorld;
+using Verse;
+using Verse.AI;
+using Verse.AI.Group;
+
+namespace RaidersHaveFamilies
+{
+    // A rescue is an actual Lord mission, not unaffiliated enemy pawns with Goto jobs.
+    // A one-toil state graph has no vanilla timed retreat, morale-loss retreat or
+    // independent attack-colony order. RHF drives objectives; vanilla combat still
+    // handles local self-defence, gunfire, wounds and individual job execution.
+    public sealed class RHFRescueLordJobV124 : LordJob
+    {
+        public string MissionKey = "";
+        public IntVec3 Focus = IntVec3.Invalid;
+        public RHFRescueLordJobV124() { }
+        public RHFRescueLordJobV124(string missionKey, IntVec3 focus)
+        { MissionKey = missionKey ?? ""; Focus = focus; }
+        public override StateGraph CreateGraph()
+        {
+            StateGraph graph = new StateGraph();
+            var hold = new RHFRescueHoldToilV124();
+            graph.AddToil(hold);
+            graph.StartingToil = hold;
+            return graph;
+        }
+        public override void ExposeData()
+        {
+            base.ExposeData();
+            Scribe_Values.Look(ref MissionKey, "rhfRescueMissionKeyV124", "");
+            Scribe_Values.Look(ref Focus, "rhfRescueFocusV124", IntVec3.Invalid);
+        }
+    }
+
+    public sealed class RHFRescueHoldToilV124 : LordToil
+    {
+        public override void UpdateAllDuties()
+        {
+            IntVec3 focus = (lord?.LordJob as RHFRescueLordJobV124)?.Focus ?? IntVec3.Invalid;
+            if (lord?.ownedPawns == null) return;
+            foreach (Pawn pawn in lord.ownedPawns)
+            {
+                if (pawn?.mindState == null || !pawn.Spawned) continue;
+                // Defend the mission objective; never automatically exit or raid
+                // random power infrastructure after a Goto/breach job completes.
+                pawn.mindState.duty = new PawnDuty(DutyDefOf.Defend,
+                    focus.IsValid ? focus : pawn.Position);
+            }
+        }
+    }
+
+    internal sealed class RHFRescueCommandStateV124
+    {
+        public readonly Dictionary<int, IntVec3> LastPosition = new Dictionary<int, IntVec3>();
+        public readonly Dictionary<int, int> LastMovedAt = new Dictionary<int, int>();
+        public readonly Dictionary<int, int> BestTargetDistance = new Dictionary<int, int>();
+        public readonly Dictionary<int, int> LastCloserAt = new Dictionary<int, int>();
+        public readonly Dictionary<int, int> LastOrderedAt = new Dictionary<int, int>();
+        public Thing CurrentBarrier;
+        public int NextBarrierSearch;
+        public int LastDiagnosticTick;
+        public int LastCohesionTick;
+        public IntVec3 BarrierForCaptive = IntVec3.Invalid;
+        public string LastDecision = "ожидается начало операции";
+        public int RecoveredFromVanilla;
+        public int OrderedBreach;
+        public int OrderedApproach;
+        public int Escorted;
+        public int InvalidOrders;
+    }
+
+    internal static class RHFRescueCommandV124
+    {
+        private const int MaxOperations = 4;
+        private const int MaxSquad = 96;
+        private const int MaxTargets = 24;
+        private const int MaxOrders = 14;
+        private const int Step = 90;
+        private static readonly FieldInfo MapField = AccessTools.Field(typeof(MapComponent), "map");
+        private static readonly FieldInfo OperationsField = AccessTools.Field(typeof(RHFOperationController), "operations");
+        private static readonly MethodInfo FreeMethod = AccessTools.Method(typeof(RHFOperationController), "FreeTarget");
+        private static readonly MethodInfo FindBarrierMethod = AccessTools.Method(typeof(RHFOperationController), "FindBarrier");
+        private static readonly MethodInfo TryAssignCarrierMethod = AccessTools.Method(typeof(RHFOperationController), "TryAssignCarrier");
+        private static readonly MethodInfo ChooseExitMethod = AccessTools.Method(typeof(RHFOperationController), "ChooseExit");
+        private static readonly ConditionalWeakTable<RHFOperation, RHFRescueCommandStateV124> States =
+            new ConditionalWeakTable<RHFOperation, RHFRescueCommandStateV124>();
+        // Permission exists only during one explicit mission-controlled exit.
+        // Ordinary hostile AI cannot use it to abandon an escorted prisoner.
+        private static readonly HashSet<int> AuthorizedExits = new HashSet<int>();
+
+        private static void MissionExit(Pawn pawn)
+        {
+            if (pawn == null || !pawn.Spawned) return;
+            int id = pawn.thingIDNumber;
+            AuthorizedExits.Add(id);
+            try { pawn.ExitMap(false, Rot4.Invalid); }
+            finally { AuthorizedExits.Remove(id); }
+        }
+
+        private static Map MapFor(RHFOperationController controller)
+        { return controller == null ? null : MapField?.GetValue(controller) as Map; }
+
+        private static List<RHFOperation> Operations(RHFOperationController controller)
+        { return controller == null ? null : OperationsField?.GetValue(controller) as List<RHFOperation>; }
+
+        private static bool IsRescue(RHFOperation op)
+        { return op != null && op.Deployed && !op.Finished &&
+            op.Type == (int)RHFOperationType.Rescue &&
+            string.IsNullOrEmpty(op.CaseKeyV10); }
+
+        private static string Key(RHFOperation op)
+        {
+            string captiveId = op.Vip?.ThingID;
+            if (string.IsNullOrEmpty(captiveId) && op.Targets != null && op.Targets.Count > 0)
+                captiveId = op.Targets[0]?.ThingID;
+            return op.CreatedTick + ":" + (captiveId ?? "unknown") + ":rescue";
+        }
+
+        private static Pawn Target(RHFOperation op, Map map)
+        {
+            if (op?.Targets == null || map == null) return null;
+            if (CanRescue(op.Vip, op, map)) return op.Vip;
+            for (int i = 0; i < op.Targets.Count && i < MaxTargets; i++)
+                if (CanRescue(op.Targets[i], op, map)) return op.Targets[i];
+            return null;
+        }
+
+        private static bool CanRescue(Pawn prisoner, RHFOperation op, Map map)
+        {
+            return prisoner != null && prisoner.Spawned && !prisoner.Dead &&
+                prisoner.Map == map && (prisoner.IsPrisonerOfColony || prisoner.IsSlaveOfColony) &&
+                !op.Freed.Contains(prisoner);
+        }
+
+        private static bool ActivePawn(Pawn p, Map map)
+        { return p != null && p.Spawned && p.Map == map && !p.Dead &&
+                 !p.Downed && p.jobs != null; }
+
+        private static void RelinquishVanilla(Pawn pawn)
+        {
+            Lord current = pawn.GetLord();
+            if (current != null && !(current.LordJob is RHFRescueLordJobV124))
+                current.Notify_PawnLost(pawn, PawnLostCondition.LeftVoluntarily);
+        }
+
+        // Pair each sponsor's rescuers with their own persistent Lord. This
+        // prevents a different coalition or vanilla raid of the same faction
+        // from being commandeered. Lord jobs survive save/load independently.
+        private static void ClaimGroup(RHFOperation op, Map map)
+        {
+            if (!IsRescue(op) || map == null || op.Squad == null) return;
+            string key = Key(op);
+            Pawn goal = Target(op, map);
+            IntVec3 focus = op.Phase >= 2 && op.ExitCell.IsValid ? op.ExitCell :
+                goal != null ? goal.Position : op.ExitCell;
+            var factions = new List<Faction>(5);
+            for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+            {
+                Pawn p = op.Squad[i];
+                if (!ActivePawn(p, map) || p.Faction == null || factions.Contains(p.Faction)) continue;
+                factions.Add(p.Faction);
+            }
+            foreach (Faction f in factions)
+            {
+                var members = new List<Pawn>();
+                Lord missionLord = null;
+                for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+                {
+                    Pawn p = op.Squad[i];
+                    if (!ActivePawn(p, map) || p.Faction != f) continue;
+                    members.Add(p);
+                    Lord l = p.GetLord();
+                    if (l?.LordJob is RHFRescueLordJobV124 existing &&
+                        existing.MissionKey == key) missionLord = l;
+                }
+                if (members.Count == 0) continue;
+                if (missionLord == null)
+                {
+                    foreach (Pawn p in members) RelinquishVanilla(p);
+                    try
+                    {
+                        missionLord = LordMaker.MakeNewLord(f,
+                            new RHFRescueLordJobV124(key, focus), map, members);
+                        States.GetValue(op, _ => new RHFRescueCommandStateV124()).RecoveredFromVanilla += members.Count;
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error("[RHF][RescueV124] Cannot assign mission Lord: " + e);
+                        continue;
+                    }
+                }
+                else
+                {
+                    foreach (Pawn p in members)
+                    {
+                        if (p.GetLord() == missionLord) continue;
+                        RelinquishVanilla(p);
+                        missionLord.AddPawn(p);
+                    }
+                }
+                if (missionLord?.LordJob is RHFRescueLordJobV124 job &&
+                    focus.IsValid && job.Focus != focus)
+                {
+                    job.Focus = focus;
+                    missionLord.CurLordToil?.UpdateAllDuties();
+                }
+            }
+        }
+
+        internal static void OnDeploy(RHFOperationController controller, RHFOperation op,
+            bool incidentSucceeded)
+        {
+            if (!incidentSucceeded || !IsRescue(op)) return;
+            ClaimGroup(op, MapFor(controller));
+        }
+
+        // Replaces the 0.12.3 detach-all-Lords loop. Even a pawn that finishes
+        // its ordered Goto still remains assigned to the RHF mission, not an
+        // uncommanded enemy who chooses to wander to the map edge.
+        internal static void Refresh(RHFOperationController controller)
+        {
+            int now = Find.TickManager.TicksGame;
+            if (now % Step != 0) return;
+            List<RHFOperation> ops = Operations(controller);
+            if (ops == null || ops.Count == 0) return;
+            Map map = MapFor(controller);
+            if (map == null) return;
+            for (int i = 0; i < ops.Count && i < MaxOperations; i++)
+                if (IsRescue(ops[i])) ClaimGroup(ops[i], map);
+        }
+
+        private static int LastMove(Pawn p, RHFRescueCommandStateV124 state, int now)
+        {
+            int id = p.thingIDNumber;
+            if (!state.LastPosition.TryGetValue(id, out IntVec3 old) || old != p.Position)
+            {
+                state.LastPosition[id] = p.Position;
+                state.LastMovedAt[id] = now;
+            }
+            return state.LastMovedAt.TryGetValue(id, out int tick) ? tick : now;
+        }
+
+        private static int LastCloser(Pawn pawn, Pawn captive,
+            RHFRescueCommandStateV124 state, int now)
+        {
+            int id = pawn.thingIDNumber;
+            int distance = (pawn.Position - captive.Position).LengthHorizontalSquared;
+            if (!state.BestTargetDistance.TryGetValue(id, out int closest) || distance < closest)
+            {
+                state.BestTargetDistance[id] = distance;
+                state.LastCloserAt[id] = now;
+            }
+            return state.LastCloserAt.TryGetValue(id,out int last) ? last : now;
+        }
+
+        private static bool Give(Pawn p, JobDef jobDef, LocalTargetInfo target,
+            RHFRescueCommandStateV124 state, int now)
+        {
+            if (p?.jobs == null || jobDef == null) return false;
+            // A path assignment cannot be restarted every 90 ticks. Jobs that
+            // genuinely fail are retried with a different goal after 600 ticks.
+            Job current = p.jobs.curJob;
+            if (current != null && current.def == jobDef &&
+                (target.Thing != null ? current.targetA.Thing == target.Thing :
+                    current.targetA.Cell == target.Cell)) return true;
+            if (state.LastOrderedAt.TryGetValue(p.thingIDNumber, out int last) &&
+                now - last < 180 && current != null && current.def == jobDef)
+                return true;
+            try
+            {
+                p.jobs.TryTakeOrderedJob(JobMaker.MakeJob(jobDef, target));
+                state.LastOrderedAt[p.thingIDNumber] = now;
+                if (p.jobs.curJob?.def == jobDef) return true;
+            }
+            catch (Exception e)
+            {
+                state.LastDecision = "исключение при выдаче приказа: " + e.GetBaseException().Message;
+            }
+            state.InvalidOrders++;
+            return false;
+        }
+
+        // Priority: an accessible prison door, then an accessible outer door,
+        // and only then a load-bearing wall. The search is shared by the wing,
+        // bounded to a 65x65 square with at most 80 path probes per 600 ticks.
+        private static Thing AccessObstacle(RHFOperationController controller,
+            Pawn leader, Pawn captive, RHFRescueCommandStateV124 state, int now)
+        {
+            Map map = captive.Map;
+            if (state.CurrentBarrier != null && !state.CurrentBarrier.Destroyed &&
+                state.BarrierForCaptive == captive.Position && now < state.NextBarrierSearch &&
+                leader.CanReach(state.CurrentBarrier.Position, PathEndMode.Touch, Danger.Deadly))
+                return state.CurrentBarrier;
+            if (state.CurrentBarrier == null && now < state.NextBarrierSearch &&
+                state.BarrierForCaptive == captive.Position) return null;
+            if (state.CurrentBarrier != null && !state.CurrentBarrier.Destroyed &&
+                now < state.NextBarrierSearch) return null;
+            state.CurrentBarrier = null;
+            state.NextBarrierSearch = now + 600;
+            state.BarrierForCaptive = captive.Position;
+            try
+            {
+                if (FindBarrierMethod != null)
+                {
+                    Thing immediate = FindBarrierMethod.Invoke(controller,
+                        new object[] { captive, leader }) as Thing;
+                    if (immediate != null && !immediate.Destroyed &&
+                        leader.CanReach(immediate.Position, PathEndMode.Touch, Danger.Deadly))
+                    { state.CurrentBarrier = immediate; return immediate; }
+                }
+            }
+            catch (Exception e)
+            { state.LastDecision = "поиск входа: " + e.GetBaseException().Message; }
+
+            Room prison = captive.Position.GetRoom(map);
+            var candidates = new List<Thing>(80);
+            var scores = new List<int>(80);
+            for (int dx = -32; dx <= 32; dx++)
+            for (int dz = -32; dz <= 32; dz++)
+            {
+                IntVec3 cell = new IntVec3(captive.Position.x+dx, 0, captive.Position.z+dz);
+                if (!cell.InBounds(map)) continue;
+                Building edifice = cell.GetEdifice(map);
+                if (edifice == null || edifice.Destroyed || edifice.Faction != Faction.OfPlayer ||
+                    (!(edifice is Building_Door) && edifice.def.passability != Traversability.Impassable))
+                    continue;
+                bool door = edifice is Building_Door;
+                bool prisonEdge = false;
+                if (prison != null)
+                {
+                    for (int direction = 0; direction < 4; direction++)
+                    {
+                        IntVec3 neighbor = direction == 0 ? cell+IntVec3.North :
+                            direction == 1 ? cell+IntVec3.South :
+                            direction == 2 ? cell+IntVec3.East : cell+IntVec3.West;
+                        if (neighbor.InBounds(map) && neighbor.GetRoom(map) == prison)
+                        { prisonEdge = true; break; }
+                    }
+                }
+                // Lower is better. Never demolish an inner wall when there is
+                // a reachable doorway serving the same enclosure.
+                int score = (door ? 0 : 1500) + (prisonEdge ? 0 : 300) +
+                    (cell - captive.Position).LengthHorizontalSquared / 4 +
+                    (cell - leader.Position).LengthHorizontalSquared / 8;
+                int at = 0;
+                while (at < scores.Count && scores[at] <= score) at++;
+                if (at >= 80) continue;
+                candidates.Insert(at, edifice);
+                scores.Insert(at, score);
+                if (candidates.Count > 80) { candidates.RemoveAt(80); scores.RemoveAt(80); }
+            }
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                Thing candidate = candidates[i];
+                if (leader.CanReach(candidate.Position, PathEndMode.Touch, Danger.Deadly))
+                { state.CurrentBarrier = candidate; return candidate; }
+            }
+            return null;
+        }
+
+        internal static void Infiltrate(RHFOperationController controller, RHFOperation op, int now)
+        {
+            if (!IsRescue(op)) return;
+            Map map = MapFor(controller);
+            if (map == null) return;
+            ClaimGroup(op, map);
+            var state = States.GetValue(op, _ => new RHFRescueCommandStateV124());
+            Pawn captive = Target(op, map);
+            if (captive == null)
+            {
+                // Do not report a rescue victory if the last prisoner died,
+                // escaped alone or became unreachable for a different reason.
+                op.Phase = 2;
+                op.PhaseStartTick = now;
+                state.LastDecision = op.Freed.Count > 0 ?
+                    "все доступные цели освобождены: формирование отхода" :
+                    "пленник утрачен: отход без объявления успешного спасения";
+                return;
+            }
+            int alive = 0;
+            int orders = 0;
+            int stalled = 0;
+            int start = op.Squad.Count > 0 ? (now / Step) % op.Squad.Count : 0;
+            Pawn lead = null;
+            for (int i=0; i<op.Squad.Count && i<MaxSquad; i++)
+                if (ActivePawn(op.Squad[i], map)) { lead=op.Squad[i]; break; }
+            if (lead == null)
+            {
+                state.LastDecision = "нет боеспособных спасателей, пленник не освобождён";
+                op.Finished = true;
+                return;
+            }
+            bool routeOpen = lead.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
+            int leadLastMove = LastMove(lead, state, now);
+            int leadLastCloser = LastCloser(lead,captive,state,now);
+            Thing sharedBarrier = (!routeOpen || now-leadLastMove>=900 ||
+                now-leadLastCloser>=1200) ?
+                AccessObstacle(controller, lead, captive, state, now) : null;
+
+            for (int j=0;j<op.Squad.Count && j<MaxSquad && orders<MaxOrders;j++)
+            {
+                Pawn rescuer = op.Squad[(start+j) % op.Squad.Count];
+                if (!ActivePawn(rescuer, map)) continue;
+                alive++;
+                int moved = LastMove(rescuer, state, now);
+                int closer = LastCloser(rescuer,captive,state,now);
+                int sqdist = (rescuer.Position-captive.Position).LengthHorizontalSquared;
+                if (sqdist<=5 && rescuer.CanReach(captive, PathEndMode.Touch, Danger.Deadly))
+                {
+                    if (FreeMethod == null)
+                    { state.LastDecision = "нет метода освобождения пленника"; break; }
+                    try
+                    {
+                        FreeMethod.Invoke(controller, new object[] { op, captive });
+                        state.LastDecision = "достигнут пленник " + captive.LabelShortCap +
+                            "; переход к следующему пленнику/эвакуации";
+                    }
+                    catch(Exception e)
+                    { state.LastDecision = "ошибка освобождения: " + e.GetBaseException().Message; }
+                    return;
+                }
+                // Let useful movement and attacks finish. Do not reset jobs at
+                // a fixed frequency even when navigation is temporarily complex.
+                Job current=rescuer.jobs.curJob;
+                bool attacking = current?.def == JobDefOf.AttackMelee &&
+                    current.targetA.Thing != null && !current.targetA.Thing.Destroyed;
+                if (attacking && now-moved<1600) continue;
+                bool approaching = current?.def == JobDefOf.Goto &&
+                    (current.targetA.Thing==captive ||
+                     (current.targetA.Cell-captive.Position).LengthHorizontalSquared<=9);
+                if (approaching && now-moved<900 && now-closer<1200) continue;
+
+                bool canApproach = rescuer.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
+                if (canApproach && now-moved<900 && now-closer<1200)
+                {
+                    if (Give(rescuer, JobDefOf.Goto, captive, state, now))
+                    { orders++; state.OrderedApproach++; }
+                    continue;
+                }
+                Thing barrier = sharedBarrier;
+                if (barrier == null || barrier.Destroyed ||
+                    !rescuer.CanReach(barrier.Position, PathEndMode.Touch, Danger.Deadly))
+                    barrier = AccessObstacle(controller, rescuer, captive, state, now);
+                if (barrier != null && !barrier.Destroyed)
+                {
+                    if (Give(rescuer, JobDefOf.AttackMelee, barrier, state, now))
+                    { orders++; state.OrderedBreach++; }
+                    state.LastDecision = "вскрытие входа: " + barrier.LabelShortCap;
+                }
+                else
+                {
+                    stalled++;
+                    // If a route is reachable for this individual but the
+                    // previously assigned job failed, retry it once rather than
+                    // inventing a teleport or silently ordering a retreat.
+                    if (canApproach && Give(rescuer, JobDefOf.Goto, captive, state, now))
+                    { orders++; state.OrderedApproach++; }
+                    state.LastDecision = "маршрут к пленнику заблокирован, доступный вход не найден";
+                }
+            }
+            op.LastOrderTick = now;
+            if (orders > 0) op.LastProgressTick = now;
+            if (stalled > 0 && now-state.LastDiagnosticTick >= 1800)
+            {
+                state.LastDiagnosticTick = now;
+                Log.Warning("[RHF][RescueV124] Stalled " + captive.LabelShortCap +
+                    ", blocked=" + stalled + ", ordered=" + orders +
+                    ", crew=" + op.Squad.Count + ", reason=" + state.LastDecision);
+            }
+        }
+
+        private static IntVec3 ExitCell(RHFOperationController controller,
+            RHFOperation op, Pawn origin, Map map)
+        {
+            if (op.ExitCell.IsValid && op.ExitCell.InBounds(map) &&
+                (origin == null || origin.CanReach(op.ExitCell, PathEndMode.OnCell, Danger.Deadly)))
+                return op.ExitCell;
+            if (origin != null && ChooseExitMethod != null)
+            {
+                try
+                {
+                    IntVec3 choice = (IntVec3)ChooseExitMethod.Invoke(controller,
+                        new object[] { origin.Position });
+                    if (choice.IsValid && choice.InBounds(map))
+                    { op.ExitCell = choice; return choice; }
+                }
+                catch(Exception e)
+                { Log.Warning("[RHF][RescueV124] Exit selection: " + e.GetBaseException().Message); }
+            }
+            return op.ExitCell;
+        }
+
+        // Avoid the old EnsureEscort implementation here: it removes the
+        // assigned soldier from whichever Lord owns them. The new rescue Lord
+        // must remain authoritative all the way through extraction.
+        private static RHFEscortLink Escort(RHFOperation op, Pawn captive, Map map)
+        {
+            if (op?.Escorts == null || captive == null) return null;
+            RHFEscortLink current = null;
+            foreach (RHFEscortLink link in op.Escorts)
+                if (link?.Captive == captive) { current = link; break; }
+            if (ActivePawn(current?.Escort, map)) return current;
+            Pawn chosen = null;
+            int best = int.MaxValue;
+            for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+            {
+                Pawn p = op.Squad[i];
+                if (!ActivePawn(p, map) || p.Faction == null || captive.Faction == null ||
+                    p.Faction.HostileTo(captive.Faction)) continue;
+                int score = (p.Position-captive.Position).LengthHorizontalSquared;
+                RHFTacticalMember member=RHFTactical.Member(op,p);
+                if (member?.Role == (int)RHFCombatRole.Escort) score -= 36;
+                foreach (RHFEscortLink link in op.Escorts)
+                    if (link?.Escort == p && link.Captive != captive &&
+                        link.Captive != null && link.Captive.MapHeld == map)
+                    { score += 25000; break; }
+                if (score >= best) continue;
+                best = score; chosen = p;
+            }
+            if (chosen == null) return null;
+            if (current == null)
+            { current = new RHFEscortLink(captive,chosen); op.Escorts.Add(current); }
+            else current.Escort = chosen;
+            return current;
+        }
+
+        private static void RebindFreed(RHFOperation op, Pawn captive)
+        {
+            if (captive == null || !captive.Spawned || captive.Map == null) return;
+            string key = Key(op);
+            if (captive.GetLord()?.LordJob is RHFRescueLordJobV124 already &&
+                already.MissionKey == key) return;
+            for (int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            {
+                Pawn rescuer=op.Squad[i];
+                Lord missionLord=rescuer?.GetLord();
+                if (rescuer?.Faction != captive.Faction || missionLord == null ||
+                    !(missionLord.LordJob is RHFRescueLordJobV124 job) || job.MissionKey != key)
+                    continue;
+                RelinquishVanilla(captive);
+                missionLord.AddPawn(captive);
+                return;
+            }
+        }
+
+        // Escorted extraction is one group mission, not a bunch of independent
+        // ExitMap jobs. Every freed pawn travels near its assigned escort and
+        // the rear guard must remain close to the rescued group until its exit.
+        internal static bool Extract(RHFOperationController controller, RHFOperation op, int now)
+        {
+            if (!IsRescue(op)) return false;
+            Map map = MapFor(controller);
+            if (map == null) return false;
+            if (op.Freed == null) return false;
+            // The existing physically carried downed-prisoner and VIP pod systems
+            // remain in control when needed; do not accidentally break those.
+            for (int i=0;i<op.Freed.Count && i<MaxTargets;i++)
+                if (op.Freed[i]!=null && op.Freed[i].Downed && op.Freed[i].MapHeld==map)
+                    return false;
+            ClaimGroup(op,map);
+            var state=States.GetValue(op, _ => new RHFRescueCommandStateV124());
+            Pawn anchor=null;
+            for(int i=0;i<op.Freed.Count && i<MaxTargets;i++)
+                if(op.Freed[i]!=null && op.Freed[i].Spawned && op.Freed[i].Map==map && !op.Freed[i].Dead)
+                {anchor=op.Freed[i];break;}
+            if(anchor==null)
+                for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+                    if(ActivePawn(op.Squad[i],map)){anchor=op.Squad[i];break;}
+            IntVec3 exit = ExitCell(controller,op,anchor,map);
+            if(!exit.IsValid || !exit.InBounds(map))
+            {state.LastDecision="не найден законный выход с карты";return true;}
+            int orders=0;
+            int remaining=0;
+            Pawn slowest=null;
+            int farthest=-1;
+            for(int i=0;i<op.Freed.Count && i<MaxTargets;i++)
+            {
+                Pawn captive=op.Freed[i];
+                if(captive==null || captive.Dead || captive.MapHeld!=map ||
+                    (op.PodLaunchCompleted && captive==op.Vip)) continue;
+                remaining++;
+                if(!captive.Spawned)continue;
+                RebindFreed(op,captive);
+                RHFEscortLink link=Escort(op,captive,map);
+                Pawn escort=link?.Escort;
+                if(!ActivePawn(escort,map))
+                {
+                    state.LastDecision="пленник " + captive.LabelShortCap + " пока без сопровождающего";
+                    continue;
+                }
+                int distance=(captive.Position-exit).LengthHorizontalSquared;
+                if(distance>farthest){farthest=distance;slowest=captive;}
+                int separation=(escort.Position-captive.Position).LengthHorizontalSquared;
+                // Leave together only when both are visibly at the real map edge.
+                if(distance<=10 && (escort.Position-exit).LengthHorizontalSquared<=36 &&
+                   separation<=64)
+                {
+                    MissionExit(captive);
+                    if (captive.MapHeld == map)
+                    {
+                        state.LastDecision="попытка выхода пленника отклонена движком; выход не засчитан";
+                        continue;
+                    }
+                    if(escort.Spawned)MissionExit(escort);
+                    if (escort.MapHeld != map)
+                    {
+                        op.EscapedWithEscort++;
+                        state.Escorted++;
+                        state.LastDecision="освобождённый и сопровождающий покинули карту";
+                    }
+                    else state.LastDecision="пленник вышел, сопровождающий задержан на карте";
+                    continue;
+                }
+                if(separation>144)
+                {
+                    if(orders<MaxOrders && Give(captive,JobDefOf.Goto,escort.Position,state,now))orders++;
+                    if(orders<MaxOrders && Give(escort,JobDefOf.Wait,escort.Position,state,now))orders++;
+                }
+                else
+                {
+                    if(orders<MaxOrders && Give(captive,JobDefOf.Goto,exit,state,now))orders++;
+                    if(orders<MaxOrders && separation>49 &&
+                       Give(escort,JobDefOf.Goto,captive.Position,state,now))orders++;
+                    else if(orders<MaxOrders && separation<=49 &&
+                       Give(escort,JobDefOf.Goto,exit,state,now))orders++;
+                }
+            }
+            if(remaining==0)
+            {
+                if(op.AssaultAfterObjective)
+                {
+                    op.Phase=5;
+                    op.PhaseStartTick=now;
+                    state.LastDecision="эвакуация завершена; карательная фаза";
+                    return true;
+                }
+                bool anyLeft=false;
+                for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+                {
+                    Pawn rescuer=op.Squad[i];
+                    if(!ActivePawn(rescuer,map))continue;
+                    anyLeft=true;
+                    if((rescuer.Position-exit).LengthHorizontalSquared<=10)
+                        MissionExit(rescuer);
+                    else if(orders<MaxOrders && Give(rescuer,JobDefOf.Goto,exit,state,now))orders++;
+                }
+                if(!anyLeft)
+                { op.Phase=4; op.Finished=true; }
+                state.LastDecision="освобождённые выведены; отход оставшихся спасателей";
+            }
+            else
+            {
+                // No independent direction for the rear guard. Instead they
+                // maintain a bounded 8-tile cordon around the last captive.
+                IntVec3 rally=slowest?.Position ?? anchor?.Position ?? exit;
+                for(int i=0;i<op.Squad.Count && i<MaxSquad && orders<MaxOrders;i++)
+                {
+                    Pawn rescuer=op.Squad[i];
+                    if(!ActivePawn(rescuer,map))continue;
+                    bool paired=false;
+                    foreach(RHFEscortLink link in op.Escorts)
+                        if(link?.Escort==rescuer && link.Captive!=null &&
+                            link.Captive.MapHeld==map && !link.Captive.Dead)
+                        {paired=true;break;}
+                    if(paired)continue;
+                    if((rescuer.Position-rally).LengthHorizontalSquared>64 &&
+                        Give(rescuer,JobDefOf.Goto,rally,state,now))orders++;
+                }
+                state.LastDecision="сопровождение к выходу, осталось пленников=" + remaining;
+            }
+            op.LastOrderTick=now;
+            if(orders>0)op.LastProgressTick=now;
+            return true;
+        }
+
+        internal static bool PermitExit(Pawn pawn)
+        {
+            if (pawn == null || pawn.Map == null || pawn.Dead || pawn.Downed) return true;
+            if (AuthorizedExits.Contains(pawn.thingIDNumber)) return true;
+            var controller=pawn.Map.GetComponent<RHFOperationController>();
+            List<RHFOperation> ops=Operations(controller);
+            if(ops==null)return true;
+            for(int i=0;i<ops.Count && i<MaxOperations;i++)
+            {
+                RHFOperation op=ops[i];
+                if(!IsRescue(op))continue;
+                bool fighter=op.Squad.Contains(pawn);
+                bool freed=op.Freed.Contains(pawn);
+                if(!fighter && !freed)continue;
+                if(op.PodLaunchCompleted && pawn==op.Vip)return true;
+                if(fighter && op.Phase==2)
+                {
+                    bool anyFreedStillOnMap=false;
+                    foreach(Pawn rescued in op.Freed)
+                        if(rescued!=null && !rescued.Dead && rescued.MapHeld==pawn.Map &&
+                            !(op.PodLaunchCompleted && rescued==op.Vip))
+                        { anyFreedStillOnMap=true; break; }
+                    if(!anyFreedStillOnMap)return true;
+                }
+                if(fighter && pawn.health?.summaryHealth != null &&
+                   pawn.health.summaryHealth.SummaryHealthPercent<0.20f)return true;
+                States.GetValue(op,_=>new RHFRescueCommandStateV124()).LastDecision=
+                    freed ? "пресечён самостоятельный выход пленника без сопровождающего" :
+                    "пресечён самостоятельный выход спасателя до окончания операции";
+                return false;
+            }
+            return true;
+        }
+
+        internal static string Diagnostic(Map map)
+        {
+            if(map==null)return "Нет карты.";
+            var controller=map.GetComponent<RHFOperationController>();
+            List<RHFOperation> ops=Operations(controller);
+            if(ops==null || ops.Count==0)return "Нет активных операций RHF.";
+            var sb=new StringBuilder(1500);
+            sb.AppendLine("RHF v0.12.4 — координатор спасения и отхода");
+            for(int i=0;i<ops.Count && i<MaxOperations;i++)
+            {
+                RHFOperation op=ops[i];
+                if(!IsRescue(op))continue;
+                var state=States.GetValue(op,_=>new RHFRescueCommandStateV124());
+                Pawn target=Target(op,map);
+                int lords=0, alive=0, exits=0;
+                for(int j=0;j<op.Squad.Count && j<MaxSquad;j++)
+                {
+                    Pawn p=op.Squad[j];
+                    if(!ActivePawn(p,map))continue;
+                    alive++;
+                    if(p.GetLord()?.LordJob is RHFRescueLordJobV124)lords++;
+                    if(p.jobs?.curJob?.def == JobDefOf.Goto)exits++;
+                }
+                sb.AppendLine("Операция: фаза="+op.Phase+", пленник="+
+                    (target?.LabelShortCap??"уже освобождён/утрачен")+
+                    ", спасателей на карте="+alive+", с командиром="+lords+
+                    ", задачи Goto="+exits+", вывезено="+op.EscapedWithEscort+
+                    ", сопровождающих="+op.Escorts.Count);
+                sb.AppendLine("Текущий план: "+state.LastDecision);
+                sb.AppendLine("Вход: "+(state.CurrentBarrier?.LabelShortCap??"не выбран")+
+                    "; выход: "+op.ExitCell+"; успех/пролом/подход="+
+                    state.Escorted+"/"+state.OrderedBreach+"/"+state.OrderedApproach+
+                    "; ошибки приказов="+state.InvalidOrders);
+                int shown=0;
+                for(int j=0;j<op.Squad.Count && j<MaxSquad && shown<8;j++)
+                {
+                    Pawn p=op.Squad[j];
+                    if(!ActivePawn(p,map))continue;
+                    sb.AppendLine("  "+p.LabelShortCap+": "+
+                        (p.jobs?.curJob?.def?.defName??"нет задачи")+
+                        ", позиция="+p.Position+", Lord="+
+                        (p.GetLord()?.LordJob?.GetType().Name??"нет"));
+                    shown++;
+                }
+            }
+            return sb.ToString();
+        }
+    }
+
+    [HarmonyPatch(typeof(RHFRescueControlV123), "OnDeployed")]
+    internal static class RHFRescueDeploymentV124
+    {
+        [HarmonyPostfix]
+        private static void Postfix(RHFOperationController controller, RHFOperation op,
+            bool incidentSucceeded)
+        { RHFRescueCommandV124.OnDeploy(controller,op,incidentSucceeded); }
+    }
+
+    [HarmonyPatch(typeof(RHFRescueControlV123), "RefreshOwnership")]
+    internal static class RHFRescueOwnershipV124
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(RHFOperationController controller)
+        { RHFRescueCommandV124.Refresh(controller); return false; }
+    }
+
+    [HarmonyPatch(typeof(RHFRescueControlV123), "Infiltrate")]
+    internal static class RHFRescueInfiltrationV124
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(RHFOperationController controller, RHFOperation op, int now)
+        { RHFRescueCommandV124.Infiltrate(controller,op,now); return false; }
+    }
+
+    [HarmonyPatch(typeof(RHFOperationController), "Extract")]
+    internal static class RHFRescueExtractionV124
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(RHFOperationController __instance, RHFOperation op, int now)
+        { return !RHFRescueCommandV124.Extract(__instance,op,now); }
+    }
+
+    [HarmonyPatch(typeof(RHFRescueControlV123), "PermitExit")]
+    internal static class RHFRescueExitV124
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(Pawn pawn, ref bool __result)
+        { __result=RHFRescueCommandV124.PermitExit(pawn); return false; }
+    }
+
+    public static class RHFRescueDiagnosticsV124
+    {
+        [DebugAction("RHF - ТЕСТЫ | ДИАГНОСТИКА", "29 — Групповой командир и эвакуация RHF",
+            actionType=DebugActionType.Action,allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void Show()
+        {
+            Find.WindowStack.Add(new Dialog_MessageBox(
+                RHFRescueCommandV124.Diagnostic(Find.CurrentMap)));
+        }
+    }
+}
