@@ -12,5 +12,5 @@
     </li>
   </modDependencies>
   <loadAfter><li>Mersid.WCE2Updated.Core</li></loadAfter>
-  <description>Raiders Have Families 0.3.0 EXPERIMENTAL for RimWorld 1.7. Expanded families, a nine-tier social/political rank system, hostage negotiations and faction retaliation. Separate assault and tactical prison-rescue responses, optional field extraction pod prototype, exact optional WCE2 surgery integration. Event-driven Harmony 3. Some advanced scenarios remain in development. Back up saves before testing.</description>
+  <description>Raiders Have Families 0.3.1 DEV TEST for RimWorld 1.7. Expanded families, a nine-tier social/political rank system, hostage negotiations and faction retaliation. Separate assault and tactical prison-rescue responses, optional field extraction pod prototype, exact optional WCE2 surgery integration. Event-driven Harmony 3. Adds developer Actions for direct assault, rescue, VIP/pod prototype, coalition, hired raiders, tribal animals, and high-tech retaliation. Advanced scenarios remain experimental. Back up saves before testing.</description>
 </ModMetaData>

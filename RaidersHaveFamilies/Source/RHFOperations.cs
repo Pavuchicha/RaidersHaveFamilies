@@ -1,4 +1,4 @@
-// Raiders Have Families 0.3.0 — faction intervention system.
+// Raiders Have Families 0.3.1 — faction intervention system.
 //  * Only scheduled operations have an active controller.
 //  * A forced rescue uses an actual raiding party and in-map goals, never a fake letter.
 //  * Every action has a bounded decision budget; no global pawn scans in idle time.
@@ -44,6 +44,7 @@ namespace RaidersHaveFamilies
         public IntVec3 ExitCell = IntVec3.Invalid;
         public IntVec3 PodCell = IntVec3.Invalid;
         public bool Finished;
+        public bool DebugForced; // developer-mode test; does not change player settings
 
         public RHFOperation() { }
         public void ExposeData()
@@ -76,6 +77,7 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref ExitCell, "exitCell", IntVec3.Invalid);
             Scribe_Values.Look(ref PodCell, "podCell", IntVec3.Invalid);
             Scribe_Values.Look(ref Finished, "finished", false);
+            Scribe_Values.Look(ref DebugForced, "debugForced", false);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 if (Targets == null) Targets = new List<Pawn>();
@@ -117,6 +119,12 @@ namespace RaidersHaveFamilies
             return true;
         }
 
+        // Used only when scheduling a debug raid fails; otherwise remove finished records normally.
+        public void CancelDebugOperation(RHFOperation operation)
+        {
+            if (operation != null && operation.DebugForced) operations.Remove(operation);
+        }
+
         // Called by SpawnSetup; constant work and only if a special raid is pending.
         public void ObserveSpawn(Pawn pawn)
         {
@@ -135,7 +143,16 @@ namespace RaidersHaveFamilies
 
         public override void MapComponentTick()
         {
-            if (operations.Count == 0 || RHFMod.Settings?.Retaliation != true) return;
+            if (operations.Count == 0) return;
+            // Test actions must run even if natural retaliation is disabled in settings.
+            if (RHFMod.Settings?.Retaliation != true)
+            {
+                bool developerOperation = false;
+                for (int j = 0; j < operations.Count; j++)
+                    if (operations[j] != null && operations[j].DebugForced && !operations[j].Finished)
+                    { developerOperation = true; break; }
+                if (!developerOperation) return;
+            }
             int now = Find.TickManager.TicksGame;
             if (now < nextDecision) return;
             nextDecision = now + DecisionInterval;
@@ -279,7 +296,7 @@ namespace RaidersHaveFamilies
             // A breakout cancels ransom conditions. The player cannot collect payment.
             RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
             if (record != null) { record.Negotiated = false; record.PendingSilver = 0; record.PendingGoodwill = false; }
-            p.guest.SetGuestStatus(null, false);
+            p.guest.SetGuestStatus(null);
             if (!op.Freed.Contains(p)) op.Freed.Add(p);
             if (op.Freed.Count >= op.Targets.Count)
             {

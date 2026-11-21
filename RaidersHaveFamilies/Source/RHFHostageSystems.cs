@@ -670,8 +670,11 @@ namespace RaidersHaveFamilies
                     if (p.needs?.mood == null || p.story?.traits == null) continue;
                     bool bloodlust = p.story.traits.HasTrait(TraitDefOf.Bloodlust) &&
                         (kind==RHFPublicityKind.Torture || kind==RHFPublicityKind.Execution);
+                    // 1.7 reference builds do not export Cannibal through TraitDefOf.
+                    // Resolve the vanilla Def by name, and tolerate its removal by race/trait mods.
+                    TraitDef cannibalDef = DefDatabase<TraitDef>.GetNamedSilentFail("Cannibal");
                     bool cannibal = kind==RHFPublicityKind.Cannibalism &&
-                        p.story.traits.HasTrait(TraitDefOf.Cannibal);
+                        cannibalDef != null && p.story.traits.HasTrait(cannibalDef);
                     bool endorses = false;
                     if (ModsConfig.IdeologyActive && p.Ideo != null)
                     {

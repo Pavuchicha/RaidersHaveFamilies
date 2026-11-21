@@ -19,7 +19,7 @@ namespace RaidersHaveFamilies
                 var harmony = new Harmony("pavuk.raidshavefamilies");
                 harmony.PatchAll(typeof(RHFPatchInit).Assembly);
                 RHFWarCrimesIntegration.Patch(harmony);
-                Log.Message("[Raiders Have Families] 0.3.0 event-driven Harmony integrations active.");
+                Log.Message("[Raiders Have Families] 0.3.1 event-driven Harmony integrations active.");
             }
             catch (Exception e) { Log.Error("[Raiders Have Families] Could not initialize Harmony: " + e); }
         }
@@ -31,10 +31,12 @@ namespace RaidersHaveFamilies
         [HarmonyPostfix]
         public static void Postfix(Pawn __instance, Map map, bool respawningAfterLoad)
         {
-            if (respawningAfterLoad || map == null || RHFMod.Settings?.Enabled != true ||
-                __instance?.Faction == null) return;
-            map.GetComponent<RHFMapComponent>()?.Enqueue(__instance);
+            if (respawningAfterLoad || map == null || __instance?.Faction == null) return;
+            // Debug-forced rescue raids also need squad registration when regular
+            // family generation is disabled in mod settings.
             map.GetComponent<RHFOperationController>()?.ObserveSpawn(__instance);
+            if (RHFMod.Settings?.Enabled == true)
+                map.GetComponent<RHFMapComponent>()?.Enqueue(__instance);
         }
     }
 
@@ -44,9 +46,11 @@ namespace RaidersHaveFamilies
     {
         private static readonly FieldInfo PawnField = AccessTools.Field(typeof(Pawn_GuestTracker), "pawn");
         [HarmonyPostfix]
-        public static void Postfix(Pawn_GuestTracker __instance, Faction newHost, bool prisoner)
+        public static void Postfix(Pawn_GuestTracker __instance)
         {
-            if (RHFMod.Settings?.Enabled != true || !prisoner || newHost != Faction.OfPlayer) return;
+            // In 1.7 the second SetGuestStatus parameter is a GuestStatus enum,
+            // not the pre-1.7 bool. Inspect the final state instead of signature.
+            if (RHFMod.Settings?.Enabled != true) return;
             Pawn p = PawnField?.GetValue(__instance) as Pawn;
             if (p != null && p.IsPrisonerOfColony)
                 Current.Game?.GetComponent<RHFGameLedger>()?.TrackHostage(p);
