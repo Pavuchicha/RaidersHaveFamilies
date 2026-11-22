@@ -402,15 +402,41 @@ namespace RaidersHaveFamilies
             for(int i=0;i<=end;i++)
             {
                 if(route.Cells[i]==cell)return true;
-                // A narrow three-lane formation is allowed ONLY on the open
-                // prefix of a corridor with no known turret exposure. Never
-                // use a lateral lane at a breach or in an exposed fire lane.
-                if(route.FirstTurretExposureIndex<0 && i>=2 && i<end-2 &&
-                   (route.Cells[i]-cell).LengthHorizontalSquared==1)
+                // Up to seven dispersed open-ground lanes. Never allow this
+                // lateral tolerance at a breach or across turret exposure.
+                // The waypoint issuer separately checks terrain, LoS and fire.
+                if(route.FirstTurretExposureIndex<0 && i>=3 && i<end-3 &&
+                   (route.Cells[i]-cell).LengthHorizontalSquared<=9)
                     return true;
             }
             return false;
         }
+        // The costed centerline can be safe while an offset lane is inside
+        // a turret arc. Check only lateral candidates (bounded per Goto), with
+        // several samples along the offset leg, before spreading the unit.
+        private static bool LateralExposed(Map map,IntVec3 from,IntVec3 to)
+        {
+            if(map==null)return true;
+            foreach(Building turret in map.listerBuildings.allBuildingsColonist)
+            {
+                if(!IsTurret(turret))continue;
+                float range=WeaponRange(turret.def?.building?.turretGunDef,30f);
+                float r2=range*range;
+                for(int k=1;k<=4;k++)
+                {
+                    IntVec3 sample=new IntVec3(from.x+(to.x-from.x)*k/4,0,
+                        from.z+(to.z-from.z)*k/4);
+                    if((sample-turret.Position).LengthHorizontalSquared>r2)continue;
+                    if(GenSight.LineOfSight(turret.Position,sample,map))return true;
+                }
+            }
+            return false;
+        }
+
+        // Public to the mission planner, read-only and bounded to RHF ops.
+        internal static bool StagingExposedToTurret(Map map,IntVec3 cell)
+        {return LateralExposed(map,cell,cell);}
+
         internal static IntVec3 Waypoint(RHFRoutePlanV128 route,Pawn soldier,Map map)
         {
             if(route==null || !route.Valid || soldier==null || soldier.Map!=map ||
@@ -452,26 +478,30 @@ namespace RaidersHaveFamilies
                 if(nextStep!=step)break;
                 end=i;
             }
-            for(int i=end;i>nearest;i--)
+            // Stagger depth across four ranks as well as lateral lanes.
+            // 30 pawns must not all select the same three end-cells.
+            int rank=(soldier.thingIDNumber/7)&3;
+            int head=Math.Max(nearest+1,end-rank*2);
+            for(int i=head;i>nearest;i--)
             {
                 IntVec3 destination=route.Cells[i];
                 if(!destination.InBounds(map) || !destination.Standable(map))continue;
                 if(soldier.CanReach(destination,PathEndMode.OnCell,Danger.Deadly) &&
                    !CrossesKnownFire(route,soldier.Position,destination,map))
                 {
-                    // S2 formation: spread across three positions where there
-                    // is genuine open ground. An individual job still stays
-                    // within one tile of the costed safe path. Turret/breach
-                    // sections remain single-file and deliberately cautious.
-                    if(route.FirstTurretExposureIndex<0 && i<limit-3 &&
-                       i-nearest>=8 && (soldier.thingIDNumber%3)!=1)
+                    // Seven wide lanes and four staggered ranks only on
+                    // open, unexposed ground. In narrow rooms the squad must
+                    // reduce to one safe passage, but not at map-entry.
+                    int lateral=soldier.thingIDNumber%7-3;
+                    if(route.FirstTurretExposureIndex<0 && i<limit-4 &&
+                       i-nearest>=6 && lateral!=0)
                     {
                         IntVec3 side=step.x!=0?IntVec3.North:IntVec3.East;
-                        IntVec3 lane=(soldier.thingIDNumber%3)==0 ?
-                            destination+side : destination-side;
+                        IntVec3 lane=destination+side*lateral;
                         if(lane.InBounds(map) && lane.Standable(map) &&
                            lane.GetFirstPawn(map)==null &&
                            IsAllowedWaypoint(route,lane) &&
+                           !LateralExposed(map,soldier.Position,lane) &&
                            !CrossesKnownFire(route,soldier.Position,lane,map) &&
                            GenSight.LineOfSight(soldier.Position,lane,map) &&
                            soldier.CanReach(lane,PathEndMode.OnCell,Danger.Deadly))

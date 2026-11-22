@@ -30,7 +30,9 @@ for key in (
     'RHFCombatPlannerV125.FirstObjectiveObstacle(',
     'RHFCombatPlannerV125.IsBreachableStructure(',
     'RHFCombatPlannerV125.TryPaidBreach(',
-    'if(assignedBreaches>=breachLimit)continue;',
+    'RHFCombatPlannerV125.SelectBreachOperator(',
+    'RHFCombatPlannerV125.BreachAttack(',
+    'rescuer!=breachOperator || assignedBreaches>0',
     'RHFCombatPlannerV125.ImproveAttack(',
 ):
     assert key in rescue, f'rescue integration missing {key}'

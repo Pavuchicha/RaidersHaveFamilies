@@ -791,6 +791,54 @@ namespace RaidersHaveFamilies
             return center;
         }
 
+        // S2.2: one obstacle has one selected breacher. Prefer a paid charge,
+        // then an equipped melee specialist. A grenade is NOT a melee tool.
+        internal static Pawn SelectBreachOperator(RHFOperation op,Map map,
+            Thing barrier,HashSet<Pawn> covering)
+        {
+            if(op?.Squad==null || map==null || !IsBreachableStructure(barrier))return null;
+            Pawn best=null;int bestScore=int.MinValue;
+            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            {
+                Pawn pawn=op.Squad[i];
+                if(!Active(pawn,map) || covering?.Contains(pawn)==true ||
+                   IsCombatEmergencyJob(pawn) ||
+                   pawn.health?.capacities==null ||
+                   !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
+                   !pawn.CanReach(barrier.Position,PathEndMode.Touch,Danger.Deadly))continue;
+                RHFTacticalMember member=RHFTactical.Member(op,pawn);
+                bool charge=member?.Role==(int)RHFCombatRole.Breacher &&
+                    RHFTactical.HasBreachKit(pawn) && op.BreachChargesUsed<4;
+                ThingDef weapon=pawn.equipment?.Primary?.def;
+                bool melee=weapon==null || weapon.IsMeleeWeapon;
+                // Never ask a grenade-only fighter to attack a wall with the
+                // grenade as a melee weapon. If nothing is safe, hold position.
+                bool safeRifle=weapon?.IsRangedWeapon==true &&
+                    weapon.defName.IndexOf("Grenade",StringComparison.OrdinalIgnoreCase)<0 &&
+                    weapon.defName.IndexOf("Launcher",StringComparison.OrdinalIgnoreCase)<0 &&
+                    weapon.defName.IndexOf("Rocket",StringComparison.OrdinalIgnoreCase)<0 &&
+                    !RHFRescueFireDisciplineV136.UnsafeLine(op,pawn,barrier);
+                if(!charge && !melee && !safeRifle)continue;
+                int skill=pawn.skills?.GetSkill(SkillDefOf.Melee)?.Level ?? 0;
+                int score=(charge?2000:0)+(melee?800:0)+(safeRifle?200:0)+
+                    skill*7-(pawn.Position-barrier.Position).LengthHorizontalSquared/3;
+                if(score>bestScore){best=pawn;bestScore=score;}
+            }
+            return best;
+        }
+
+        internal static JobDef BreachAttack(Pawn pawn)
+        {
+            ThingDef weapon=pawn?.equipment?.Primary?.def;
+            if(weapon==null || weapon.IsMeleeWeapon)return JobDefOf.AttackMelee;
+            if(weapon.IsRangedWeapon &&
+                weapon.defName.IndexOf("Grenade",StringComparison.OrdinalIgnoreCase)<0 &&
+                weapon.defName.IndexOf("Launcher",StringComparison.OrdinalIgnoreCase)<0 &&
+                weapon.defName.IndexOf("Rocket",StringComparison.OrdinalIgnoreCase)<0)
+                return JobDefOf.AttackStatic;
+            return null;
+        }
+
         internal static bool TryPaidBreach(RHFOperationController controller,
             RHFOperation op,Pawn captive,Thing barrier,Pawn rescuer,int now)
         {

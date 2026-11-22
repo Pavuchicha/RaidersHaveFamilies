@@ -35,6 +35,18 @@ namespace RaidersHaveFamilies
                     " rescued="+op.Freed?.Count+" combined="+op.CombinedStrike+
                     " landed="+op.Deployed+" parties="+op.SuccessfulParties+
                     "/"+op.Parties?.Count);
+                if(op.Phase==1)
+                    sb.AppendLine(RHFStagedAdvanceV139.Diagnostic(op));
+                if(op.Phase==3)
+                    sb.AppendLine("VIP construction: budget="+op.PodBudgetPaid+
+                        " supplies="+op.PodSuppliesIssued+
+                        " stage="+op.PodConstructionStage+
+                        " timer="+op.PodConstructionTick+
+                        " launcher="+op.PodLauncherCell+
+                        " pod="+op.PodCell+
+                        " barricades="+op.BarricadesBuilt+
+                        " pendingWall="+op.BarricadeCell+
+                        " ready="+op.PodReady);
                 if(op.Squad==null)continue;
                 int own=0,vanilla=0,none=0;
                 int shown=0;

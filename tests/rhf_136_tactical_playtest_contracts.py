@@ -17,7 +17,9 @@ def holds_route(x):
     assert 'if(nextStep!=step)break;' in x
     assert 'int limit=SafeAdvanceLimit(route)' in x
     assert 'CrossesKnownFire(route,soldier.Position,destination,map)' in x
-    assert 'i<limit-3' in x and 'destination+side' in x
+    assert 'i<limit-4' in x and 'destination+side*lateral' in x
+    assert 'soldier.thingIDNumber%7-3' in x
+    assert 'end-rank*2' in x
 
 def holds_ce(m,c):
     assert 'if (RHFCombatPlannerV125.IsCombatEmergencyJob(p)) return false;' in m
@@ -48,7 +50,7 @@ def holds_drop(o):
     assert 'other.Diversion!=null && other.Diversion.Contains(pawn)' in o
 
 def holds_stalemate(m,c):
-    assert '(needsFireSuppression ? 7200 : 24000)' in m
+    assert '(needsFireSuppression ? 15000 : 27000)' in m
     assert '!needsFireSuppression && now-moved<=Step' in m
     assert 'RHFCombatPlannerV125.TurretDamageProgress(op)' in m
     assert 'enemy.HitPoints<previous' in c
@@ -63,7 +65,7 @@ for fn, args in [
     (lambda x:holds_ce(x,combat),(mission.replace('if (RHFCombatPlannerV125.IsCombatEmergencyJob(p)) return false;','',1),)),
     (lambda x:holds_hostages(safety,x,combat),(xml.replace('RaidersHaveFamilies.RHFJobGiverMissionDefenseV136','JobGiver_AIFightEnemies',1),)),
     (holds_drop,(ops.replace('RecoverLateDropRescuers(op,now);','',1),)),
-    (lambda x:holds_stalemate(x,combat),(mission.replace('(needsFireSuppression ? 7200 : 24000)','24000',1),)),
+    (lambda x:holds_stalemate(x,combat),(mission.replace('(needsFireSuppression ? 15000 : 27000)','24000',1),)),
 ]:
     try:fn(*args)
     except AssertionError:pass

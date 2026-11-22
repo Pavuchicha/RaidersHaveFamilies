@@ -138,7 +138,7 @@ namespace RaidersHaveFamilies
             if(map==null || carrier==null || carrier.Map!=map ||
                !rescued.Spawned || !rescued.Downed)return;
             int x=carrier.Position.x, z=carrier.Position.z;
-            if(x>2 && z>2 && x<map.Size.x-3 && z<map.Size.z-3)
+            if(x>5 && z>5 && x<map.Size.x-6 && z<map.Size.z-6)
             {
                 Log.Warning("[RHF][ExtractS1] Carrier attempted extraction away from map edge.");
                 return;
@@ -542,11 +542,20 @@ namespace RaidersHaveFamilies
                 route.FirstTurretExposureIndex >= 0;
             HashSet<Pawn> covering = RHFCombatPlannerV125.Response(
                 op,map,captive,op.Squad,now,false,needsFireSuppression);
+            // One pre-contact assembly: five dispersed columns, staggered
+            // ranks, release on 75% readiness or a short bounded deadline.
+            // Only THIS mission controller issues the Goto jobs.
+            bool gathering=RHFStagedAdvanceV139.Holding(op,map,route,lead,captive,
+                covering,now,out Dictionary<int,IntVec3> assemblySlots);
             IntVec3 safeApproach = route.Valid ||
                 route.Explanation!="неверная цель или карта" ? IntVec3.Invalid :
                 RHFCombatPlannerV125.SafeApproach(op,map,lead,captive,now);
+            // A one-cell wall cannot be attacked by four sappers at once.
+            // Choose one qualified operator per decision, keep all other
+            // fighters available for screening and protection of the objective.
+            Pawn breachOperator=RHFCombatPlannerV125.SelectBreachOperator(
+                op,map,route.Valid?route.FirstBarrier:null,covering);
             int assignedBreaches=0;
-            int breachLimit=Math.Max(2,Math.Min(4,op.Squad.Count/3));
             bool routeOpen = lead.CanReach(captive, PathEndMode.Touch, Danger.Deadly);
             int leadLastMove = LastMove(lead, state, now);
             int leadLastCloser = LastCloser(lead,captive,state,now);
@@ -573,6 +582,18 @@ namespace RaidersHaveFamilies
                 if (!ActivePawn(rescuer, map)) continue;
                 alive++;
                 if (covering.Contains(rescuer)) continue; // keep real suppressive fire
+                if(gathering)
+                {
+                    if(assemblySlots!=null &&
+                       assemblySlots.TryGetValue(rescuer.thingIDNumber,out IntVec3 slot) &&
+                       (rescuer.Position-slot).LengthHorizontalSquared>4 &&
+                       rescuer.CanReach(slot,PathEndMode.OnCell,Danger.Deadly) &&
+                       Give(rescuer,JobDefOf.Goto,slot,state,now))
+                    {orders++;state.OrderedApproach++;}
+                    state.LastDecision="группа собирается перед контактом; "+
+                        "синхронное выдвижение после построения";
+                    continue;
+                }
                 int moved = LastMove(rescuer, state, now);
                 int closer = LastCloser(rescuer,captive,state,now);
                 int sqdist = (rescuer.Position-captive.Position).LengthHorizontalSquared;
@@ -671,15 +692,22 @@ namespace RaidersHaveFamilies
                 // breached; do not choose unrelated visible destructibles.
                 if (RHFCombatPlannerV125.IsBreachableStructure(barrier))
                 {
-                    // Only a few sappers assault the same obstacle. Others
-                    // keep a rear guard and are free to defend against fire.
-                    if(assignedBreaches>=breachLimit)continue;
+                    // One dedicated specialist, never a grenade wielder
+                    // ordered to slowly butt-stroke an impassable wall.
+                    if(rescuer!=breachOperator || assignedBreaches>0)
+                    {stalled++;continue;}
                     assignedBreaches++;
-                    bool placed = RHFCombatPlannerV125.TryPaidBreach(
+                    bool placed=RHFCombatPlannerV125.TryPaidBreach(
                         controller,op,captive,barrier,rescuer,now);
-                    if (placed || Give(rescuer, JobDefOf.AttackMelee, barrier, state, now))
+                    JobDef attack=RHFCombatPlannerV125.BreachAttack(rescuer);
+                    if(placed || (attack!=null &&
+                        (attack!=JobDefOf.AttackStatic ||
+                         !RHFRescueFireDisciplineV136.UnsafeLine(op,rescuer,barrier)) &&
+                        Give(rescuer,attack,barrier,state,now)))
                     {orders++;state.OrderedBreach++;}
-                    state.LastDecision="целенаправленный пролом: "+barrier.LabelShortCap;
+                    else stalled++;
+                    state.LastDecision="пролом назначен: "+
+                        rescuer.LabelShortCap+" → "+barrier.LabelShortCap;
                 }
                 else
                 {
@@ -704,7 +732,7 @@ namespace RaidersHaveFamilies
             // hours. Withdraw survivors after a sustained, observable stalemate.
             if(stalled>0 && orders==0 &&
                 now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>
-                    (needsFireSuppression ? 7200 : 24000))
+                    (needsFireSuppression ? 15000 : 27000))
             {
                 state.LastDecision="спасение отменено: безопасный маршрут/пролом " +
                     "не найден или оборону не удалось подавить; организованный отход";

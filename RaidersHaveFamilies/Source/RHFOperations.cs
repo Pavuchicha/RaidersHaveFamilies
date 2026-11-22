@@ -1525,62 +1525,119 @@ namespace RaidersHaveFamilies
             return true;
         }
 
-        // A small self-contained building phase: choose a real doorway-adjacent
-        // standable tile in the prison room, send an actual breacher there,
-        // spend ten units of field-delivered steel, and only then spawn a wall.
-        // No global construction AI override; at most 2 tiles and ~100 probes.
-        private void TryBuildPrisonBarricade(RHFOperation op, Pawn vip, int now)
+        // S2.2: barricades protect the EXTRACTION SITE, never the captive's
+        // door. Every candidate is simulated as impassable BEFORE it is built.
+        // This bounded flood fill ensures a wall cannot seal the prisoner or
+        // the engineers away from the launcher. Failure simply skips the wall.
+        private bool OpenRouteExcept(IntVec3 source, IntVec3 destination, IntVec3 excluded)
         {
-            if(!HasFieldSteel(op, FieldCost(
+            if (!source.IsValid || !destination.IsValid || source == excluded ||
+                destination == excluded || !source.InBounds(map) ||
+                !destination.InBounds(map)) return false;
+            int minX=Math.Max(0,Math.Min(source.x,destination.x)-15);
+            int maxX=Math.Min(map.Size.x-1,Math.Max(source.x,destination.x)+15);
+            int minZ=Math.Max(0,Math.Min(source.z,destination.z)-15);
+            int maxZ=Math.Min(map.Size.z-1,Math.Max(source.z,destination.z)+15);
+            var visited=new HashSet<IntVec3>();
+            var pending=new Queue<IntVec3>();
+            visited.Add(source);pending.Enqueue(source);
+            int inspected=0;
+            while(pending.Count>0 && inspected++<6500)
+            {
+                IntVec3 cell=pending.Dequeue();
+                if(cell==destination)return true;
+                for(int direction=0;direction<4;direction++)
+                {
+                    IntVec3 next=cell+(direction==0?IntVec3.North:
+                        direction==1?IntVec3.South:
+                        direction==2?IntVec3.East:IntVec3.West);
+                    if(next.x<minX || next.x>maxX || next.z<minZ || next.z>maxZ ||
+                        next==excluded || visited.Contains(next) ||
+                        !next.InBounds(map))continue;
+                    // The geometry-only preview must allow a CLOSED door to be
+                    // opened or breached later. A wall remains impassable. This
+                    // is an optimistic preview, not a claim that the VIP already
+                    // has permission to open hostile doors; CanReach is checked
+                    // again after the actual barricade has been constructed.
+                    if(!next.Standable(map) &&
+                       !(next.GetEdifice(map) is Building_Door))continue;
+                    visited.Add(next);pending.Enqueue(next);
+                }
+            }
+            return false;
+        }
+
+        private bool BarricadeLeavesExit(RHFOperation op,Pawn vip,IntVec3 candidate)
+        {
+            if(vip==null || vip.Map!=map || !op.PodCell.IsValid ||
+               !op.PodLauncherCell.IsValid ||
+               !OpenRouteExcept(vip.Position,op.PodCell,candidate))return false;
+            Pawn engineer=FieldEngineer(op,op.PodLauncherCell);
+            return engineer!=null &&
+                OpenRouteExcept(engineer.Position,op.PodLauncherCell,candidate) &&
+                OpenRouteExcept(engineer.Position,op.PodCell,candidate);
+        }
+
+        private IntVec3 BarricadeWorkCell(Pawn engineer,IntVec3 wall)
+        {
+            IntVec3 best=IntVec3.Invalid;int bestDistance=int.MaxValue;
+            for(int direction=0;direction<4;direction++)
+            {
+                IntVec3 c=wall+(direction==0?IntVec3.North:
+                    direction==1?IntVec3.South:
+                    direction==2?IntVec3.East:IntVec3.West);
+                if(!c.InBounds(map) || !c.Standable(map) ||
+                   c.GetEdifice(map)!=null ||
+                   !engineer.CanReach(c,PathEndMode.OnCell,Danger.Deadly))continue;
+                int distance=(engineer.Position-c).LengthHorizontalSquared;
+                if(distance<bestDistance){best=c;bestDistance=distance;}
+            }
+            return best;
+        }
+
+        private void TryBuildPrisonBarricade(RHFOperation op,Pawn vip,int now)
+        {
+            if(op==null || vip==null || !vip.Spawned || !op.PodCell.IsValid ||
+               !op.PodLauncherCell.IsValid ||
+               !HasFieldSteel(op,FieldCost(
                    DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher"),ThingDefOf.Steel)+
-                   FieldCost(DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod"),ThingDefOf.Steel)+10) ||
-               vip==null || !vip.Spawned)return;
+                   FieldCost(DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod"),ThingDefOf.Steel)+10))
+                return;
             if(!op.BarricadeCell.IsValid)
             {
-                Room room=vip.Position.GetRoom(map);
-                if(room==null)return;
-                for(int dx=-5;dx<=5 && !op.BarricadeCell.IsValid;dx++)
-                for(int dz=-5;dz<=5 && !op.BarricadeCell.IsValid;dz++)
+                // A short defensive perimeter close to the launcher, never a
+                // wall in the prison's only doorway. Not even attempt a wall
+                // when no alternative traversable VIP/engineer route exists.
+                IntVec3 center=op.PodLauncherCell;
+                for(int radius=3;radius<=5 && !op.BarricadeCell.IsValid;radius++)
+                for(int dx=-radius;dx<=radius && !op.BarricadeCell.IsValid;dx++)
+                for(int dz=-radius;dz<=radius && !op.BarricadeCell.IsValid;dz++)
                 {
-                    IntVec3 doorCell=new IntVec3(vip.Position.x+dx,0,vip.Position.z+dz);
-                    if(!doorCell.InBounds(map) || !(doorCell.GetEdifice(map) is Building_Door))continue;
-                    for(int direction=0;direction<4;direction++)
-                    {
-                        IntVec3 adjacent=doorCell+(direction==0?IntVec3.North:
-                            direction==1?IntVec3.East:direction==2?IntVec3.South:IntVec3.West);
-                        if(!adjacent.InBounds(map) || !adjacent.Standable(map) ||
-                           adjacent.GetRoom(map)!=room ||
-                           adjacent.GetEdifice(map)!=null ||
-                           adjacent.GetFirstBuilding(map)!=null ||
-                           (adjacent-vip.Position).LengthHorizontalSquared<=2 ||
-                           (adjacent-op.PodCell).LengthHorizontalSquared<=2)continue;
-                        bool used=false;
-                        for(int x=0;x<op.CompletedBarricades.Count;x++)
-                            if(op.CompletedBarricades[x]==adjacent){used=true;break;}
-                        if(used)continue;
-                        op.BarricadeCell=adjacent;
-                        op.FortifyStartedTick=0;
-                        break;
-                    }
+                    if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                    IntVec3 cell=new IntVec3(center.x+dx,0,center.z+dz);
+                    if(!cell.InBounds(map) || !cell.Standable(map) ||
+                       map.roofGrid.RoofAt(cell)!=null ||
+                       cell.GetFirstBuilding(map)!=null ||
+                       cell.GetFirstPawn(map)!=null ||
+                       (cell-vip.Position).LengthHorizontalSquared<=9 ||
+                       (cell-op.PodCell).LengthHorizontalSquared<=9 ||
+                       (cell-op.PodLauncherCell).LengthHorizontalSquared<=9 ||
+                       op.CompletedBarricades.Contains(cell) ||
+                       !BarricadeLeavesExit(op,vip,cell))continue;
+                    op.BarricadeCell=cell;
                 }
-                if(!op.BarricadeCell.IsValid)return; // No door, no invented wall.
+                if(!op.BarricadeCell.IsValid)return;
+                op.FortifyStartedTick=0;
             }
-            Pawn engineer=null;
-            for(int i=0;i<op.Squad.Count && i<32;i++)
+            Pawn engineer=FieldEngineer(op,op.BarricadeCell);
+            if(engineer==null || !BarricadeLeavesExit(op,vip,op.BarricadeCell))
+            {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;return;}
+            IntVec3 stand=BarricadeWorkCell(engineer,op.BarricadeCell);
+            if(!stand.IsValid)
+            {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;return;}
+            if(engineer.Position!=stand)
             {
-                Pawn p=op.Squad[i];
-                if(p==null || p.Dead || p.Downed || p.Map!=map || p.jobs==null ||
-                   p.health?.capacities==null ||
-                   RHFTactical.Member(op,p)?.Role != (int)RHFCombatRole.Breacher ||
-                   !p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
-                   !p.CanReach(op.BarricadeCell,PathEndMode.Touch,Danger.Deadly))continue;
-                if(engineer==null || (p.Position-op.BarricadeCell).LengthHorizontalSquared<
-                    (engineer.Position-op.BarricadeCell).LengthHorizontalSquared)engineer=p;
-            }
-            if(engineer==null) return;
-            if((engineer.Position-op.BarricadeCell).LengthHorizontalSquared>4)
-            {
-                OrderGotoIfNeeded(engineer,op.BarricadeCell,2);
+                OrderGotoIfNeeded(engineer,stand,0);
                 op.FortifyStartedTick=0;
                 return;
             }
@@ -1591,24 +1648,34 @@ namespace RaidersHaveFamilies
                     Order(engineer,JobDefOf.Wait,engineer.Position);
                 return;
             }
-            // Abort if the tile was filled during construction. Do not destroy
-            // player structures or spawn through a prisoner.
             if(!op.BarricadeCell.Standable(map) ||
                op.BarricadeCell.GetFirstBuilding(map)!=null ||
-               (vip.Position-op.BarricadeCell).LengthHorizontalSquared<=2)
-            { op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;return; }
+               op.BarricadeCell.GetFirstPawn(map)!=null ||
+               !BarricadeLeavesExit(op,vip,op.BarricadeCell))
+            {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;return;}
             try
             {
                 Thing wall=ThingMaker.MakeThing(ThingDefOf.Wall,ThingDefOf.Steel);
                 wall.SetFaction(engineer.Faction);
                 GenSpawn.Spawn(wall,op.BarricadeCell,map);
-                SpendFieldSteel(op,10);
-                op.CompletedBarricades.Add(op.BarricadeCell);
-                op.BarricadesBuilt++;
-                Messages.Message("RHF: сапёр возвёл стальную баррикаду у тюремного входа.",
-                    wall,MessageTypeDefOf.ThreatSmall,false);
+                // A second validation against the ACTUALLY spawned obstacle:
+                // if topology changed during work, dismantle our wall at once.
+                bool accessible=vip.CanReach(op.PodCell,PathEndMode.OnCell,Danger.Deadly) &&
+                    engineer.CanReach(op.PodLauncherCell,PathEndMode.Touch,Danger.Deadly);
+                if(!accessible)
+                {
+                    wall.Destroy();
+                    Log.Warning("[RHF][FortifyS22] Rolled back wall blocking VIP/engineer access.");
+                }
+                else
+                {
+                    SpendFieldSteel(op,10);
+                    op.CompletedBarricades.Add(op.BarricadeCell);
+                    op.BarricadesBuilt++;
+                    Log.Message("[RHF][FortifyS22] Launcher defended; route verified "+op.BarricadeCell);
+                }
             }
-            catch(Exception e){Log.Warning("[RHF] Fortification aborted: "+e.Message);}
+            catch(Exception e){Log.Warning("[RHF][FortifyS22] Wall aborted: "+e.Message);}
             op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;
         }
 
@@ -2002,9 +2069,33 @@ namespace RaidersHaveFamilies
                     FallBackToLand(op,now,"no surviving engineers");
                 return;
             }
-            if(op.PodConstructionStage==0 && op.FortifyPrison && op.BarricadesBuilt<2 &&
-                now-op.PhaseStartTick<3000)
+            // S2.2.1: ONE WORK ORDER at a time. Barricade work takes the
+            // engineer first, but ONLY in this bounded opening window. Never
+            // let BuildAndLaunch countermand a fortification Goto/Wait every
+            // 90 ticks; conversely, an unfinished wall cannot hold the launch
+            // phase hostage when the window expires.
+            bool fortificationOpen=op.PodConstructionStage==0 &&
+                op.FortifyPrison && op.BarricadesBuilt<2 &&
+                now-op.PhaseStartTick<3000;
+            if(fortificationOpen)
+            {
+                int before=op.BarricadesBuilt;
                 TryBuildPrisonBarricade(op,vip,now);
+                if(op.BarricadeCell.IsValid || op.BarricadesBuilt>before)
+                {
+                    // Pause rather than advance the launcher timer while the
+                    // same worker is building the protective wall.
+                    op.PodConstructionTick=0;
+                    return;
+                }
+            }
+            else if(op.BarricadeCell.IsValid)
+            {
+                Log.Warning("[RHF][FortifyS221] Abandoning unfinished wall " +
+                    "to free engineer for VIP launch, cell="+op.BarricadeCell);
+                op.BarricadeCell=IntVec3.Invalid;
+                op.FortifyStartedTick=0;
+            }
 
             if(op.PodReady)
             {
@@ -2033,6 +2124,11 @@ namespace RaidersHaveFamilies
             Pawn engineer=FieldEngineer(op,site);
             if(engineer==null)
             {
+                if(now-op.PhaseStartTick>1800 &&
+                    (now-op.PhaseStartTick)%1800<90)
+                    Log.Warning("[RHF][BuildS22] No engineer can reach stage="+
+                        stage+"; site="+site+"; vip="+vip.Position+
+                        "; elapsed="+(now-op.PhaseStartTick));
                 if(now-op.PhaseStartTick>9000)
                     FallBackToLand(op,now,"work location unreachable");
                 return;
@@ -2043,7 +2139,16 @@ namespace RaidersHaveFamilies
                 op.PodConstructionTick=0;
                 return;
             }
-            if(op.PodConstructionTick==0)op.PodConstructionTick=now;
+            // The engineer must actually be on site and capable of working;
+            // time spent suppressed / fleeing CE fire is not build progress.
+            if(RHFCombatPlannerV125.IsCombatEmergencyJob(engineer))
+            {op.PodConstructionTick=0;return;}
+            if(op.PodConstructionTick==0)
+            {
+                op.PodConstructionTick=now;
+                Log.Message("[RHF][BuildS22] Engineer "+engineer.LabelShortCap+
+                    " started stage="+stage+" at "+site);
+            }
             int stageWork=stage==0?3000:1600;
             if(now-op.PodConstructionTick<stageWork)
             {

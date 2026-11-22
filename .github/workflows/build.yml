@@ -1,4 +1,4 @@
-name: Build Raiders Have Families 0.13.3 (RimWorld 1.7, Harmony 3)
+name: Build Raiders Have Families 0.13.3 S2.2.1 (RimWorld 1.7, Harmony 3)
 # Retains regression requirements introduced in 0.12.1 through 0.12.4.
 
 on:
@@ -66,6 +66,8 @@ jobs:
           python3 tests/rhf_136_tactical_playtest_contracts.py
           python3 tests/rhf_137_harmony_hotfix_contracts.py
           python3 tests/rhf_138_air_only_pod_gate.py
+          python3 tests/rhf_139_assembly_breach_fortify.py
+          python3 tests/rhf_140_s221_engineer_door_contact.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)
@@ -82,6 +84,6 @@ jobs:
       - name: Upload test build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: RaidersHaveFamilies-RimWorld-1.7-v0.13.3-S2.1-HARMONY-RECOVERY-TEST
+          name: RaidersHaveFamilies-RimWorld-1.7-v0.13.3-S2.2.1-ENGINEER-DOOR-CONTACT-TEST
           path: RaidersHaveFamilies_v0.13.3_RimWorld_1.7_INSTALL.zip
           if-no-files-found: error
