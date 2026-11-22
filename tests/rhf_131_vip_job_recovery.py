@@ -19,8 +19,8 @@ assert 'StabilizeFreed(op,op.Freed[j]);' in rescue
 assert 'RebindFreed(op,captive);' in rescue
 assert 'MissionKey == key' in rescue
 assert 'JobGiver_ExitMapBest' in guard and 'JobGiver_ExitMapPanic' in guard
-assert 'IsControlledFreed(pawn)' in guard
-assert '__result = null;' in guard and 'return false;' in guard
+assert 'IsControlledFreed(__0)' in guard
+assert ('__result = null;' in guard or '__result=null;' in guard) and 'return false;' in guard
 assert 'AuthorizedExits.Contains' in rescue and 'MissionExit' in rescue
 # Rescue pawns can be freed by vanilla without calling RHF FreeTarget.
 assert 'RecoverReleasedTargets(op,map,now);' in rescue
@@ -41,7 +41,7 @@ assert 'Pawn __0, Pawn __2' in medical
 assert 'Pawn pawn=__0, billDoer=__2;' in medical
 assert 'Pawn pawn, Pawn billDoer' not in medical
 assert 'python3 tests/rhf_131_vip_job_recovery.py' in workflow
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-ONE-LETTER-MISSION-TEST' in workflow
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-S2.1-HARMONY-RECOVERY-TEST' in workflow
 # Deterministic state-machine sanity: independent walk-away must not terminate
 # an active scripted pod mission.  The physical escort/pod completes it.
 def allowed_independent_exit(is_freed,live,pod_finished,authorized):

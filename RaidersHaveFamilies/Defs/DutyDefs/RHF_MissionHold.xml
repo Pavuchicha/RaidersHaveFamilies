@@ -7,11 +7,8 @@
     <alwaysShowWeapon>true</alwaysShowWeapon>
     <thinkNode Class="ThinkNode_Priority">
       <subNodes>
-        <li Class="JobGiver_AIFightEnemies">
-          <targetAcquireRadius>12</targetAcquireRadius>
-          <targetKeepRadius>15</targetKeepRadius>
-          <needLOSToAcquireNonPawnTargets>true</needLOSToAcquireNonPawnTargets>
-        </li>
+        <!-- Mission-scoped self-defence: never target own hostages/coalition. -->
+        <li Class="RaidersHaveFamilies.RHFJobGiverMissionDefenseV136" />
         <li Class="JobGiver_WanderNearDutyLocation">
           <wanderRadius>1</wanderRadius>
         </li>

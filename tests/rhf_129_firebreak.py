@@ -23,7 +23,7 @@ for token in (
     'route.FirstBarrierIndex>=route.FirstTurretExposureIndex',
     'state.LastDecision="огневой рубеж: сначала подавить турели',
     '(route.Valid ? 0 : 16)',
-    'now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>24000',
+    'needsFireSuppression ? 7200 : 24000',
 ):
     assert token in mission, f'unsafe mission override: {token}'
 assert mission.index('RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now)') < mission.index('now,false,needsFireSuppression')
@@ -39,7 +39,7 @@ for token in (
 ):
     assert token in combat, f'cover team lost fire discipline: {token}'
 assert 'tests/rhf_129_firebreak.py' in workflow
-assert 'v0.13.3-ONE-LETTER-MISSION-TEST' in workflow
+assert 'v0.13.3-S2.1-HARMONY-RECOVERY-TEST' in workflow
 
 # Exact-cost reference implementation: a small deterministic grid, for checking
 # relative path choice under HP and weapon exposure. Does NOT execute Verse pathfinder.

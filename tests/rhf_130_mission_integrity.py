@@ -95,7 +95,7 @@ assert 'int stageWork=stage==0?3000:1600' in ops
 assert 'python3 tests/rhf_130_mission_integrity.py' in wf
 assert 'Build Raiders Have Families 0.13.3' in wf
 assert 'RaidersHaveFamilies_v0.13.3_RimWorld_1.7_INSTALL.zip' in wf
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-ONE-LETTER-MISSION-TEST' in wf
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-S2.1-HARMONY-RECOVERY-TEST' in wf
 for f in (root/'RaidersHaveFamilies').rglob('*.xml'):
     ET.parse(f)
 print('PASS: mission letters, vanilla VIP buildings, paid supplies, safe drops, mission friendlies, group exit safeguards, CI metadata')

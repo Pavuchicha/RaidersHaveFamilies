@@ -44,7 +44,7 @@ assert '33 — Кто командует рейдом и зачем' in mission
 assert 'l?.LordJob?.GetType().Name' in mission
 assert 'pawn.jobs?.curJob?.def?.defName' in mission
 assert 'python3 tests/rhf_132_mission_authority.py' in workflow
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-ONE-LETTER-MISSION-TEST' in workflow
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-S2.1-HARMONY-RECOVERY-TEST' in workflow
 # Notional branching model for the intended invariants, for any map layout.
 def plan_action(rescue, intentional_diversion, objective_route, barrier, progress):
     if not rescue: return 'normal_attack'

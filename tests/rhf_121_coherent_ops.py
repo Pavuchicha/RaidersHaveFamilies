@@ -19,7 +19,7 @@ for key in ['Scribe_References.Look(ref HuntTarget', 'Scribe_Collections.Look(re
 wf=(root/'.github/workflows/build.yml').read_text()
 assert 'Build Raiders Have Families 0.13.3' in wf  # current build must be titled correctly
 assert 'tests/rhf_121_coherent_ops.py' in wf
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-ONE-LETTER-MISSION-TEST' in wf
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-S2.1-HARMONY-RECOVERY-TEST' in wf
 assert 'tests/rhf_123_rescue_control.py' in wf
 assert 'REQUIREMENTS_AUDIT_MASTER_RU.md' in {x.name for x in root.iterdir()}
 print('PASS: v0.12.1 mission persistence retained; v0.12.6 CI packaging contract')

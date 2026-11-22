@@ -19,6 +19,7 @@ namespace RaidersHaveFamilies
         public readonly List<Thing> Threats = new List<Thing>(24);
         public readonly HashSet<Pawn> Engaged = new HashSet<Pawn>();
         public readonly Dictionary<int, int> LastCombatOrder = new Dictionary<int, int>();
+        public readonly Dictionary<int, int> LastTurretHp = new Dictionary<int, int>();
         public readonly Dictionary<int, int> BreachReadyAt = new Dictionary<int, int>();
         public readonly Dictionary<int, Thing> BreachTarget = new Dictionary<int, Thing>();
         // A covering shooter retains the assigned target and firing position
@@ -47,7 +48,7 @@ namespace RaidersHaveFamilies
         private const int MaxStructureScan = 240;
         private const int MaxFlankCandidates = 20;
         private const int MaxTacticalOrders = 8;
-        private const int ThreatRefreshTicks = 360;
+        private const int ThreatRefreshTicks = 180;
         private const int FlankRefreshTicks = 900;
         private static readonly ConditionalWeakTable<RHFOperation, RHFCombatStateV125> States =
             new ConditionalWeakTable<RHFOperation, RHFCombatStateV125>();
@@ -294,6 +295,22 @@ namespace RaidersHaveFamilies
                    defName.IndexOf("Autocannon", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        internal static bool TurretDamageProgress(RHFOperation op)
+        {
+            if(op==null || !States.TryGetValue(op,out RHFCombatStateV125 state))
+                return false;
+            bool damaged=false;
+            foreach(Thing enemy in state.Threats)
+            {
+                if(!(enemy is Building turret) || !IsTurret(turret))continue;
+                int id=enemy.thingIDNumber;
+                if(state.LastTurretHp.TryGetValue(id,out int previous) &&
+                   enemy.HitPoints<previous)damaged=true;
+                state.LastTurretHp[id]=enemy.HitPoints;
+            }
+            return damaged;
+        }
+
         private static bool PlayerFighter(Pawn pawn, Map map)
         {
             return Active(pawn, map) && pawn.Faction == Faction.OfPlayer &&
@@ -343,7 +360,7 @@ namespace RaidersHaveFamilies
             }
         }
 
-        private static float WeaponRange(Pawn pawn)
+        internal static float WeaponRange(Pawn pawn)
         {
             if (pawn?.equipment?.Primary?.def?.IsRangedWeapon != true) return 0f;
             List<VerbProperties> verbs = pawn.equipment.Primary.def.Verbs;
@@ -356,7 +373,30 @@ namespace RaidersHaveFamilies
             return Mathf.Clamp(range, 4f, 55f);
         }
 
-        private static bool SafelyEngage(Pawn pawn, Thing enemy, Map map, Pawn captive)
+        // In CE these jobs are produced by combat/suppression logic, not by our
+        // objective planner. In particular, never pre-empt a seek-cover or
+        // suppression recovery job with a new 90-tick movement order.
+        internal static bool IsCombatEmergencyJob(Pawn pawn)
+        {
+            if(pawn==null)return false;
+            if(pawn.Downed || pawn.InMentalState)return true;
+            // Combat Extended suppression may be a PRONE POSTURE inside a
+            // vanilla combat job rather than a custom job named "Suppress".
+            if(pawn.Spawned && pawn.jobs!=null &&
+               (pawn.CurJobDef==JobDefOf.Wait_Combat ||
+                pawn.CurJobDef==JobDefOf.AttackStatic) &&
+               pawn.GetPosture()!=PawnPosture.Standing)return true;
+            string name = pawn.jobs?.curJob?.def?.defName ?? "";
+            return name.IndexOf("Suppress",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("TakeCover",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("RunForCover",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("SeekCover",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("Flee",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("Reload",StringComparison.OrdinalIgnoreCase)>=0;
+        }
+
+        private static bool SafelyEngage(Pawn pawn, Thing enemy, Map map,
+            Pawn captive, RHFOperation op)
         {
             if (pawn == null || enemy == null || !enemy.Spawned || map == null)
                 return false;
@@ -364,6 +404,7 @@ namespace RaidersHaveFamilies
                 (enemy.Position-captive.Position).LengthHorizontalSquared <= 4)
                 return false; // keep fire away from a captive under close guard
             if (!GenSight.LineOfSight(pawn.Position, enemy.Position, map)) return false;
+            if (RHFRescueFireDisciplineV136.UnsafeLine(op,pawn,enemy)) return false;
             float range = WeaponRange(pawn);
             if (range <= 0f) return (pawn.Position-enemy.Position).LengthHorizontalSquared < 64;
             if ((pawn.Position-enemy.Position).LengthHorizontalSquared > range*range) return false;
@@ -381,6 +422,7 @@ namespace RaidersHaveFamilies
         {
             if (pawn?.jobs == null || job == null) return false;
             Job current = pawn.jobs.curJob;
+            if (IsCombatEmergencyJob(pawn)) return false;
             if (current != null && current.def == job &&
                 (target.Thing != null ? current.targetA.Thing == target.Thing :
                                         current.targetA.Cell == target.Cell)) return true;
@@ -493,6 +535,11 @@ namespace RaidersHaveFamilies
             int distance = (enemy.Position-rescuer.Position).LengthHorizontalSquared;
             int score = 1000 - Math.Min(distance,1000);
             if (enemy is Building) score += 350;
+            // A defender actually firing at the group must not lose priority
+            // to a nearby silent turret or an otherwise irrelevant building.
+            if (enemy is Pawn activeShooter &&
+                activeShooter.jobs?.curJob?.def == JobDefOf.AttackStatic)
+                score += 850;
             if (GenSight.LineOfSight(rescuer.Position,enemy.Position,map)) score += 350;
             if (captive != null && (enemy.Position-captive.Position).LengthHorizontalSquared < 225)
                 score += 90;
@@ -529,6 +576,11 @@ namespace RaidersHaveFamilies
             state.Engaged.Clear();
             if (RHFMod.Settings?.TacticalCombat != true || map == null ||
                 fighters == null || fighters.Count == 0) return state.Engaged;
+            // Reservation is not limited by the fire-team size: every pawn
+            // suppressed by CE keeps the native recovery/cover job.
+            for (int i=0;i<fighters.Count && i<MaxSquad;i++)
+                if (Active(fighters[i],map) && IsCombatEmergencyJob(fighters[i]))
+                    state.Engaged.Add(fighters[i]);
             Scan(op,map,captive,fighters,state,now);
             if (state.Threats.Count == 0)
             { state.Decision="активных защитников рядом с маршрутом не обнаружено";return state.Engaged; }
@@ -540,6 +592,9 @@ namespace RaidersHaveFamilies
             if(blockedByTurrets && alive>3)
                 maxSupport=Math.Max(maxSupport,Math.Min(alive-2,(alive*2)/3));
             maxSupport=Math.Min(maxSupport,MaxTacticalOrders);
+            // Existing CE reservations are not counted as available shooters;
+            // those pawns aren't in a position to provide reliable cover.
+            maxSupport=Math.Min(alive,maxSupport+state.Engaged.Count);
             var assignments=new Dictionary<Thing,int>();
             // Keep previously assigned shooters on their standoff movement job.
             // Without this persistence the main rescue planner overwrites their
@@ -554,7 +609,7 @@ namespace RaidersHaveFamilies
                     !state.Threats.Contains(assigned))
                 {state.CoverTarget.Remove(id);state.CoverWaypoint.Remove(id);continue;}
                 if(extraction && AssignedEscort(op,pawn,map))continue;
-                bool onTarget=SafelyEngage(pawn,assigned,map,captive);
+                bool onTarget=SafelyEngage(pawn,assigned,map,captive,op);
                 if(onTarget)
                 {
                     JobDef def=WeaponRange(pawn)>0f?JobDefOf.AttackStatic:JobDefOf.AttackMelee;
@@ -607,7 +662,7 @@ namespace RaidersHaveFamilies
                 }
                 if(best==null)continue;
                 bool ordered=false;
-                if(SafelyEngage(fighter,best,map,captive))
+                if(SafelyEngage(fighter,best,map,captive,op))
                 {
                     JobDef attack=WeaponRange(fighter)>0f?JobDefOf.AttackStatic:JobDefOf.AttackMelee;
                     ordered=GiveCombat(fighter,attack,best,state,now);

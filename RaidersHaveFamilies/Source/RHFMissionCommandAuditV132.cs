@@ -32,7 +32,9 @@ namespace RaidersHaveFamilies
                     (op.Vip?.LabelShortCap??(op.Targets!=null && op.Targets.Count>0 ?
                         op.Targets[0]?.LabelShortCap:"нет"))+
                     " rescue="+op.Squad?.Count+" diversion="+op.Diversion?.Count+
-                    " rescued="+op.Freed?.Count+" combined="+op.CombinedStrike);
+                    " rescued="+op.Freed?.Count+" combined="+op.CombinedStrike+
+                    " landed="+op.Deployed+" parties="+op.SuccessfulParties+
+                    "/"+op.Parties?.Count);
                 if(op.Squad==null)continue;
                 int own=0,vanilla=0,none=0;
                 int shown=0;
@@ -45,7 +47,10 @@ namespace RaidersHaveFamilies
                     if(shown++>=10)continue;
                     sb.AppendLine("  "+pawn.LabelShortCap+" lord="+
                         (l?.LordJob?.GetType().Name??"нет")+" job="+
-                        (pawn.jobs?.curJob?.def?.defName??"нет")+" pos="+pawn.Position);
+                        (pawn.jobs?.curJob?.def?.defName??"нет")+" target="+
+                        (pawn.jobs?.curJob?.targetA.ToString()??"нет")+
+                        " suppression/CE="+RHFCombatPlannerV125.IsCombatEmergencyJob(pawn)+
+                        " pos="+pawn.Position);
                 }
                 sb.AppendLine("Командование: RHF="+own+" vanilla="+vanilla+" без Lord="+none+
                     "; lastProgressTick="+op.LastProgressTick);

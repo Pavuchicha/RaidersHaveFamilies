@@ -24,24 +24,49 @@ namespace RaidersHaveFamilies
     {
         static RHFPatchInit()
         {
-            try
+            var harmony = new Harmony("pavuk.raidshavefamilies");
+            int installed=0,failed=0;
+            // A single obsolete [HarmonyPatch] must never disable SpawnSetup,
+            // coalition hostility, raid letters, prisoner exits and every other
+            // unrelated integration. Patch each decorated class independently.
+            Type[] patchTypes;
+            try { patchTypes=typeof(RHFPatchInit).Assembly.GetTypes(); }
+            catch(ReflectionTypeLoadException e)
             {
-                var harmony = new Harmony("pavuk.raidshavefamilies");
-                harmony.PatchAll(typeof(RHFPatchInit).Assembly);
-                RHFWarCrimesIntegration.Patch(harmony);
-                // Optional vanilla sale event, resolved dynamically so an API change
-                // cannot prevent all other Harmony patches from installing.
+                patchTypes=e.Types;
+                Log.Error("[RHF][HarmonyS21] Partial type load: " + e);
+            }
+            foreach(Type type in patchTypes)
+            {
+                if(type==null || !Attribute.IsDefined(type,typeof(HarmonyPatch),false))continue;
                 try
                 {
-                    MethodInfo sold = AccessTools.Method(typeof(Pawn_RelationsTracker), "Notify_PawnSold");
-                    MethodInfo postfix = AccessTools.Method(typeof(RHFOrdinarySaleHook), nameof(RHFOrdinarySaleHook.Postfix));
-                    if (sold != null && postfix != null)
-                        harmony.Patch(sold, postfix: new HarmonyMethod(postfix));
+                    harmony.CreateClassProcessor(type).Patch();
+                    installed++;
                 }
-                catch (Exception e) { Log.Warning("[RHF] Ordinary sale event unavailable: " + e.Message); }
-                Log.Message("[Raiders Have Families] 0.8.0 event-driven Harmony integrations active.");
+                catch(Exception e)
+                {
+                    failed++;
+                    Log.Error("[RHF][HarmonyS21] FAILED class " + type.FullName +
+                        ": " + e.GetBaseException());
+                }
             }
-            catch (Exception e) { Log.Error("[Raiders Have Families] Could not initialize Harmony: " + e); }
+            try { RHFControlledFreedExitJobV131.Install(harmony); }
+            catch(Exception e) { Log.Warning("[RHF][HarmonyS21] Optional exit hook: "+e); }
+            try { RHFWarCrimesIntegration.Patch(harmony); }
+            catch(Exception e) { Log.Error("[RHF][HarmonyS21] WCE2 integration failed: "+e); }
+            // Optional vanilla sale hook is also isolated.
+            try
+            {
+                MethodInfo sold=AccessTools.Method(typeof(Pawn_RelationsTracker),"Notify_PawnSold");
+                MethodInfo postfix=AccessTools.Method(typeof(RHFOrdinarySaleHook),
+                    nameof(RHFOrdinarySaleHook.Postfix));
+                if(sold!=null && postfix!=null)
+                    harmony.Patch(sold,postfix:new HarmonyMethod(postfix));
+            }
+            catch(Exception e) { Log.Warning("[RHF][HarmonyS21] Optional ordinary sale hook: "+e.Message); }
+            Log.Message("[RHF][HarmonyS21] Class patches installed="+installed+
+                ", failed="+failed+". Each failure is isolated and logged by class.");
         }
     }
 

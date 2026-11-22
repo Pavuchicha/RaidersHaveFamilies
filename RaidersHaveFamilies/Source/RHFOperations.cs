@@ -4,6 +4,7 @@
 //  * Every action has a bounded decision budget; no global pawn scans in idle time.
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -254,6 +255,14 @@ namespace RaidersHaveFamilies
         private RHFStrikeParty activeParty;
         private List<RHFOperation> operations = new List<RHFOperation>();
         private int nextDecision;
+        private sealed class RHFDropCaptureV136
+        {
+            internal readonly Dictionary<Faction,HashSet<int>> Before =
+                new Dictionary<Faction,HashSet<int>>();
+            internal int UntilTick;
+        }
+        private static readonly ConditionalWeakTable<RHFOperation,RHFDropCaptureV136>
+            DropCapture = new ConditionalWeakTable<RHFOperation,RHFDropCaptureV136>();
 
         public RHFOperationController(Map map) : base(map) { }
         public override void ExposeData()
@@ -537,11 +546,66 @@ namespace RaidersHaveFamilies
             }
         }
 
+        // S2: DropPodIncoming can spawn pawns after RaidEnemy.TryExecute ends.
+        // Keep the PRE-incident pawn IDs so the watchdog can claim only new
+        // members of the exact hired rescue faction, not unrelated enemies.
+        private void RecoverLateDropRescuers(RHFOperation op,int now)
+        {
+            if(op==null || !op.Deployed || op.Type!=(int)RHFOperationType.Rescue ||
+               !DropCapture.TryGetValue(op,out RHFDropCaptureV136 capture) ||
+               now>capture.UntilTick || op.Squad.Count>=MaxSquad)return;
+            int recovered=0;
+            foreach(Pawn pawn in map.mapPawns.AllPawnsSpawned)
+            {
+                if(pawn==null || !pawn.Spawned || pawn.Dead ||
+                   pawn.RaceProps?.Humanlike!=true || pawn.Faction==null ||
+                   !capture.Before.TryGetValue(pawn.Faction,out HashSet<int> before) ||
+                   before.Contains(pawn.thingIDNumber) ||
+                   op.Squad.Contains(pawn) || op.Diversion.Contains(pawn))continue;
+                bool otherOperation=false;
+                foreach(RHFOperation other in operations)
+                    if(other!=op && other!=null &&
+                       ((other.Squad!=null && other.Squad.Contains(pawn)) ||
+                        (other.Diversion!=null && other.Diversion.Contains(pawn))))
+                    {otherOperation=true;break;}
+                if(otherOperation)continue;
+                RHFStrikeParty rescueParty=null;
+                foreach(RHFStrikeParty party in op.Parties)
+                    if(party!=null && party.Succeeded && party.Drop &&
+                       party.Role==(int)RHFStrikeRole.Rescue && party.Faction==pawn.Faction)
+                    {rescueParty=party;break;}
+                if(rescueParty==null)continue;
+                op.Squad.Add(pawn);
+                rescueParty.Members++;
+                RHFTactical.Register(op,rescueParty,pawn);
+                if(++recovered+op.Squad.Count>=MaxSquad)break;
+            }
+            if(recovered>0)
+                Log.Message("[RHF][DropV136] Registered "+recovered+
+                    " late rescue pawns; mission now has "+op.Squad.Count+
+                    " members, phase="+op.Phase);
+        }
+
         private bool Deploy(RHFOperation op)
         {
             if (op == null || op.Deployed) return op != null && op.SuccessfulParties > 0;
             op.Deployed = true;
             if (op.Parties == null || op.Parties.Count == 0) return false;
+            // A land-arriving rescue NEVER gains an evacuation pod mission.
+            // Only explicitly funded DROP RESCUE parties are eligible.
+            if(op.TryPod)
+            {
+                bool dropRescue=false;
+                foreach(RHFStrikeParty planned in op.Parties)
+                    if(planned!=null && planned.Drop &&
+                       planned.Role==(int)RHFStrikeRole.Rescue)
+                    {dropRescue=true;break;}
+                if(!dropRescue)
+                {
+                    op.TryPod=false;op.FortifyPrison=false;
+                    Log.Warning("[RHF][PodGateS21] Land-arriving rescuers use ground evacuation; no field pod kit.");
+                }
+            }
             int success = 0;
             for (int i=0; i<op.Parties.Count && i<MaxStrikeParties; i++)
             {
@@ -560,6 +624,15 @@ namespace RaidersHaveFamilies
                     foreach (Pawn existing in map.mapPawns.AllPawnsSpawned)
                         if (existing != null)
                             presentBeforeRaid.Add(existing.thingIDNumber);
+                    if (party.Drop)
+                    {
+                        RHFDropCaptureV136 capture=DropCapture.GetValue(op,_=>new RHFDropCaptureV136());
+                        if(!capture.Before.TryGetValue(party.Faction,out HashSet<int> recorded))
+                            capture.Before[party.Faction]=presentBeforeRaid;
+                        else
+                            recorded.UnionWith(presentBeforeRaid);
+                        capture.UntilTick=Find.TickManager.TicksGame+2400;
+                    }
                 }
                 bool accepted = false;
                 try
@@ -569,8 +642,8 @@ namespace RaidersHaveFamilies
                     party.SupplyBudget = RHFMod.Settings?.RoleEquipment == true ?
                         Mathf.Min(300f, Mathf.Max(0f, party.Points * 0.12f)) : 0f;
                     float effectivePoints = party.Points - party.SupplyBudget;
-                    if (op.TryPod && party.Role==(int)RHFStrikeRole.Rescue &&
-                        !op.PodBudgetPaid)
+                    if (op.TryPod && party.Drop &&
+                        party.Role==(int)RHFStrikeRole.Rescue && !op.PodBudgetPaid)
                     {
                         // Genuine vanilla PodLauncher/TransportPod have separate
                         // Steel and ComponentIndustrial costs. Both are charged
@@ -847,6 +920,9 @@ namespace RaidersHaveFamilies
                     continue; // vanilla Lord still controls ordinary assault formations
                 }
                 if (now < op.SpawnTick) continue;
+                // Recover airdropped rescue pawns before the Phase 0 empty-squad
+                // deadline can drop the mission and leave vanilla AssaultColony.
+                RecoverLateDropRescuers(op,now);
                 if (op.Phase == 0)
                 {
                     if (op.Squad.Count == 0)
@@ -1826,6 +1902,17 @@ namespace RaidersHaveFamilies
 
         private void BuildAndLaunch(RHFOperation op,int now)
         {
+            bool successfulDropRescue=false;
+            if(op.Parties!=null)
+                foreach(RHFStrikeParty party in op.Parties)
+                    if(party!=null && party.Drop && party.Succeeded &&
+                       party.Role==(int)RHFStrikeRole.Rescue)
+                    {successfulDropRescue=true;break;}
+            if(!successfulDropRescue)
+            {
+                FallBackToLand(op,now,"no successful drop-rescue unit to construct transport");
+                return;
+            }
             Pawn vip=op.Vip;
             if(vip!=null && op.Freed.Contains(vip) && vip.Spawned)
                 RHFRescueCommandV124.StabilizeFreed(op,vip);

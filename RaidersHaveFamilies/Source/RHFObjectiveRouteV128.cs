@@ -400,7 +400,15 @@ namespace RaidersHaveFamilies
             if(route==null || !route.Valid || !cell.IsValid)return false;
             int end=SafeAdvanceLimit(route);
             for(int i=0;i<=end;i++)
+            {
                 if(route.Cells[i]==cell)return true;
+                // A narrow three-lane formation is allowed ONLY on the open
+                // prefix of a corridor with no known turret exposure. Never
+                // use a lateral lane at a breach or in an exposed fire lane.
+                if(route.FirstTurretExposureIndex<0 && i>=2 && i<end-2 &&
+                   (route.Cells[i]-cell).LengthHorizontalSquared==1)
+                    return true;
+            }
             return false;
         }
         internal static IntVec3 Waypoint(RHFRoutePlanV128 route,Pawn soldier,Map map)
@@ -433,7 +441,12 @@ namespace RaidersHaveFamilies
             int end=nearest+1;
             IntVec3 previous=route.Cells[nearest];
             IntVec3 step=route.Cells[end]-previous;
-            for(int i=end+1;i<=limit && i<=nearest+5;i++)
+            // S2: 5-cell hops made the entire squad stop and restart every few
+            // seconds in long open-field approaches. Extend only a completely
+            // straight, already validated cardinal leg; never skip a bend,
+            // planned breach or first turret-exposure cell.
+            int maxLeg = 13 + (soldier.thingIDNumber & 3) * 2;
+            for(int i=end+1;i<=limit && i<=nearest+maxLeg;i++)
             {
                 IntVec3 nextStep=route.Cells[i]-route.Cells[i-1];
                 if(nextStep!=step)break;
@@ -445,7 +458,27 @@ namespace RaidersHaveFamilies
                 if(!destination.InBounds(map) || !destination.Standable(map))continue;
                 if(soldier.CanReach(destination,PathEndMode.OnCell,Danger.Deadly) &&
                    !CrossesKnownFire(route,soldier.Position,destination,map))
+                {
+                    // S2 formation: spread across three positions where there
+                    // is genuine open ground. An individual job still stays
+                    // within one tile of the costed safe path. Turret/breach
+                    // sections remain single-file and deliberately cautious.
+                    if(route.FirstTurretExposureIndex<0 && i<limit-3 &&
+                       i-nearest>=8 && (soldier.thingIDNumber%3)!=1)
+                    {
+                        IntVec3 side=step.x!=0?IntVec3.North:IntVec3.East;
+                        IntVec3 lane=(soldier.thingIDNumber%3)==0 ?
+                            destination+side : destination-side;
+                        if(lane.InBounds(map) && lane.Standable(map) &&
+                           lane.GetFirstPawn(map)==null &&
+                           IsAllowedWaypoint(route,lane) &&
+                           !CrossesKnownFire(route,soldier.Position,lane,map) &&
+                           GenSight.LineOfSight(soldier.Position,lane,map) &&
+                           soldier.CanReach(lane,PathEndMode.OnCell,Danger.Deadly))
+                            return lane;
+                    }
                     return destination;
+                }
             }
             return IntVec3.Invalid;
         }

@@ -57,7 +57,16 @@ namespace RaidersHaveFamilies
                 // the only route movers. This custom idle duty fights immediate
                 // threats only, then waits near the soldier's *current* location.
                 DutyDef missionHold = DefDatabase<DutyDef>.GetNamedSilentFail(
-                    "RHF_HoldForMissionOrders") ?? DutyDefOf.Defend;
+                    "RHF_HoldForMissionOrders");
+                if (missionHold == null)
+                {
+                    // Never substitute the broad vanilla Defend duty. The
+                    // fallback recreated the destructive rescue regression.
+                    Log.ErrorOnce("[RHF][MissionV136] RHF_HoldForMissionOrders Def missing; " +
+                        "rescue combat duty disabled",130136);
+                    pawn.mindState.duty = null;
+                    continue;
+                }
                 pawn.mindState.duty = new PawnDuty(missionHold, pawn.Position);
             }
         }
@@ -350,6 +359,10 @@ namespace RaidersHaveFamilies
             // A path assignment cannot be restarted every 90 ticks. Jobs that
             // genuinely fail are retried with a different goal after 600 ticks.
             Job current = p.jobs.curJob;
+            // Combat Extended suppression and cover take precedence over RHF
+            // waypoint pulses. Never bounce a pinned soldier between a forced
+            // Goto and the game's suppression/cover response.
+            if (RHFCombatPlannerV125.IsCombatEmergencyJob(p)) return false;
             if (current != null && current.def == jobDef &&
                 (target.Thing != null ? current.targetA.Thing == target.Thing :
                     current.targetA.Cell == target.Cell)) return true;
@@ -565,7 +578,10 @@ namespace RaidersHaveFamilies
                 int sqdist = (rescuer.Position-captive.Position).LengthHorizontalSquared;
                 // Real progress: approaching the target or damaging the planned
                 // obstacle, NOT merely reissuing an identical ordered job.
-                if (now-moved<=Step && now-closer<=Step) objectiveProgress=true;
+                // Under a turret firebreak, shuffling around the holding line
+                // does NOT count as progress toward an achievable objective.
+                if (!needsFireSuppression && now-moved<=Step && now-closer<=Step)
+                    objectiveProgress=true;
                 if (sqdist<=5 && rescuer.CanReach(captive, PathEndMode.Touch, Danger.Deadly))
                 {
                     if (FreeMethod == null)
@@ -680,12 +696,15 @@ namespace RaidersHaveFamilies
                 }
             }
             op.LastOrderTick = now;
+            if (RHFCombatPlannerV125.TurretDamageProgress(op))
+                objectiveProgress=true;
             if (objectiveProgress) op.LastProgressTick = now;
             // No available route and no effective covering fire is a mission
             // failure, not a license to march the main squad into turrets for
             // hours. Withdraw survivors after a sustained, observable stalemate.
             if(stalled>0 && orders==0 &&
-                now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>24000)
+                now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>
+                    (needsFireSuppression ? 7200 : 24000))
             {
                 state.LastDecision="спасение отменено: безопасный маршрут/пролом " +
                     "не найден или оборону не удалось подавить; организованный отход";

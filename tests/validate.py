@@ -19,7 +19,7 @@ files = {p.name:p.read_text(encoding='utf-8') for p in (MOD/'Source').glob('*.cs
 assert {'RaidersHaveFamilies.cs','RHFPatches.cs','RHFHostageSystems.cs','RHFOperations.cs','RHFRanks.cs','RHFWCERegistry.cs'} <= set(files)
 patch = files['RHFPatches.cs']
 for needle in ['Pawn.SpawnSetup', 'Pawn.ExitMap', 'Pawn.Kill', 'SetGuestStatus',
-    'FactionDialogMaker', 'FactionDialogFor', 'PatchAll', 'HarmonyPostfix',
+    'FactionDialogMaker', 'FactionDialogFor', 'CreateClassProcessor', 'HarmonyPostfix',
     'RHFWarCrimesIntegration', 'RHFWCERegistry.SeverityOf', 'ApplyOnPawn']:
     assert needle in patch, f'Missing {needle}'
 diplomacy = files['RHFHostageSystems.cs']

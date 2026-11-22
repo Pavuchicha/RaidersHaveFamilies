@@ -9,7 +9,7 @@ rescue=(source/'RHFRescueCommandV124.cs').read_text('utf8')
 workflow=(root/'.github/workflows/build.yml').read_text('utf8')
 for key in (
     'MaxPawnScan = 160', 'MaxStructureScan = 240', 'MaxThreats = 24',
-    'ThreatRefreshTicks = 360', 'MaxTacticalOrders = 8',
+    'ThreatRefreshTicks = 180', 'MaxTacticalOrders = 8',
     'evaluationBudget=Math.Min(32',
     'IsTurret(building)', 'FreeColonistsSpawned' if False else 'AllPawnsSpawned',
     'RHFCombatPlannerV125', 'JobDefOf.AttackStatic', 'JobDefOf.AttackMelee',

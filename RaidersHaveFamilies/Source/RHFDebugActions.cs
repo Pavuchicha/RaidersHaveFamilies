@@ -632,14 +632,18 @@ namespace RaidersHaveFamilies
                 scenario == RHFDebugScenario.FieldPod) && mercenary != null) ||
                 (scenario == RHFDebugScenario.FortifiedVipExtraction &&
                  sponsor.def.techLevel < TechLevel.Industrial && mercenary != null) ? mercenary : sponsor;
-            if (scenario == RHFDebugScenario.FortifiedVipExtraction &&
+            // Both field-pod rescue scenarios require an actual drop-equipped
+            // rescuing faction; a land raid must never assemble launch pods.
+            if ((scenario == RHFDebugScenario.FieldPod ||
+                 scenario == RHFDebugScenario.FortifiedVipExtraction) &&
                 executor.def.techLevel < TechLevel.Industrial)
             {
-                Notify(map, "Пленник ранга " + selectedRank + " найден (фракция: «" +
-                    sponsor.Name + "»), но для операции 16 нет индустриальной враждебной фракции-исполнителя. " +
+                Notify(map, "Для спасения с эвакуационными капсулами требуется индустриальная " +
+                    "враждебная фракция-исполнитель с десантными капсулами. " +
                     "Обычное VIP-спасение доступно через команду 03.");
                 return;
             }
+
             if (!executor.HostileTo(Faction.OfPlayer))
             { Notify(map, "Фракция-исполнитель должна быть враждебна игроку."); return; }
 
@@ -717,8 +721,9 @@ namespace RaidersHaveFamilies
                      scenario == RHFDebugScenario.FortifiedVipExtraction)
             {
                 op.Parties.Add(new RHFStrikeParty(executor, RHFStrikeRole.Rescue, total,
-                    drop: scenario==RHFDebugScenario.FortifiedVipExtraction &&
-                       executor.def.techLevel>=TechLevel.Industrial,
+                    drop: (scenario==RHFDebugScenario.FieldPod ||
+                           scenario==RHFDebugScenario.FortifiedVipExtraction) &&
+                           executor.def.techLevel>=TechLevel.Industrial,
                     breach: true));
             }
             else if (coalition)
