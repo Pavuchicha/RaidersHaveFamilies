@@ -1,6 +1,6 @@
 # NJR — Not Just Raiders
 
-**RimWorld 1.7 / experimental v0.14.0-beta1** · Formerly *Raiders Have Families*.
+**RimWorld 1.7 / experimental v0.14.0-beta2** · Formerly *Raiders Have Families*.
 
 Raids have consequences. Enemy pawns may have relatives and loyalty ties; prisoner treatment can affect relations, ransom demands and faction responses. The mod also experiments with hostage rescue, coalition assaults, retaliation, social rank, combat doctrine, and physical VIP transport-pod extraction. **No claim that all 18 tactical scenarios are production-ready**: they require gameplay validation.
 
@@ -24,4 +24,4 @@ The display name is **NJR — Not Just Raiders**. Internal identifiers deliberat
 
 `python3 tests/njr_200_integrity_audit.py` validates packaging, translations, the 18 debug scenarios and compatibility invariants. CI runs the historical regression suite, restores RimWorld references and compiles the DLL. Static tests cannot replace gameplay; use the in-game developer actions and collect `Player.log` for failures. Audit findings and coverage are in `docs/NJR_FULL_AUDIT_AND_RELEASE_RU.md`.
 
-Version v0.14.0-beta1 describes a rebrand/consolidation based on S4.1-A/P, **not a declaration of 18 proven tactical AIs**. See [`docs/LEGACY_README_PRE_NJR.md`](docs/LEGACY_README_PRE_NJR.md) for historical release notes.
+Version v0.14.0-beta2 describes a rebrand/consolidation based on S4.1-A/P, **not a declaration of 18 proven tactical AIs**. See [`docs/LEGACY_README_PRE_NJR.md`](docs/LEGACY_README_PRE_NJR.md) for historical release notes.

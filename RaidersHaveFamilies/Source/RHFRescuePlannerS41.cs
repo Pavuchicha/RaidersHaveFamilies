@@ -431,6 +431,12 @@ namespace RaidersHaveFamilies
             board.LastPlanTick=now;
             RHFRoutePlanV128 route=RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now);
             Thing obstacle=route.Valid ? route.FirstBarrier : null;
+            if(obstacle==null && !route.Valid)
+            {
+                bool clear;
+                obstacle=RHFCombatPlannerV125.FirstObjectiveObstacle(
+                    lead,captive,out clear);
+            }
             if(obstacle!=null && (obstacle.Destroyed || !obstacle.Spawned))obstacle=null;
             if (board.Barrier != obstacle)
             {
@@ -469,6 +475,9 @@ namespace RaidersHaveFamilies
                 return;
             }
             board.Threat=FirstRouteTurret(route,map);
+            if(board.Threat==null && (!route.Valid ||
+                route.FirstTurretExposureIndex<0))
+                board.Threat=DefensiveTurretFront(op,map,lead);
             if(board.Threat!=null && board.Threat.HitPoints<board.LastThreatHP)
             {
                 op.LastProgressTick=now;
@@ -491,6 +500,8 @@ namespace RaidersHaveFamilies
                 if(board.Threat!=null && shooters<supportBudget)
                 {
                     IntVec3 fire=TurretFirePosition(soldier,board.Threat,map);
+                    if(!fire.IsValid)
+                        fire=TurretStagingCell(soldier,board.Threat,map,allocated);
                     if(fire.IsValid && !allocated.Contains(fire))
                     {
                         board.Assign(soldier,RHFRoleS41.SuppressTurret,board.Threat,fire,now);
@@ -522,6 +533,40 @@ namespace RaidersHaveFamilies
                 (board.Threat!=null && shooters==0?" / NO VIABLE TURRET FIRE POSITION":"") :
                 route.Valid?"advance via cached corridor; suppress="+shooters:
                 "no valid route: "+route.Explanation;
+        }
+
+        // When every approach crosses a turret ring the safe objective route
+        // may be invalid: never turn the entire assault into HOLD. Choose a
+        // truly active turret visible from an achievable front; the ordinary
+        // attack jobs retain real line-of-fire and weapon-range requirements.
+        private static Building DefensiveTurretFront(RHFOperation op,Map map,Pawn lead)
+        {
+            if(map==null || lead==null || op?.Squad==null)return null;
+            Building best=null, nearest=null;
+            int cost=int.MaxValue, nearDist=int.MaxValue, inspected=0;
+            foreach(Building turret in map.listerBuildings.allBuildingsColonist)
+            {
+                if(++inspected>250)break;
+                if(!RHFCombatPlannerV125.IsTurret(turret) ||
+                   !turret.Spawned || turret.Destroyed)continue;
+                int dist=(lead.Position-turret.Position).LengthHorizontalSquared;
+                if(dist>7000)continue;
+                if(dist<nearDist){nearest=turret;nearDist=dist;}
+                bool feasible=false;
+                int checkedFighters=0;
+                foreach(Pawn soldier in op.Squad)
+                {
+                    if(++checkedFighters>20)break;
+                    if(!Active(soldier,map))continue;
+                    if(TurretFirePosition(soldier,turret,map).IsValid)
+                    {feasible=true;break;}
+                }
+                if(feasible && dist<cost){best=turret;cost=dist;}
+            }
+            // A turret ring outside current weapon range must not make the
+            // entire squad HOLD. Advance physically until a firing lane is
+            // available; never fabricate a shot or teleport past the guns.
+            return best??nearest;
         }
 
         // Threat MUST be a real active player turret with a verified firing
@@ -569,6 +614,49 @@ namespace RaidersHaveFamilies
                 if(pathDist>=cost ||
                    !soldier.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
                 cost=pathDist;best=cell;
+            }
+            return best;
+        }
+
+        // Bounded physical bounding move for riflemen unable to fire on the
+        // distant ring of turrets. Scores actual reachable cells by progress,
+        // cover and nearby turret sight-lines. Does not create artificial fire.
+        private static IntVec3 TurretStagingCell(Pawn soldier,Thing turret,Map map,
+            HashSet<IntVec3> occupied)
+        {
+            if(soldier==null || turret==null || map==null ||
+               RHFCombatPlannerV125.WeaponRange(soldier)<=2f)
+                return IntVec3.Invalid;
+            IntVec3 origin=soldier.Position;
+            int starting=(origin-turret.Position).LengthHorizontalSquared;
+            int dx=turret.Position.x-origin.x;
+            int dz=turret.Position.z-origin.z;
+            int scale=Math.Max(1,Math.Max(Math.Abs(dx),Math.Abs(dz)));
+            IntVec3 best=IntVec3.Invalid;
+            int bestCost=int.MaxValue;
+            for(int length=4;length<=16;length+=4)
+            for(int flank=-4;flank<=4;flank+=4)
+            {
+                int x=dx*length/scale-dz*flank/scale;
+                int z=dz*length/scale+dx*flank/scale;
+                IntVec3 cell=origin+new IntVec3(x,0,z);
+                if(!cell.InBounds(map) || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null || occupied.Contains(cell))continue;
+                int distance=(cell-turret.Position).LengthHorizontalSquared;
+                if(distance>=starting-9 ||
+                   !soldier.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                int exposures=0,seen=0;
+                foreach(Building gun in map.listerBuildings.allBuildingsColonist)
+                {
+                    if(++seen>160)break;
+                    if(!RHFCombatPlannerV125.IsTurret(gun))continue;
+                    if((cell-gun.Position).LengthHorizontalSquared<=1600 &&
+                       GenSight.LineOfSight(gun.Position,cell,map))exposures++;
+                }
+                // Progress must be real. Prefer cover, but do not turn an
+                // unavoidable turret perimeter into an infinite HOLD order.
+                int cost=distance+exposures*240+length*3;
+                if(cost<bestCost){best=cell;bestCost=cost;}
             }
             return best;
         }

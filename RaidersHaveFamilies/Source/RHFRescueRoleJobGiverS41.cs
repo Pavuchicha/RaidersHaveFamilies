@@ -27,6 +27,19 @@ namespace RaidersHaveFamilies
                 if(phase3==null)return null;
                 switch((RHFRoleS41)phase3.Role)
                 {
+                    case RHFRoleS41.Breach:
+                    {
+                        Thing wall=phase3.Objective;
+                        if(wall==null || wall.Destroyed || !wall.Spawned ||
+                           wall.Map!=pawn.Map || wall.def!=ThingDefOf.Wall ||
+                           wall.Faction!=Faction.OfPlayer)return null;
+                        Job approach=ApproachBarrier(pawn,wall);
+                        if((pawn.Position-wall.Position).LengthHorizontalSquared>5 &&
+                           approach!=null)return approach;
+                        if(pawn.CanReach(wall.Position,PathEndMode.Touch,Danger.Deadly))
+                            return Task(JobDefOf.AttackMelee,wall,900);
+                        return null;
+                    }
                     case RHFRoleS41.PodSupply:
                     {
                         JobDef unload=DefDatabase<JobDef>.GetNamedSilentFail(

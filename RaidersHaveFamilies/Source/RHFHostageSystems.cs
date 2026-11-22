@@ -982,13 +982,12 @@ namespace RaidersHaveFamilies
                     hired = f; break;
                 }
             }
-            float threat = StorytellerUtility.DefaultThreatPointsNow(map);
-            float bonus = 1.25f + r.Importance * .22f +
-                Math.Min(.90f,r.CrueltyScore*.015f) + Math.Min(1.0f,targets.Count*.12f) +
-                Mathf.Clamp(-RHFPoliticalReputation.Pressure(r.OriginalFaction)/800f,0f,.6f);
-            if (type == RHFOperationType.Vengeance) bonus += .70f;
-            float points = Mathf.Clamp(threat * bonus + (type == RHFOperationType.Rescue ? 450f : 200f),
-                550f, 15000f) * RHFMod.Settings.InterventionStrength;
+            // The vanilla storyteller sets the BASE power. Importance, same-
+            // faction captive count and NONPOSITIVE pressure modify that base.
+            // Party power is subsequently calculated PER FACTION below.
+            float points = NJRThreatBudgetS41.PartyPoints(map,r.OriginalFaction,
+                r.Importance,Math.Max(1,targets.Count),
+                RHFMod.Settings.InterventionStrength);
             int fireTick = now + 5000; // natural response keeps preparation time
             RHFOperation op = new RHFOperation
             {
@@ -1033,44 +1032,49 @@ namespace RaidersHaveFamilies
                         hiredRevenge=other; break;
                     }
                 }
-                int wings=multi?2:1;
-                float wingPoints=Mathf.Max(350f,points/wings);
+                float wingPoints=NJRThreatBudgetS41.PartyPoints(map,attacker,
+                    r.Importance,1,RHFMod.Settings.InterventionStrength);
                 op.Parties.Add(new RHFStrikeParty(attacker,RHFStrikeRole.Vengeance,
-                    multi?wingPoints:points,
+                    wingPoints,
                     drop: attacker.def.techLevel>=TechLevel.Industrial &&
                           op.Doctrine==(int)RHFDoctrine.TargetedTraitorHunt,
                     siege: attacker.def.techLevel>=TechLevel.Industrial &&
                         op.Doctrine==(int)RHFDoctrine.SiegeAndRaze));
                 if(multi)
                     op.Parties.Add(new RHFStrikeParty(hiredRevenge??attacker,
-                        RHFStrikeRole.Diversion,wingPoints,
+                        RHFStrikeRole.Diversion,
+                        NJRThreatBudgetS41.PartyPoints(map,hiredRevenge??attacker,
+                            r.Importance,1,RHFMod.Settings.InterventionStrength),
                         drop:(hiredRevenge??attacker).def.techLevel>=TechLevel.Industrial &&
                             Rand.Chance(.35f)));
             }
             else
             {
-                int partyCount = sponsors.Count + (hired!=null ? 1 : 0);
-                bool singleSplit = op.CombinedStrike && partyCount==1;
-                if (singleSplit) partyCount=2;
-                // Total threat is shared, not multiplied by the number of coalition members.
-                points=Mathf.Max(points,350f*partyCount);
-                float perParty=Mathf.Clamp(points / partyCount, 350f, 9000f);
+                // Independent combat budgets for every coalition member and
+                // separately funded mercenary party. Same-faction prisoner
+                // counts are never replaced with total coalition captives.
                 for (int i=0;i<sponsors.Count;i++)
                 {
                     Faction member = sponsors[i];
                     bool podAssault=member.def.techLevel>=TechLevel.Industrial &&
                         (op.TryPod || Rand.Chance(.20f));
                     op.Parties.Add(new RHFStrikeParty(member,RHFStrikeRole.Rescue,
-                        singleSplit ? points*.62f : perParty,
+                        NJRThreatBudgetS41.PartyPoints(map,member,r.Importance,
+                            Math.Max(1,NJRThreatBudgetS41.CaptivesOf(member,op,map)),
+                            RHFMod.Settings.InterventionStrength),
                         drop: podAssault, breach: !podAssault));
                 }
                 if (hired != null)
-                    op.Parties.Add(new RHFStrikeParty(hired,RHFStrikeRole.Diversion,perParty,
+                    op.Parties.Add(new RHFStrikeParty(hired,RHFStrikeRole.Diversion,
+                        NJRThreatBudgetS41.PartyPoints(map,hired,r.Importance,1,
+                            RHFMod.Settings.InterventionStrength),
                         drop: hired.def.techLevel>=TechLevel.Industrial && Rand.Chance(.25f)));
-                else if (singleSplit)
-                    op.Parties.Add(new RHFStrikeParty(r.OriginalFaction,RHFStrikeRole.Diversion,
-                        points*.38f));
             }
+            // This aggregate is diagnostics ONLY. Pawn generation uses the
+            // independent party.Points above and never divides this sum.
+            op.ThreatPoints=0f;
+            foreach(RHFStrikeParty party in op.Parties)
+                if(party!=null)op.ThreatPoints+=party.Points;
             RHFOperationController controller=map.GetComponent<RHFOperationController>();
             if (controller == null || !controller.Register(op)) return;
             r.RetaliationIssued=true;

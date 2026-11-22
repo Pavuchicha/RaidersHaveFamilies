@@ -150,13 +150,10 @@ namespace RaidersHaveFamilies
             if (participants.Count == 0 && candidates.Count > 0)
             { participants.Add(candidates[0]); candidates.RemoveAt(0); }
             if (participants.Count == 0) return false;
-            float normal = StorytellerUtility.DefaultThreatPointsNow(map);
             bool catastrophic = c.Cause == (int)RHFReprisalCause.Cannibalism ||
                 (c.Cause == (int)RHFReprisalCause.ConcealedVip && !search);
-            float multiplier = catastrophic ? 2.1f + c.Importance * 0.28f :
-                search ? 1.05f + c.Importance * 0.12f : 1.35f + c.Importance * 0.18f;
-            float points = Mathf.Clamp((normal * multiplier + (catastrophic ? 900f : 300f)) *
-                RHFMod.Settings.InterventionStrength, 550f, 15000f);
+            float points=NJRThreatBudgetS41.PartyPoints(map,c.Faction,
+                c.Importance,1,RHFMod.Settings.InterventionStrength);
             RHFOperation operation = new RHFOperation {
                 Sponsor = c.Faction, Executor = participants[0],
                 Sponsors = new List<Faction>{ c.Faction },
@@ -175,7 +172,9 @@ namespace RaidersHaveFamilies
             RHFMissionProfiles.ConfigureCase(operation,c,search);
             if (search)
             {
-                operation.Parties.Add(new RHFStrikeParty(participants[0], RHFStrikeRole.Rescue, points,
+                operation.Parties.Add(new RHFStrikeParty(participants[0], RHFStrikeRole.Rescue,
+                    NJRThreatBudgetS41.PartyPoints(map,participants[0],c.Importance,1,
+                        RHFMod.Settings.InterventionStrength),
                     breach: true));
             }
             else
@@ -196,16 +195,22 @@ namespace RaidersHaveFamilies
                 // When no actual hired faction exists, keep a second physical wing
                 // of the attacking faction, but never mislabel it as hired mercenaries.
                 if (participants.Count == 1 && catastrophic) participants.Add(participants[0]);
-                float perParty = Mathf.Max(400f, points / participants.Count);
+                // A coalition does not split a single vanilla raid budget.
+                // Every allied/hired wing has its OWN storyteller-based power.
                 for (int i=0;i<participants.Count;i++)
                 {
                     Faction member = participants[i];
                     RHFStrikeRole role = i == 0 ? RHFStrikeRole.Vengeance : RHFStrikeRole.Diversion;
-                    operation.Parties.Add(new RHFStrikeParty(member, role, perParty,
+                    operation.Parties.Add(new RHFStrikeParty(member, role,
+                        NJRThreatBudgetS41.PartyPoints(map,member,c.Importance,1,
+                            RHFMod.Settings.InterventionStrength),
                         drop: member.def.techLevel >= TechLevel.Industrial && i > 0,
                         siege: member.def.techLevel >= TechLevel.Industrial && i == 0));
                 }
             }
+            operation.ThreatPoints=0f;
+            foreach(RHFStrikeParty party in operation.Parties)
+                if(party!=null)operation.ThreatPoints+=party.Points;
             if (!controller.Register(operation)) return false;
             c.Stage = search ? 1 : 3;
             // The op is scheduled for a FUTURE spawn tick. No raid letter here:

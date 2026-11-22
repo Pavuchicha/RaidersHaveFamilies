@@ -218,7 +218,7 @@ namespace RaidersHaveFamilies
 
         internal static string Audit(Map map)
         {
-            var sb = new StringBuilder("RHF v0.13.0: свой–чужой / VIP / связь\n");
+            var sb = new StringBuilder("NJR: свой–чужой / VIP / связь\n");
             var operations = Operations(map);
             if (operations == null || operations.Count == 0) return sb.Append("Нет операций.").ToString();
             for (int i=0;i<operations.Count && i<4;i++)

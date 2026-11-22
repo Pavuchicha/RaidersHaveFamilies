@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>NJR_RemovePodRoofS41</defName>
+    <driverClass>RaidersHaveFamilies.JobDriver_NJRPodRoofS41</driverClass>
+    <reportString>Разбирает крышу над эвакуационной капсулой.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
+</Defs>

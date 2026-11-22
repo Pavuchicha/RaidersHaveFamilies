@@ -17,9 +17,9 @@ for key in ['Scribe_References.Look(ref HuntTarget', 'Scribe_Collections.Look(re
             'PodLaunchCompleted', 'PodBudgetPaid', 'RHFReprisalSystem.OnOperationDeployed']:
     assert key in ops, 'missing persistence/missions: '+key
 wf=(root/'.github/workflows/build.yml').read_text()
-assert 'NJR - Not Just Raiders v0.14.0-beta1' in wf  # current build must be titled correctly
+assert 'NJR - Not Just Raiders v0.14.0-beta2' in wf  # current build must be titled correctly
 assert 'tests/rhf_121_coherent_ops.py' in wf
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta1' in wf
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta2' in wf
 assert 'tests/rhf_123_rescue_control.py' in wf
 assert 'REQUIREMENTS_AUDIT_MASTER_RU.md' in {x.name for x in root.iterdir()}
 print('PASS: v0.12.1 mission persistence retained; v0.12.6 CI packaging contract')

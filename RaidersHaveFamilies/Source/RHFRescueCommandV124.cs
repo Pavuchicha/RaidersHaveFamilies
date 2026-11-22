@@ -1119,7 +1119,7 @@ namespace RaidersHaveFamilies
             List<RHFOperation> ops=Operations(controller);
             if(ops==null || ops.Count==0)return "Нет активных операций RHF.";
             var sb=new StringBuilder(1500);
-            sb.AppendLine("RHF v0.12.4 — координатор спасения и отхода");
+            sb.AppendLine("NJR — координатор спасения и отхода");
             for(int i=0;i<ops.Count && i<MaxOperations;i++)
             {
                 RHFOperation op=ops[i];

@@ -22,7 +22,7 @@ checks=[
  (pod,'NativeFortificationWorkS41(op,vip,owner.Faction,now)'),
  (pod,'RHFPodPlannerS41.Plan(op,map,engineer,'),
  (ops,'int bestScore=int.MaxValue;'),
- (ops,'Math.Min(cover,12)*65'),
+ (ops,'tier*100000+risk+dist*6'),
  (planner,'RHFRoleS41.Engineer'),
  (workflow,'python3 tests/rhf_166_s41_spawn_and_barricade.py'),
 ]

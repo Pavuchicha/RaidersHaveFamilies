@@ -29,7 +29,7 @@ def verify(b,p,g,n,w):
     assert 'RHFPodPlannerS41.ResetAfterFallback(op)' in n
     assert 'if(!RHFRescuePlannerS41.Enabled)' in n
     assert 'python3 tests/rhf_154_s41_phase3_native_roles.py' in w
-    assert 'Danger.Some' in p and 'cell.GetRoom(map)!=pawn.Position.GetRoom(map)' in p
+    assert 'Danger.Some' in p and 'room!=startRoom' in p and '(atSite?0:12000)' in p
 
 verify(B,P,G,N,W)
 changes=[

@@ -61,7 +61,7 @@ namespace RaidersHaveFamilies
             int pressure = RHFPoliticalReputation.Pressure(r.OriginalFaction);
             string facts = "Состояние здоровья: " + Mathf.RoundToInt(h * 100f) +
                 "%. Значимость: " + r.Importance + "/8 (" + r.OfficeName + ")." +
-                "\nПолитическое давление RHF: " + pressure + " (от -1000 до +1000; " +
+                "\nПолитическое давление NJR: " + pressure + " (от -100 до 0; " +
                 "отрицательное означает усиление вражды и влияет на торг/силу ответного рейда).";
             if (Prefs.DevMode)
                 facts += "\n[Отладка переговоров] Отклонено высоких цен: " +

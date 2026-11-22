@@ -33,8 +33,8 @@ assert a.count('AllPawnsSpawned')==1 and a.count('oneTimeBackfill = false')==1
 for marker in ('class RHFEscortLink', 'Escorts = new List<RHFEscortLink>',
                'Scribe_Collections.Look(ref Escorts', 'EnsureEscort(op,captive)',
                'separation > 144', 'EscapedWithEscort++',
-               'if (allFree)', 'cell.GetRoom(map)==prisonRoom',
-               'DropCellFinder.IsGoodDropSpot(cell,map,true,true)'):
+               'if (allFree)', 'NJRRescueInteriorS41.DirectDoor',
+               'DropCellFinder.IsGoodDropSpot(c,map,true,true)'):
     assert marker in ops, marker
 assert ops.index('captive.ExitMap(false,Rot4.Invalid)') < ops.index('if (escort.Spawned) escort.ExitMap(false,Rot4.Invalid)')
 assert 'parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;' in ops
@@ -70,5 +70,5 @@ assert float(node.findtext('./stages/li/baseMoodEffect'))<0
 # Diagnostics available in Russian, 2 new tests.
 assert '24 — Аудит автоматических семей' in debug
 assert '25 — Аудит эвакуации' in debug
-assert '0.14.0-beta1' in (root/'.github/workflows/build.yml').read_text()
+assert '0.14.0-beta2' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: v0.11 family persistence/load backfill, escort extraction, medical, rank, ideology and dialogue contracts.')

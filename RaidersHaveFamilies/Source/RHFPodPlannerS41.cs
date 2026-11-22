@@ -13,7 +13,7 @@ namespace RaidersHaveFamilies
     {
         private const int MaxSquad=96;
         private const int MaxCaptives=24;
-        private const int MaxGuards=8;
+        private const int MaxGuards=32;
 
         // Stable owner for native work. The old nearest-pawn selector ran every
         // 90 ticks and could repeatedly interrupt builders as they moved.
@@ -70,9 +70,26 @@ namespace RaidersHaveFamilies
                 board.Assign(carrier,RHFRoleS41.PodSupply,null,unload,now);
                 occupied.Add(carrier);
             }
+            if(work is Building wall && wall.def==ThingDefOf.Wall &&
+               wall.Faction==Faction.OfPlayer && !wall.Destroyed)
+            {
+                Pawn breacher=null;
+                foreach(Pawn fighter in op.Squad)
+                    if(RHFRescuePlannerS41.ActiveForRoleS41(fighter,map) &&
+                       fighter.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)==true &&
+                       fighter.CanReach(wall.Position,PathEndMode.Touch,Danger.Deadly) &&
+                       (breacher==null || RHFTactical.IsBreachAxe(fighter)))
+                    {breacher=fighter;if(RHFTactical.IsBreachAxe(fighter))break;}
+                if(breacher!=null)
+                {
+                    board.Assign(breacher,RHFRoleS41.Breach,wall,wall.Position,now);
+                    occupied.Add(breacher);
+                }
+            }
             if(engineer!=null && !occupied.Contains(engineer) &&
                RHFRescuePlannerS41.ActiveForRoleS41(engineer,map) &&
-               op.PodConstructionStage>=1 && op.PodConstructionStage<=3 && work!=null &&
+               op.PodConstructionStage>=1 && op.PodConstructionStage<=4 && work!=null &&
+               !(work is Building hostileWall && hostileWall.Faction==Faction.OfPlayer) &&
                work.Spawned && work.Map==map)
             {
                 board.Assign(engineer,RHFRoleS41.Engineer,work,assembly,now);
@@ -153,22 +170,39 @@ namespace RaidersHaveFamilies
         private static IntVec3 GuardCell(Pawn pawn,IntVec3 anchor,Map map,
             HashSet<IntVec3> occupied)
         {
-            if(!anchor.IsValid || !anchor.InBounds(map))return IntVec3.Invalid;
-            // Stay in the existing accessible room rather than ordering a
-            // guard to break into a neighboring locked store room.
-            int[] dx={-5,5,0,0,-4,4,-4,4};
-            int[] dz={0,0,-5,5,-4,-4,4,4};
+            if(!anchor.IsValid || !anchor.InBounds(map) || pawn==null)
+                return IntVec3.Invalid;
+            Room siteRoom=anchor.GetRoom(map);
+            Room startRoom=pawn.Position.GetRoom(map);
             IntVec3 best=IntVec3.Invalid;
             int bestScore=int.MaxValue;
-            for(int i=0;i<dx.Length;i++)
+            int costlyPaths=0;
+            // Prefer the prison/launch room itself. A fixed eight-cell ring
+            // previously failed to locate ANY interior guard post in small
+            // rooms and left the whole squad standing outside.
+            for(int radius=1;radius<=8;radius++)
+            for(int dx=-radius;dx<=radius;dx++)
+            for(int dz=-radius;dz<=radius;dz++)
             {
-                IntVec3 cell=anchor+new IntVec3(dx[i],0,dz[i]);
+                if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                IntVec3 cell=anchor+new IntVec3(dx,0,dz);
                 if(!cell.InBounds(map) || !cell.Standable(map) ||
-                   occupied.Contains(cell) ||
-                   cell.GetRoom(map)!=pawn.Position.GetRoom(map) ||
-                   !pawn.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
-                int score=(pawn.Position-cell).LengthHorizontalSquared;
-                if(score<bestScore){best=cell;bestScore=score;}
+                   cell.GetEdifice(map)!=null || occupied.Contains(cell))continue;
+                Room room=cell.GetRoom(map);
+                bool atSite=siteRoom!=null && room==siteRoom;
+                if(!atSite && room!=startRoom)continue;
+                int dist=(pawn.Position-cell).LengthHorizontalSquared;
+                int score=(atSite?0:12000)+dist*3+radius*5;
+                if(score>=bestScore)continue;
+                // Bounded A* probes; extra soldiers retain the lower-level
+                // defense job giver instead of scanning the whole map.
+                if(++costlyPaths>24)
+                {
+                    if(best.IsValid)occupied.Add(best);
+                    return best;
+                }
+                if(!pawn.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
+                best=cell;bestScore=score;
             }
             if(best.IsValid)occupied.Add(best);
             return best;
@@ -180,6 +214,14 @@ namespace RaidersHaveFamilies
                pawn.Downed || pawn.InMentalState ||
                pawn.health?.capacities==null ||
                !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation))return null;
+            RHFOperation mission=RHFRescuePlannerS41.MissionFor(pawn.Map,pawn);
+            if(mission!=null && mission.Phase==3 && mission.PodConstructionStage==4 &&
+               mission.PodVehicleThing==site &&
+               NJRPodRoofS41.NeedsWork(pawn.Map,site.Position))
+            {
+                JobDef roof=DefDatabase<JobDef>.GetNamedSilentFail("NJR_RemovePodRoofS41");
+                return roof!=null ? JobMaker.MakeJob(roof,site.Position) : null;
+            }
             string[] names=site is Blueprint_Build ?
                 new[]{"ConstructDeliverResourcesToBlueprints"} :
                 site is Frame ?

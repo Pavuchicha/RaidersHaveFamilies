@@ -7,7 +7,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: злорадство от чужого горя</label>
+        <label>NJR: злорадство от чужого горя</label>
         <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>2</baseMoodEffect>
       </li>
@@ -20,7 +20,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: злорадство от чужого горя</label>
+        <label>NJR: злорадство от чужого горя</label>
         <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>4</baseMoodEffect>
       </li>
@@ -33,7 +33,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: злорадство от чужого горя</label>
+        <label>NJR: злорадство от чужого горя</label>
         <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>8</baseMoodEffect>
       </li>
@@ -46,7 +46,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: злорадство от чужого горя</label>
+        <label>NJR: злорадство от чужого горя</label>
         <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>16</baseMoodEffect>
       </li>
@@ -59,7 +59,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: злорадство от чужого горя</label>
+        <label>NJR: злорадство от чужого горя</label>
         <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>32</baseMoodEffect>
       </li>
@@ -72,7 +72,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: злорадство от чужого горя</label>
+        <label>NJR: злорадство от чужого горя</label>
         <description>Я сообщил близким пленника и его фракции о причинённых страданиях. Их ужас и бессилие доставили мне удовольствие, а не сама операция.</description>
         <baseMoodEffect>48</baseMoodEffect>
       </li>
@@ -85,7 +85,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: милосердное освобождение</label>
+        <label>NJR: милосердное освобождение</label>
         <description>Невредимого пленника отпустили без выкупа. Наши принципы оказались сильнее жадности.</description>
         <baseMoodEffect>3</baseMoodEffect>
       </li>
@@ -98,7 +98,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: милосердное освобождение</label>
+        <label>NJR: милосердное освобождение</label>
         <description>Невредимого пленника отпустили без выкупа. Наши принципы оказались сильнее жадности.</description>
         <baseMoodEffect>6</baseMoodEffect>
       </li>
@@ -111,7 +111,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: милосердное освобождение</label>
+        <label>NJR: милосердное освобождение</label>
         <description>Невредимого пленника отпустили без выкупа. Наши принципы оказались сильнее жадности.</description>
         <baseMoodEffect>9</baseMoodEffect>
       </li>
@@ -124,7 +124,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: гуманное обращение при передаче пленника</label>
+        <label>NJR: гуманное обращение при передаче пленника</label>
         <description>Мы не причинили вреда проданному пленнику, хотя могли. Это важнее выгодной цены.</description>
         <baseMoodEffect>1</baseMoodEffect>
       </li>
@@ -137,7 +137,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: гуманное обращение при передаче пленника</label>
+        <label>NJR: гуманное обращение при передаче пленника</label>
         <description>Мы не причинили вреда проданному пленнику, хотя могли. Это важнее выгодной цены.</description>
         <baseMoodEffect>2</baseMoodEffect>
       </li>
@@ -150,7 +150,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: гуманное обращение при передаче пленника</label>
+        <label>NJR: гуманное обращение при передаче пленника</label>
         <description>Мы не причинили вреда проданному пленнику, хотя могли. Это важнее выгодной цены.</description>
         <baseMoodEffect>3</baseMoodEffect>
       </li>
@@ -163,7 +163,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: отвратительное признание в каннибализме</label>
+        <label>NJR: отвратительное признание в каннибализме</label>
         <description>Наши люди сообщили чужой семье, что съели её пленника. Мне отвратительна не только сама жестокость, но и это хвастовство.</description>
         <baseMoodEffect>-8</baseMoodEffect>
       </li>
@@ -176,7 +176,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: торжество нашей веры</label>
+        <label>NJR: торжество нашей веры</label>
         <description>Колония объявила, что бывший пленник принял наши убеждения.</description>
         <baseMoodEffect>2</baseMoodEffect>
       </li>
@@ -189,7 +189,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: торжество нашей веры</label>
+        <label>NJR: торжество нашей веры</label>
         <description>Колония объявила, что бывший пленник принял наши убеждения.</description>
         <baseMoodEffect>4</baseMoodEffect>
       </li>
@@ -202,7 +202,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: торжество нашей веры</label>
+        <label>NJR: торжество нашей веры</label>
         <description>Колония объявила, что бывший пленник принял наши убеждения.</description>
         <baseMoodEffect>8</baseMoodEffect>
       </li>
@@ -215,7 +215,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: отступничество от нашей веры</label>
+        <label>NJR: отступничество от нашей веры</label>
         <description>Узнали, что человек отрёкся от нашей прежней веры в плену.</description>
         <baseMoodEffect>-2</baseMoodEffect>
       </li>
@@ -228,7 +228,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: отступничество от нашей веры</label>
+        <label>NJR: отступничество от нашей веры</label>
         <description>Узнали, что человек отрёкся от нашей прежней веры в плену.</description>
         <baseMoodEffect>-5</baseMoodEffect>
       </li>
@@ -241,7 +241,7 @@
     <stackLimit>1</stackLimit>
     <stages>
       <li>
-        <label>RHF: отступничество от нашей веры</label>
+        <label>NJR: отступничество от нашей веры</label>
         <description>Узнали, что человек отрёкся от нашей прежней веры в плену.</description>
         <baseMoodEffect>-9</baseMoodEffect>
       </li>

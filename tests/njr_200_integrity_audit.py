@@ -69,8 +69,8 @@ assert 'NativeFortificationWorkS41' in (S/'RHFVipEvacS311.cs').read_text(encodin
 assert 'RHFPodSupplyS41' in (S/'RHFPodPlannerS41.cs').read_text(encoding='utf-8')
 assert 'GetTileNeighborCount' in (S/'RHFEnemyPodLaunchS41.cs').read_text(encoding='utf-8')
 assert 'LastCohesionTick;' not in (S/'RHFRescueCommandV124.cs').read_text(encoding='utf-8'), 'Dead field produced CS0649'
-assert 'NJR - Not Just Raiders v0.14.0-beta1' in W
-assert 'NJR_NotJustRaiders_v0.14.0-beta1_RimWorld_1.7_INSTALL.zip' in W
+assert 'NJR - Not Just Raiders v0.14.0-beta2' in W
+assert 'NJR_NotJustRaiders_v0.14.0-beta2_RimWorld_1.7_INSTALL.zip' in W
 assert 'test -s RaidersHaveFamilies/Assemblies/RaidersHaveFamilies.dll' in W
 ci_tests=re.findall(r'^\s*python3\s+(tests/[\w.-]+\.py)\s*$',W,re.M)
 assert len(ci_tests)==len(set(ci_tests)) >= 58

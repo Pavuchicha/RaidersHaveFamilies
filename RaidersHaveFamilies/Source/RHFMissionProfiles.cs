@@ -38,7 +38,9 @@ namespace RaidersHaveFamilies
                 Rand.Chance(.57f))op.TryPod=true;
             if(op.TryPod && advanced)
             {
-                op.FortifyPrison=Rand.Chance(.78f);
+                // A prepared VIP air extraction is a fortified operation,
+                // not a random coin toss for whether to secure the prison.
+                op.FortifyPrison=true;
                 op.AssaultAfterObjective=Rand.Chance(.34f);
                 op.Doctrine=(int)RHFDoctrine.FortifiedVipExtraction;
             }

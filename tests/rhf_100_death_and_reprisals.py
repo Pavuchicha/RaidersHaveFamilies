@@ -41,7 +41,7 @@ assert 'FindRescueFor(string victimId)' in o
 assert 'ConfirmDisappearance(c' in x
 assert 'c.DueTick = now + Rand.Range(15000, 135000)' in x
 assert 'RHFStrikeRole.Diversion' in x and 'RHFStrikeRole.Vengeance' in x
-assert '15000f' in x and 'StorytellerUtility.DefaultThreatPointsNow(map)' in x
+assert 'NJRThreatBudgetS41.PartyPoints(map,member,c.Importance,1' in x and 'NJRThreatBudgetS41.PartyPoints(map,participants[0],c.Importance,1' in x
 assert 'Stage == 4' in x
 assert 'Mathf.Log(1f + newCruelty' not in h
 for threshold in ('18f','40f','85f','170f','310f'):

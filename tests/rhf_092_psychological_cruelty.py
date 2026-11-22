@@ -21,5 +21,5 @@ assert 'bool viaFamily=r.Importance<5 && family!=null' in dialog
 assert 'Оператор фракции устанавливает удалённую связь' in dialog
 assert 'Передать фактический медицинский отчёт (без признания умысла)' in dialog
 assert 'Признать умышленное увечье и ответственность колонии' in dialog
-assert x.count('RHF: злорадство от чужого горя') == 6
+assert x.count('NJR: злорадство от чужого горя') == 6
 print('PASS: disclosure, mood, and rank-dependent remote-family dialog')

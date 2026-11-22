@@ -9,6 +9,34 @@ namespace RaidersHaveFamilies
 {
     internal static class RHFRescueGroundEntryS41
     {
+        // Vanilla EdgeWalkIn scatters every soldier up to eight cells from
+        // spawnCenter. Checking ONLY the chosen center allowed arrival inside
+        // mountain caves. Require a broad, naturally open, connected staging
+        // area with a mountain-free 3-tile inner radius.
+        internal static bool GroundEntryClusterSafe(Map map,IntVec3 center)
+        {
+            if(map==null || !center.IsValid || !center.InBounds(map) ||
+               !center.Standable(map) || center.GetEdifice(map)!=null ||
+               center.Roofed(map))return false;
+            int open=0,total=0;
+            for(int dx=-8;dx<=8;dx+=2)
+            for(int dz=-8;dz<=8;dz+=2)
+            {
+                if(dx*dx+dz*dz>64)continue;
+                IntVec3 c=center+new IntVec3(dx,0,dz);
+                if(!c.InBounds(map))continue;
+                total++;
+                RoofDef roof=map.roofGrid.RoofAt(c);
+                if(roof!=null && roof.isThickRoof)return false;
+                // No dozens of expensive A* queries per edge candidate.
+                // The inner radius has a hard all-clear check below.
+                bool clear=c.Standable(map) && c.GetEdifice(map)==null && roof==null;
+                if(clear)open++;
+                if(dx*dx+dz*dz<=9 && !clear)return false;
+            }
+            return total>=24 && open*5>=total*4;
+        }
+
         // Only incident initialization: at most ~100 perimeter candidates.
         internal static IntVec3 Choose(Map map,RHFOperation op)
         {
@@ -34,9 +62,7 @@ namespace RaidersHaveFamilies
                         side==1 ? new IntVec3(map.Size.x-1,0,t) :
                         side==2 ? new IntVec3(t,0,0) :
                                   new IntVec3(t,0,map.Size.z-1);
-                    if(!edge.InBounds(map) || !edge.Walkable(map) ||
-                       (!map.TileInfo.AllowRoofedEdgeWalkIn && edge.Roofed(map)))
-                        continue;
+                    if(!GroundEntryClusterSafe(map,edge))continue;
                     // Does not require an already walkable prison path: a
                     // rescue raid exists precisely to breach closed barriers.
                     // Still prefer cells that can approach the prison without

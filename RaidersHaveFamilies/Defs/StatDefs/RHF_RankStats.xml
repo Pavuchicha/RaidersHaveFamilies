@@ -2,7 +2,7 @@
 <Defs>
   <StatDef>
     <defName>RHF_SocialImportance</defName>
-    <label>RHF: положение во фракции</label>
+    <label>NJR: положение во фракции</label>
     <description>Значимость персонажа для собственной фракции. Влияет на возможный выкуп, дипломатические последствия и масштаб реакции фракции. Значение 0–8 вычисляется из известных игре должностей и ролей.</description>
     <category>PawnSocial</category>
     <workerClass>RaidersHaveFamilies.RHFRankStatWorker</workerClass>
@@ -15,8 +15,8 @@
   </StatDef>
   <StatDef>
     <defName>RHF_ConfirmedRelations</defName>
-    <label>RHF: подтверждённые связи</label>
-    <description>Количество отношений, для которых Raiders Have Families сохранил запись собственного вмешательства. Ранее созданные связи не приписываются моду задним числом. Производные отношения могут автоматически вычисляться из созданных родителей.</description>
+    <label>NJR: подтверждённые связи</label>
+    <description>Количество отношений, для которых NJR — Not Just Raiders сохранил запись собственного вмешательства. Ранее созданные связи не приписываются моду задним числом. Производные отношения могут автоматически вычисляться из созданных родителей.</description>
     <category>PawnSocial</category>
     <workerClass>RaidersHaveFamilies.RHFProvenanceStatWorker</workerClass>
     <displayPriorityInCategory>9989</displayPriorityInCategory>

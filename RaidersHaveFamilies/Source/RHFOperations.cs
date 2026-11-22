@@ -391,7 +391,7 @@ namespace RaidersHaveFamilies
         public string TacticalDebugStatus()
         {
             var sb = new System.Text.StringBuilder(800);
-            sb.AppendLine("RHF 0.9.0: аудит тактических ролей и реального снаряжения");
+            sb.AppendLine("NJR: аудит тактических ролей и реального снаряжения");
             sb.AppendLine("Управление отделениями: " + (RHFMod.Settings?.TacticalCombat == true));
             sb.AppendLine("Дополнительная экипировка: " + (RHFMod.Settings?.RoleEquipment == true));
             for (int i=0;i<operations.Count;i++)
@@ -517,56 +517,69 @@ namespace RaidersHaveFamilies
             return result;
         }
 
-        private IntVec3 RescueDropCenter(RHFOperation op, RHFStrikeParty party)
+        private IntVec3 RescueDropCenter(RHFOperation op,RHFStrikeParty party)
         {
-            if (op?.Targets == null || party == null) return IntVec3.Invalid;
-            // A rescue is NOT an excuse to land on the VIP's head. Land outside
-            // the detention room, at least six tiles from every named captive.
-            // Airdropped squads then enter normally and may be intercepted.
-            IntVec3 best = IntVec3.Invalid;
-            int bestScore = int.MaxValue;
-            for (int i=0; i<op.Targets.Count && i<MaxTargets;i++)
+            if(op?.Targets==null || party==null)return IntVec3.Invalid;
+            IntVec3 best=IntVec3.Invalid;
+            int bestScore=int.MaxValue;
+            for(int i=0;i<op.Targets.Count && i<MaxTargets;i++)
             {
-                Pawn prisoner=op.Targets[i];
-                if(prisoner==null || !prisoner.Spawned || prisoner.Map!=map ||
-                    !(prisoner.IsPrisonerOfColony || prisoner.IsSlaveOfColony))continue;
-                RHFHostageRecord record=Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(prisoner);
-                Faction sponsor=record?.OriginalFaction ?? prisoner.Faction;
-                bool partySponsor=op.Sponsors!=null && op.Sponsors.Contains(party.Faction);
-                if(partySponsor && sponsor!=party.Faction)continue;
-                Room prisonRoom=prisoner.Position.GetRoom(map);
-                // Bounded, deterministic 27x27 annulus around the objective.
-                for(int radius=14;radius<=22;radius++)
+                Pawn vip=op.Targets[i];
+                if(vip==null || vip.Dead || !vip.Spawned || vip.Map!=map ||
+                   !(vip.IsPrisonerOfColony || vip.IsSlaveOfColony))continue;
+                RHFHostageRecord record=Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(vip);
+                Faction sponsor=record?.OriginalFaction ?? vip.Faction;
+                if(op.Sponsors!=null && op.Sponsors.Contains(party.Faction) &&
+                   sponsor!=party.Faction)continue;
+                Room prison=vip.Position.GetRoom(map);
+                for(int radius=2;radius<=28;radius++)
                 for(int dx=-radius;dx<=radius;dx++)
                 for(int dz=-radius;dz<=radius;dz++)
                 {
                     if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
-                    IntVec3 cell=new IntVec3(prisoner.Position.x+dx,0,prisoner.Position.z+dz);
-                    if(!cell.InBounds(map) || !DropCellFinder.IsGoodDropSpot(cell,map,true,true) ||
-                        map.roofGrid.RoofAt(cell)!=null ||
-                        (prisonRoom!=null && cell.GetRoom(map)==prisonRoom))continue;
-                    bool nearHostage=false;
+                    IntVec3 c=vip.Position+new IntVec3(dx,0,dz);
+                    if(!c.InBounds(map) || !DropCellFinder.IsGoodDropSpot(c,map,true,true))continue;
+                    Room room=c.GetRoom(map);
+                    if(room==null)continue;
+                    RoofDef roof=map.roofGrid.RoofAt(c);
+                    if(roof!=null && roof.isThickRoof)continue;
+                    // Falling roofs can hurt bystanders. Do not put a roof
+                    // punch within four tiles of ANY named captive.
+                    bool hazard=false;
                     for(int j=0;j<op.Targets.Count && j<MaxTargets;j++)
-                        if(op.Targets[j]?.Map==map &&
-                           (op.Targets[j].Position-cell).LengthHorizontalSquared<196)
-                        {nearHostage=true;break;}
-                    if(nearHostage)continue;
-                    // Do not prioritize the first / nearest cell inside turret fire.
-                    int danger=0, checkedTurrets=0;
-                    foreach(Building building in map.listerBuildings.allBuildingsColonist)
                     {
-                        if(++checkedTurrets>160)break;
-                        if(RHFCombatPlannerV125.IsTurret(building) &&
-                            (building.Position-cell).LengthHorizontalSquared<900 &&
-                            GenSight.LineOfSight(building.Position,cell,map))danger+=1500;
+                        Pawn captive=op.Targets[j];
+                        if(captive?.Spawned!=true || captive.Map!=map)continue;
+                        int squared=(captive.Position-c).LengthHorizontalSquared;
+                        if(squared<16 || (roof!=null && squared<25))
+                        {hazard=true;break;}
                     }
-                    int score=danger + (cell-prisoner.Position).LengthHorizontalSquared;
-                    if(score<bestScore){best=cell;bestScore=score;}
+                    if(hazard)continue;
+                    int tier=room==prison ? 0 :
+                        !room.PsychologicallyOutdoors &&
+                        NJRRescueInteriorS41.DirectDoor(map,prison,room,vip.Position)?1 :
+                        !room.PsychologicallyOutdoors?2:3;
+                    // Avoid occupied room and corridor defense installations.
+                    int risk=NJRRescueInteriorS41.Exposure(map,c);
+                    if(risk>0 && tier<3)continue;
+                    int space=0;
+                    for(int ox=-4;ox<=4;ox+=2)
+                    for(int oz=-4;oz<=4;oz+=2)
+                    {
+                        IntVec3 nearby=c+new IntVec3(ox,0,oz);
+                        if(nearby.InBounds(map) && nearby.GetRoom(map)==room &&
+                           DropCellFinder.IsGoodDropSpot(nearby,map,true,true))space++;
+                    }
+                    // The vanilla CenterDrop scatters an entire wing. A room
+                    // that fits only ONE pod is NOT a safe squad landing zone.
+                    int required=Math.Min(8,Math.Max(3,op.Squad.Count/3));
+                    if(space<required && tier<3)continue;
+                    int score=tier*100000+risk*20000+
+                        (c-vip.Position).LengthHorizontalSquared*5-space*12;
+                    if(score<bestScore){bestScore=score;best=c;}
                 }
-                if(best.IsValid)return best;
             }
-            // No safe insertion: refuse the drop, never fake a spawn inside VIP.
-            return IntVec3.Invalid;
+            return best;
         }
 
         // Explicit incident-scoped recovery when a modded arrival mode omits
@@ -1901,61 +1914,66 @@ namespace RaidersHaveFamilies
             for(int dz=0;dz<def.size.z;dz++)
             {
                 IntVec3 c=cell+new IntVec3(dx,0,dz);
+                RoofDef roof=c.InBounds(map) ? map.roofGrid.RoofAt(c) : null;
                 if(!c.InBounds(map) || !c.Standable(map) ||
-                    map.roofGrid.RoofAt(c)!=null || c.GetEdifice(map)!=null ||
+                    (roof!=null && roof.isThickRoof) ||
+                    c.GetEdifice(map)!=null ||
                     c.GetFirstBuilding(map)!=null || c==vip.Position)return false;
             }
             return true;
         }
 
-        // Two non-overlapping footprints, at least six cells from the captive.
-        // Modded map roofs/buildings are read from actual cells, not DefNames.
+        // Room-aware native build site. Priorities: prisoner room (if safe),
+        // room connected through a real door, next reachable indoor room,
+        // then the least exposed open yard. A thin roof is not magic launch
+        // permission: the engineer must remove the pod roof with actual work.
         private bool FindFieldConstructionSite(Pawn vip,ThingDef launcher,ThingDef pod,
             out IntVec3 launchCell,out IntVec3 podCell)
         {
             launchCell=IntVec3.Invalid;podCell=IntVec3.Invalid;
+            if(vip==null || !vip.Spawned || vip.Map!=map)return false;
+            Room prison=vip.Position.GetRoom(map);
             int bestScore=int.MaxValue;
-            int inspectedLocations=0;
-            for(int radius=6;radius<=20;radius++)
+            int examined=0;
+            for(int radius=0;radius<=26;radius++)
             for(int dx=-radius;dx<=radius;dx++)
             for(int dz=-radius;dz<=radius;dz++)
             {
                 if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
-                IntVec3 cell=new IntVec3(vip.Position.x+dx,0,vip.Position.z+dz);
-                if(!FieldFootprintFree(cell,launcher,vip) ||
-                    !vip.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
-                // A genuine launcher has its own footprint; put the transport
-                // pod on a separate adjacent free tile. Never wipe the launcher.
-                IntVec3 vehicle=cell+new IntVec3(launcher.size.x,0,0);
-                if(!FieldFootprintFree(vehicle,pod,vip))continue;
-                // Do not create the flight assembly in the hostile kill corridor
-                // if a safe outdoor position is available.
-                bool exposed=false;int inspected=0;
-                foreach(Building defense in map.listerBuildings.allBuildingsColonist)
+                IntVec3 cell=vip.Position+new IntVec3(dx,0,dz);
+                IntVec3 vehicle=FuelingPortUtility.GetFuelingPortCell(cell,Rot4.North);
+                int clearance=NJRPodSiteClearS41.Needed(map,cell,vehicle,
+                    launcher,pod,vip);
+                if(clearance<0 ||
+                   !vip.CanReach(cell,PathEndMode.Touch,Danger.Deadly))continue;
+                Room candidate=cell.GetRoom(map);
+                if(candidate==null || (clearance==0 &&
+                   vehicle.GetRoom(map)!=candidate))continue;
+                // Keep roof-punch labor away from the captive, even if the
+                // same prison room is large enough for the built structures.
+                RoofDef roof=map.roofGrid.RoofAt(vehicle);
+                if(roof!=null && (roof.isThickRoof ||
+                    (vehicle-vip.Position).LengthHorizontalSquared<25))continue;
+                int tier = candidate==prison ? 0 :
+                    !candidate.PsychologicallyOutdoors &&
+                    NJRRescueInteriorS41.DirectDoor(map,prison,candidate,vip.Position) ? 1 :
+                    !candidate.PsychologicallyOutdoors ? 2 : 3;
+                int risk=0,checkedGuns=0;
+                foreach(Building turret in map.listerBuildings.allBuildingsColonist)
                 {
-                    if(++inspected>180)break;
-                    if(!RHFCombatPlannerV125.IsTurret(defense))continue;
-                    if((defense.Position-cell).LengthHorizontalSquared<625 &&
-                        GenSight.LineOfSight(defense.Position,cell,map))
-                    {exposed=true;break;}
+                    if(++checkedGuns>220)break;
+                    if(!RHFCombatPlannerV125.IsTurret(turret))continue;
+                    if((turret.Position-vehicle).LengthHorizontalSquared<=1600 &&
+                       GenSight.LineOfSight(turret.Position,vehicle,map))risk+=16000;
                 }
-                if(exposed)continue;
-                // Rank real roofless footprints by near-prison proximity and
-                // adjacent EXISTING hard cover. This favors a defensible open
-                // courtyard over the first arbitrary grass patch. Do not
-                // conjure a roof-compatible indoor transporter.
-                int cover=0;
-                for(int ox=-5;ox<=5;ox+=2)
-                for(int oz=-5;oz<=5;oz+=2)
-                {
-                    IntVec3 point=cell+new IntVec3(ox,0,oz);
-                    if(point.InBounds(map) && point.GetEdifice(map)!=null)cover++;
-                }
-                int score=(cell-vip.Position).LengthHorizontalSquared*4-
-                    Math.Min(cover,12)*65;
+                int dist=(vehicle-vip.Position).LengthHorizontalSquared;
+                // A room with a door and cover is preferable even if an
+                // unprotected outdoor tile is geometrically closer.
+                int score=tier*100000+risk+dist*6 +
+                    clearance*1500 + (roof!=null ? 150 : 0);
                 if(score<bestScore)
                 {bestScore=score;launchCell=cell;podCell=vehicle;}
-                if(++inspectedLocations>=72)return launchCell.IsValid;
+                if(++examined>3200)return launchCell.IsValid;
             }
             return launchCell.IsValid;
         }

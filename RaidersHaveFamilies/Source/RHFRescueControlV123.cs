@@ -399,7 +399,7 @@ namespace RaidersHaveFamilies
             List<RHFOperation> ops = Operations(map.GetComponent<RHFOperationController>());
             if (ops == null || ops.Count == 0) return "Нет активных операций RHF.";
             var sb = new StringBuilder();
-            sb.AppendLine("RHF 0.12.3: живое состояние спасательных миссий");
+            sb.AppendLine("NJR: живое состояние спасательных миссий");
             int printed = 0;
             foreach (RHFOperation op in ops)
             {

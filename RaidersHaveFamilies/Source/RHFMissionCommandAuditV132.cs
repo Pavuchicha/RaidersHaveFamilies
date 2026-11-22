@@ -19,7 +19,7 @@ namespace RaidersHaveFamilies
             Map map=Find.CurrentMap;
             if(map==null)return;
             var ops=RHFMissionIntegrityV130.Operations(map);
-            var sb=new StringBuilder("RHF v0.13.2: фактическая цепочка командования\n");
+            var sb=new StringBuilder("NJR: фактическая цепочка командования\n");
             if(ops==null || ops.Count==0)
                 sb.AppendLine("Нет активных операций RHF. Если рейдеры всё ещё на карте, это неуправляемый остаток рейда.");
             else for(int i=0;i<ops.Count && i<4;i++)

@@ -381,6 +381,18 @@ namespace RaidersHaveFamilies
                     }
                     int score=(cell-vip.Position).LengthHorizontalSquared-
                         nearWalls*16;
+                    // Favor a real prison doorway and its approach lanes,
+                    // instead of putting decorative walls on an empty lawn.
+                    int seenDoors=0;
+                    for(int ox=-3;ox<=3;ox++)
+                    for(int oz=-3;oz<=3;oz++)
+                    {
+                        IntVec3 near=cell+new IntVec3(ox,0,oz);
+                        if(near.InBounds(map) &&
+                            near.GetEdifice(map) is Building_Door)
+                            seenDoors++;
+                    }
+                    score-=seenDoors*35;
                     if(score<bestScore){best=cell;bestScore=score;}
                 }
                 if(!best.IsValid)
@@ -431,6 +443,48 @@ namespace RaidersHaveFamilies
             return null;
         }
 
+        // A freed captive does NOT normally own RHFRescueLordJobV124. The
+        // mission ThinkTree is exclusive to rescuers; treating it as the VIP's
+        // job source left the captive standing beside a ready pod indefinitely.
+        // Only the liberated VIP is commanded here; soldiers remain ThinkTree-
+        // owned. Check the ACTUAL transporter container before flight success.
+        private void NativeVipMovementS41(RHFOperation op,Pawn vip,int now)
+        {
+            if(vip==null || !vip.Spawned || vip.Map!=map || vip.Downed ||
+               vip.jobs==null || op?.Freed==null || !op.Freed.Contains(vip) ||
+               vip.GetLord()?.LordJob is RHFRescueLordJobV124)return;
+            if(op.PodConstructionStage==4)
+            {
+                ThingWithComps vehicle=op.PodVehicleThing as ThingWithComps;
+                CompTransporter transport=vehicle?.GetComp<CompTransporter>();
+                if(vehicle==null || !vehicle.Spawned || transport==null ||
+                   transport.innerContainer.Contains(vip))return;
+                if(!transport.LoadingInProgressOrReadyToLaunch)return;
+                if(vip.jobs.curJob?.def!=JobDefOf.EnterTransporter)
+                {
+                    Job board=JobMaker.MakeJob(JobDefOf.EnterTransporter,vehicle);
+                    vip.jobs.TryTakeOrderedJob(board);
+                }
+                return;
+            }
+            if(now%180>=90 || op.PodConstructionStage>3)return;
+            IntVec3 target=op.PodLauncherCell;
+            if(!target.IsValid || !target.InBounds(map) ||
+               (vip.Position-target).LengthHorizontalSquared<36)return;
+            IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
+            for(int dx=-4;dx<=4;dx++)for(int dz=-4;dz<=4;dz++)
+            {
+                IntVec3 at=target+new IntVec3(dx,0,dz);
+                if(!at.InBounds(map) || !at.Standable(map) ||
+                   at.GetEdifice(map)!=null ||
+                   !vip.CanReach(at,PathEndMode.OnCell,Danger.Some))continue;
+                int d=(at-vip.Position).LengthHorizontalSquared;
+                if(d<score){best=at;score=d;}
+            }
+            if(best.IsValid && vip.jobs.curJob?.def!=JobDefOf.Goto)
+                vip.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.Goto,best));
+        }
+
         private void BuildAndLaunchNativeS311(RHFOperation op, int now)
         {
             RHFStrikeParty owner = NativeRescueOwnerS311(op);
@@ -474,13 +528,16 @@ namespace RaidersHaveFamilies
                 !op.PodLauncherCell.InBounds(map) || !op.PodCell.InBounds(map))
             { NativeFallBackS311(op, now, "site invalidated"); return; }
             IntVec3 siteCell = op.PodConstructionStage == 2 ? op.PodCell : op.PodLauncherCell;
+            NativeVipMovementS41(op,vip,now);
             // S4.1: stable engineer assignment avoids 90-tick ownership thrash.
             Pawn engineer = RHFRescuePlannerS41.Enabled &&
                 RHFPodPlannerS41.PinnedEngineerValid(op,map,siteCell) ?
                     op.BoardS41.PodEngineerS41 : NativeEngineerS311(op,siteCell);
             if(RHFRescuePlannerS41.Enabled)
             {
-                Thing currentSite=NativeWorkSiteS311(map,siteCell,owner.Faction) ??
+                Thing currentSite=NJRPodSiteClearS41.Blocker(op,map,
+                    launcherDef,podDef,vip) ??
+                    NativeWorkSiteS311(map,siteCell,owner.Faction) ??
                     (op.PodConstructionStage==3 ? op.PodLauncherThing : null);
                 if(op.PodConstructionStage<=3 && currentSite!=null &&
                    now%360<90 && RHFPodPlannerS41.WorkJob(engineer,currentSite)==null)
@@ -507,10 +564,10 @@ namespace RaidersHaveFamilies
             }
             NativeDefendSiteS311(op, engineer, now);
             Thing fortifyWork=null;
-            if(op.PodConstructionStage==3 && op.FortifyPrison &&
-               op.BarricadesBuilt<2)
+            if(op.PodConstructionStage>=1 && op.PodConstructionStage<=3 &&
+               op.FortifyPrison && op.BarricadesBuilt<2)
             {
-                if(now-op.PodStageStartedTickS311<7200)
+                if(now-op.PodStageStartedTickS311<12000)
                     fortifyWork=NativeFortificationWorkS41(op,vip,owner.Faction,now);
                 else
                 {
@@ -523,6 +580,7 @@ namespace RaidersHaveFamilies
                 RHFPodPlannerS41.Plan(op,map,engineer,
                     fortifyWork ??
                     (op.PodConstructionStage==4 ? op.PodVehicleThing :
+                    NJRPodSiteClearS41.Blocker(op,map,launcherDef,podDef,vip) ??
                     NativeWorkSiteS311(map,siteCell,owner.Faction) ??
                     (op.PodConstructionStage==3 ? op.PodLauncherThing : null)),now);
             // Never convert unfinished fortification into a completed wall:
@@ -552,7 +610,19 @@ namespace RaidersHaveFamilies
                 if (site == null)
                 {
                     if (!FieldFootprintFree(cell, requested, vip))
-                    { NativeFallBackS311(op, now, "building footprint obstructed"); return; }
+                    {
+                        // The combat wing must physically demolish a real
+                        // player-owned constructed wall before construction.
+                        // We NEVER delete it instantly or place through it.
+                        if(NJRPodSiteClearS41.Blocker(op,map,launcherDef,podDef,vip)!=null)
+                        {
+                            if(now-op.PodStageStartedTickS311>NativeVipWorkTimeoutS311)
+                                NativeFallBackS311(op,now,"site demolition stalled");
+                            return;
+                        }
+                        NativeFallBackS311(op, now, "building footprint obstructed");
+                        return;
+                    }
                     try
                     {
                         site = GenConstruct.PlaceBlueprintForBuild(requested, cell,

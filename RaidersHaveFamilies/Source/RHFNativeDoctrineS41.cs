@@ -120,7 +120,7 @@ namespace RaidersHaveFamilies
             List<RHFOperation> ops=map==null ? null :
                 RHFMissionIntegrityV130.Operations(map);
             var report=new StringBuilder(600);
-            report.AppendLine("RHF S4.1 native Lord / support audit");
+            report.AppendLine("NJR native Lord / support audit");
             if(ops==null || ops.Count==0)
                 report.AppendLine("No registered operations on this map.");
             else for(int i=0;i<ops.Count && i<4;i++)

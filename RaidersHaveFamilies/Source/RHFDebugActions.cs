@@ -648,10 +648,10 @@ namespace RaidersHaveFamilies
             { Notify(map, "Фракция-исполнитель должна быть враждебна игроку."); return; }
 
             int now = Find.TickManager.TicksGame;
-            float basePoints = StorytellerUtility.DefaultThreatPointsNow(map);
-            float factor = scenario == RHFDebugScenario.MassRescue ? 2f :
-                tribal ? 2.2f : scenario == RHFDebugScenario.HighTechSiege ? 2f : 1.65f;
-            float total = Mathf.Clamp(Mathf.Max(500f, basePoints) * factor, 650f, 12000f);
+            int debugImportance=targets.Count>0 ? HostageRank(targets[0]) : 0;
+            float total=NJRThreatBudgetS41.PartyPoints(map,executor,
+                debugImportance,Math.Max(1,targets.Count),
+                RHFMod.Settings.InterventionStrength);
             // Manual field-pod tests are tests of the PHYSICAL build, not a
             // lottery in which a tiny early-game raid cannot afford any pod.
             // The vanilla structure cost is still subtracted from these points.
@@ -670,7 +670,8 @@ namespace RaidersHaveFamilies
                       scenario == RHFDebugScenario.FortifiedVipExtraction ? targets[0] : null,
                 TryPod = scenario == RHFDebugScenario.FieldPod ||
                     scenario == RHFDebugScenario.FortifiedVipExtraction,
-                FortifyPrison=scenario==RHFDebugScenario.FortifiedVipExtraction,
+                FortifyPrison=scenario==RHFDebugScenario.FortifiedVipExtraction ||
+                    scenario==RHFDebugScenario.FieldPod,
                 AssaultAfterObjective=scenario==RHFDebugScenario.RescueThenRaze,
                 HuntTarget=scenario==RHFDebugScenario.TraitorHunt ? traitorCase.Pawn : null,
                 SourceImportance=scenario==RHFDebugScenario.TraitorHunt ?
@@ -735,13 +736,18 @@ namespace RaidersHaveFamilies
                     rescueCount < MaxCoalitionParties &&
                     scenario != RHFDebugScenario.CoalitionManyFactions;
                 int partyCount = rescueCount + (addHire ? 1 : 0);
-                total = Mathf.Max(total, 350f * partyCount);
-                float per = total / partyCount;
+                // Each coalition/mercenary wing has independent vanilla base.
+                float per=total;
                 for (int i=0; i<rescueCount && i<4; i++)
                     op.Parties.Add(new RHFStrikeParty(sponsors[i], RHFStrikeRole.Rescue,
-                        per, breach: true));
+                        NJRThreatBudgetS41.PartyPoints(map,sponsors[i],
+                            debugImportance,Math.Max(1,NJRThreatBudgetS41.CaptivesOf(
+                                sponsors[i],op,map)),RHFMod.Settings.InterventionStrength),
+                        breach: true));
                 if (addHire)
-                    op.Parties.Add(new RHFStrikeParty(mercenary, RHFStrikeRole.Diversion, per,
+                    op.Parties.Add(new RHFStrikeParty(mercenary, RHFStrikeRole.Diversion,
+                        NJRThreatBudgetS41.PartyPoints(map,mercenary,debugImportance,1,
+                            RHFMod.Settings.InterventionStrength),
                         drop: scenario == RHFDebugScenario.CombinedMixedApproach &&
                               mercenary.def.techLevel >= TechLevel.Industrial));
                 // Even without hired soldiers, split one sponsor into a distraction.
@@ -757,6 +763,9 @@ namespace RaidersHaveFamilies
                 op.Parties.Add(new RHFStrikeParty(sponsor, RHFStrikeRole.Rescue, total,
                     breach: true));
             }
+            op.ThreatPoints=0f;
+            foreach(RHFStrikeParty party in op.Parties)
+                if(party!=null)op.ThreatPoints+=party.Points;
             // A DebugAction does not affect the natural raid scheduler. The raid
             // is performed on this click, not silently scheduled for later.
             if (!controller.Register(op))
@@ -767,7 +776,7 @@ namespace RaidersHaveFamilies
                 "Проверь журнал ошибок. Запись операции отменена."); return; }
             Notify(map, "Рейд вызван СЕЙЧАС: " + scenario + ". Успешных групп: " +
                 op.SuccessfulParties + "/" + op.Parties.Count + "; спонсоров: " +
-                sponsors.Count + "; всего бюджет " + Mathf.RoundToInt(total) +
+                sponsors.Count + "; суммарный бюджет групп " + Mathf.RoundToInt(op.ThreatPoints) +
                 ". Если использованы капсулы, дождись открытия капсул, не повторяй вызов.");
         }
 

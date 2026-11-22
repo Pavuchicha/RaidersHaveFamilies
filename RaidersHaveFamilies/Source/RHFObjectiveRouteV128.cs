@@ -552,7 +552,7 @@ namespace RaidersHaveFamilies
                 if(!Cache.TryGetValue(op,out RHFRouteStoreV128 store) || store.Plan==null)
                 {sb.AppendLine("Маршрут ещё не рассчитывался");continue;}
                 RHFRoutePlanV128 p=store.Plan;
-                sb.AppendLine("RHF v0.12.9: маршрут "+(p.Valid?"найден":"не найден"));
+                sb.AppendLine("NJR: маршрут "+(p.Valid?"найден":"не найден"));
                 sb.AppendLine("От "+p.From+" к "+p.To+"; причина: "+p.Explanation);
                 sb.AppendLine("Полная стоимость="+p.TotalCost+", ОЗ преград="+
                     p.TotalStructuralHP+", стен="+p.Walls+", дверей="+p.Doors);

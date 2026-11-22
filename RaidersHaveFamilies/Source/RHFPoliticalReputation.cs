@@ -29,7 +29,7 @@ namespace RaidersHaveFamilies
             if(ledger?.FactionStandings==null || faction==null)return 0;
             for(int i=0;i<ledger.FactionStandings.Count;i++)
                 if(ledger.FactionStandings[i]?.Faction==faction)
-                    return ledger.FactionStandings[i].Pressure;
+                    return Math.Max(-100,Math.Min(0,ledger.FactionStandings[i].Pressure));
             return 0;
         }
 
@@ -51,7 +51,7 @@ namespace RaidersHaveFamilies
                 entry=new RHFFactionStanding(faction);
                 list.Add(entry);
             }
-            entry.Pressure=Math.Max(-1000,Math.Min(1000,entry.Pressure+delta));
+            entry.Pressure=Math.Max(-100,Math.Min(0,entry.Pressure+delta));
         }
     }
 }
