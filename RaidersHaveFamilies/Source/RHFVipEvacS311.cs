@@ -244,6 +244,9 @@ namespace RaidersHaveFamilies
 
         private bool NativeConstructionOrderS311(Pawn engineer, Thing site)
         {
+            // S4.1: strategy writes a role, only ThinkTree issues the
+            // native physical construction job. Never issue both.
+            if(RHFRescuePlannerS41.Enabled)return true;
             // Vanilla WorkGivers, vanilla JobDrivers, vanilla Frame resource
             // consumption and pawn work ticks. No ThingMaker completed building.
             if (site is Blueprint_Build)
@@ -258,6 +261,8 @@ namespace RaidersHaveFamilies
 
         private void NativeDefendSiteS311(RHFOperation op, Pawn engineer, int now)
         {
+            // Screen roles now belong to S4.1 Blackboard/ThinkTree.
+            if(RHFRescuePlannerS41.Enabled)return;
             if (!op.PodLauncherCell.IsValid || now % 360 > 90 || op.Squad == null) return;
             int issued = 0;
             int[] dx = {-5, 5, -5, 5, 0, 0};
@@ -301,6 +306,8 @@ namespace RaidersHaveFamilies
                     return;
                 }
             }
+            if(RHFRescuePlannerS41.Enabled)
+                RHFPodPlannerS41.ResetAfterFallback(op);
             FallBackToLand(op, now, reason);
         }
 
@@ -379,8 +386,18 @@ namespace RaidersHaveFamilies
                 !op.PodLauncherCell.InBounds(map) || !op.PodCell.InBounds(map))
             { NativeFallBackS311(op, now, "site invalidated"); return; }
             IntVec3 siteCell = op.PodConstructionStage == 2 ? op.PodCell : op.PodLauncherCell;
-            Pawn engineer = NativeEngineerS311(op, siteCell);
+            // S4.1: stable engineer assignment avoids 90-tick ownership thrash.
+            Pawn engineer = RHFRescuePlannerS41.Enabled &&
+                RHFPodPlannerS41.PinnedEngineerValid(op,map,siteCell) ?
+                    op.BoardS41.PodEngineerS41 : NativeEngineerS311(op,siteCell);
+            if(RHFRescuePlannerS41.Enabled)
+                RHFPodPlannerS41.RememberEngineer(op,engineer);
             NativeDefendSiteS311(op, engineer, now);
+            if(RHFRescuePlannerS41.Enabled)
+                RHFPodPlannerS41.Plan(op,map,engineer,
+                    op.PodConstructionStage==4 ? op.PodVehicleThing :
+                    NativeWorkSiteS311(map,siteCell,owner.Faction) ??
+                    (op.PodConstructionStage==3 ? op.PodLauncherThing : null),now);
             if (op.PodConstructionStage <= 3 && engineer == null)
             {
                 if (now - op.PodStageStartedTickS311 > NativeVipWorkTimeoutS311)
@@ -435,7 +452,8 @@ namespace RaidersHaveFamilies
                 }
                 if (now - op.PodStageStartedTickS311 > NativeVipWorkTimeoutS311)
                 { NativeFallBackS311(op, now, "native refueling did not complete"); return; }
-                NativeJobFromWorkGiverS311(engineer, launchThing, "Refuel");
+                if(!RHFRescuePlannerS41.Enabled)
+                    NativeJobFromWorkGiverS311(engineer, launchThing, "Refuel");
                 return;
             }
             if (op.PodConstructionStage == 4)
@@ -456,7 +474,8 @@ namespace RaidersHaveFamilies
                 {
                     if (now - op.PodStageStartedTickS311 > NativeVipBoardTimeoutS311)
                     { NativeFallBackS311(op, now, "VIP failed to board real pod"); return; }
-                    if (vip.jobs?.curJob?.def != JobDefOf.EnterTransporter)
+                    if(!RHFRescuePlannerS41.Enabled &&
+                       vip.jobs?.curJob?.def != JobDefOf.EnterTransporter)
                         vip.jobs?.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.EnterTransporter, vehicle));
                     return;
                 }
@@ -470,11 +489,31 @@ namespace RaidersHaveFamilies
                 NativeFallBackS311(op, now, "VIP not in transporter container");
                 return;
             }
+            if (op.PodConstructionStage == 6)
+            {
+                // Successful departure is signaled ONLY by the actual
+                // FlyShipLeaving world handoff, never by stage number.
+                if(op.PodLaunchCompleted)return;
+                if(RHFEnemyPodLaunchS41.Reconcile(op,map))return;
+                if(now-op.PodStageStartedTickS311>2400)
+                    Log.ErrorOnce("[RHF S41] Flight transfer did not complete: " +
+                        op.CreatedTick,op.CreatedTick ^ 417611);
+                return;
+            }
             if (op.PodConstructionStage == 5)
             {
-                // S3.1.1 has no validated hostile-faction WORLD arrival action.
-                // A fake Skyfaller or disappearance is strictly prohibited.
-                // Return the SAME VIP to the map before ground-exit fallback.
+                // S4.1-A/F: physically fire the built and fueled native transporter.
+                // The vanilla skyfaller MUST become a real world traveler
+                // carrying THIS VIP before PodLaunchCompleted is credited.
+                if (RHFRescuePlannerS41.Enabled)
+                {
+                    if(RHFEnemyPodLaunchS41.TryLaunch(op,map,now) ||
+                       RHFEnemyPodLaunchS41.DepartureInFlight(op,map))
+                        op.PodConstructionStage=6;
+                    else if(op.PodVehicleThing != null && op.PodVehicleThing.Spawned)
+                        NativeFallBackS311(op,now,"hostile flight validation rejected launch");
+                    return;
+                }
                 NativeFallBackS311(op, now, "native hostile pod launch not yet supported (S3.2)");
             }
         }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>RHF_PlantBreachChargeS41</defName>
+    <driverClass>RaidersHaveFamilies.JobDriver_RHFPlantBreachChargeS41</driverClass>
+    <reportString>устанавливает сапёрный заряд.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
+</Defs>

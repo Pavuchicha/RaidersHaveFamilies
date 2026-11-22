@@ -94,6 +94,12 @@ namespace RaidersHaveFamilies
         public List<Pawn> Freed = new List<Pawn>();
         public List<RHFEscortLink> Escorts = new List<RHFEscortLink>();
         public int EscapedWithEscort;
+        // S4.1-A saveable mission blackboard; legacy saves initialize at load.
+        public RHFTacticalBoardS41 BoardS41 = new RHFTacticalBoardS41();
+        public RHFTacticalBoardS41 OffenseBoardS41 = new RHFTacticalBoardS41();
+        public List<RHFNativeWingS41> NativeWingsS41 = new List<RHFNativeWingS41>();
+        public int NextNativeObservationS41;
+        public List<Pawn> NativeAnimalsS41 = new List<Pawn>();
         public List<Pawn> Diversion = new List<Pawn>();
         public List<Faction> Sponsors = new List<Faction>();
         public List<RHFStrikeParty> Parties = new List<RHFStrikeParty>();
@@ -171,6 +177,11 @@ namespace RaidersHaveFamilies
             Scribe_Collections.Look(ref Freed, "freed", LookMode.Reference);
             Scribe_Collections.Look(ref Escorts, "rhfEscortsV11", LookMode.Deep);
             Scribe_Values.Look(ref EscapedWithEscort, "rhfEvacuatedV11", 0);
+            Scribe_Deep.Look(ref BoardS41, "rhfBlackboardS41");
+            Scribe_Deep.Look(ref OffenseBoardS41, "rhfOffenseBoardS41AG");
+            Scribe_Collections.Look(ref NativeWingsS41, "rhfNativeWingsS41AH", LookMode.Deep);
+            Scribe_Values.Look(ref NextNativeObservationS41, "rhfNextNativeScanS41AH", 0);
+            Scribe_Collections.Look(ref NativeAnimalsS41, "rhfNativeAnimalsS41AI", LookMode.Reference);
             Scribe_Collections.Look(ref Diversion, "diversion", LookMode.Reference);
             Scribe_Collections.Look(ref Sponsors, "sponsors", LookMode.Reference);
             Scribe_Collections.Look(ref Parties, "strikeParties", LookMode.Deep);
@@ -235,6 +246,10 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref PodSupplyCost, "rhfPodSupplyCostV12", 0f);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                if (BoardS41 == null) BoardS41 = new RHFTacticalBoardS41();
+                if (OffenseBoardS41 == null) OffenseBoardS41 = new RHFTacticalBoardS41();
+                if (NativeWingsS41 == null) NativeWingsS41 = new List<RHFNativeWingS41>();
+                if (NativeAnimalsS41 == null) NativeAnimalsS41 = new List<Pawn>();
                 if (Targets == null) Targets = new List<Pawn>();
                 if (Squad == null) Squad = new List<Pawn>();
                 if (Freed == null) Freed = new List<Pawn>();
@@ -425,7 +440,24 @@ namespace RaidersHaveFamilies
         public void ObserveSpawn(Pawn pawn)
         {
             if (pawn == null || !pawn.Spawned || pawn.Faction == null || pawn.Dead ||
-                pawn.RaceProps == null || !pawn.RaceProps.Humanlike) return;
+                pawn.RaceProps == null) return;
+            if (!pawn.RaceProps.Humanlike)
+            {
+                // Never enlist unrelated animals on the map: ONLY active
+                // incident scope may claim a native non-human raider.
+                if (pawn.RaceProps.Animal &&
+                    activeOperation != null && activeParty != null &&
+                    pawn.Faction == activeParty.Faction &&
+                    activeParty.Role != (int)RHFStrikeRole.Rescue)
+                {
+                    if (activeOperation.NativeAnimalsS41 == null)
+                        activeOperation.NativeAnimalsS41 = new List<Pawn>();
+                    if (activeOperation.NativeAnimalsS41.Count < MaxSquad &&
+                        !activeOperation.NativeAnimalsS41.Contains(pawn))
+                        activeOperation.NativeAnimalsS41.Add(pawn);
+                }
+                return;
+            }
             if (activeOperation != null && activeParty != null &&
                 pawn.Faction == activeParty.Faction)
             {
@@ -596,6 +628,26 @@ namespace RaidersHaveFamilies
                     " members, phase="+op.Phase);
         }
 
+        // The before/after delta is consumed while the incident call is
+        // still synchronous. No world/faction scans on ordinary tactical ticks.
+        private void RecoverIncidentBeastsS41(RHFOperation op,
+            RHFStrikeParty party,HashSet<int> before)
+        {
+            if(op==null || party?.Faction==null || before==null ||
+               party.Role==(int)RHFStrikeRole.Rescue)return;
+            if(op.NativeAnimalsS41==null)op.NativeAnimalsS41=new List<Pawn>();
+            foreach(Pawn pawn in map.mapPawns.AllPawnsSpawned)
+            {
+                if(op.NativeAnimalsS41.Count>=MaxSquad)break;
+                if(pawn==null || pawn.Dead || !pawn.Spawned ||
+                   pawn.RaceProps?.Animal!=true ||
+                   pawn.Faction!=party.Faction ||
+                   before.Contains(pawn.thingIDNumber) ||
+                   op.NativeAnimalsS41.Contains(pawn))continue;
+                op.NativeAnimalsS41.Add(pawn);
+            }
+        }
+
         private bool Deploy(RHFOperation op)
         {
             if (op == null || op.Deployed) return op != null && op.SuccessfulParties > 0;
@@ -624,6 +676,16 @@ namespace RaidersHaveFamilies
                 party.Attempted = true;
                 activeOperation = op;
                 activeParty = party;
+                // Snapshot exactly this synchronous incident's non-human pawns.
+                // A faction-wide delayed search is NOT safe and is prohibited.
+                HashSet<int> beastsBeforeRaid=null;
+                if(op.Type==(int)RHFOperationType.Vengeance)
+                {
+                    beastsBeforeRaid=new HashSet<int>();
+                    foreach(Pawn already in map.mapPawns.AllPawnsSpawned)
+                        if(already?.RaceProps?.Animal==true)
+                            beastsBeforeRaid.Add(already.thingIDNumber);
+                }
                 // Snapshot the map just before THIS incident; never identify
                 // an unrelated pre-existing enemy as part of the rescue.
                 HashSet<int> presentBeforeRaid = null;
@@ -737,6 +799,7 @@ namespace RaidersHaveFamilies
                 }
                 finally { activeOperation = null; activeParty = null; }
                 RecoverFreshRescueMembers(op, party, presentBeforeRaid);
+                RecoverIncidentBeastsS41(op,party,beastsBeforeRaid);
                 party.Succeeded = accepted || party.Members > 0;
                 if (party.Succeeded) success++;
                 else Log.Warning("[RHF] RaidEnemy declined " + party.Faction.Name +
@@ -902,7 +965,8 @@ namespace RaidersHaveFamilies
                 RHFOperation op = operations[i];
                 if (op == null || op.Finished || now > op.ExpiryTick ||
                     now - op.CreatedTick > MaxOperationDuration)
-                { operations.RemoveAt(i); continue; }
+                { if(op!=null)RHFOffenseDirectorS41.End(op,map);
+                  operations.RemoveAt(i); continue; }
                 if (now >= op.SpawnTick && !op.Deployed && op.Parties.Count > 0)
                 {
                     if (!Deploy(op))
@@ -919,18 +983,15 @@ namespace RaidersHaveFamilies
                 {
                     if (now >= op.SpawnTick && (op.Diversion.Count>0 || op.Squad.Count>0) && !op.SupportUsed)
                         DeployVengeanceSupport(op);
-                    if (RHFMod.Settings?.TacticalCombat == true)
-                    {
-                        RHFTactical.PressureAssault(map, op, now);
-                        if (op.HuntTarget != null) PursuePriorityTarget(op, now);
-                        if (op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ||
-                            op.Doctrine==(int)RHFDoctrine.PunitiveAssault ||
-                            (op.HuntTarget != null && op.AssaultAfterObjective))
-                            AssaultStrategicStructures(op, now);
-                    }
+                    // S4.1-A/G: no external TryTakeOrderedJob in vengeance.
+                    // Native siege/animal lords remain intact, mission pawns
+                    // outside them receive only ThinkTree role orders.
+                    if(RHFMod.Settings?.TacticalCombat == true)
+                        RHFOffenseDirectorS41.Tick(op,map,now);
                     int vengeanceDuration=op.HuntTarget!=null ||
                         op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ? 48000 : 18000;
-                    if (now > op.SpawnTick + vengeanceDuration) operations.RemoveAt(i);
+                    if (now > op.SpawnTick + vengeanceDuration)
+                    { RHFOffenseDirectorS41.End(op,map); operations.RemoveAt(i); }
                     continue; // vanilla Lord still controls ordinary assault formations
                 }
                 if (now < op.SpawnTick) continue;
@@ -953,6 +1014,9 @@ namespace RaidersHaveFamilies
                 // One source of truth for rescue authority. Reconcile late
                 // capsule arrivals before AI gets another assault ThinkTree tick.
                 RHFRescueCommandV124.OnDeploy(this, op, true);
+                // Opposite-flank diversion uses its own tactical board and Lords.
+                if(op.Diversion!=null && op.Diversion.Count>0)
+                    RHFOffenseDirectorS41.Tick(op,map,now);
                 // Real kit is dropped by an arrived rescue party, before VIP liberation.
                 if (op.TryPod && op.PodBudgetPaid && !op.PodSuppliesIssued)
                     NativeIssueCargoOnArrivalS311(op, now);
@@ -976,7 +1040,8 @@ namespace RaidersHaveFamilies
                 }
                 else if (op.Phase == 3) BuildAndLaunch(op, now);
                 else if (op.Phase == 5) PostExtractionAssault(op, now);
-                else if (op.Phase == 4) { op.Finished = true; operations.RemoveAt(i); }
+                else if (op.Phase == 4)
+                { RHFOffenseDirectorS41.End(op,map); op.Finished = true; operations.RemoveAt(i); }
             }
         }
 
@@ -1227,7 +1292,7 @@ namespace RaidersHaveFamilies
                     "; missionLord="+(p.GetLord()?.LordJob is RHFRescueLordJobV124));
                 // Take an initial step together immediately instead of waiting
                 // another 450 ticks while vanilla AI sends them different ways.
-                if (!p.Downed)
+                if (!RHFRescuePlannerS41.Enabled && !p.Downed)
                 {
                     RHFEscortLink link=FindEscort(op,p);
                     if (link?.Escort != null)
@@ -1806,6 +1871,14 @@ namespace RaidersHaveFamilies
 
         private void PostExtractionAssault(RHFOperation op,int now)
         {
+            // S4.1-A/G: no legacy direct jobs after extraction.
+            if(RHFOffenseDirectorS41.Enabled)
+            {
+                RHFOffenseDirectorS41.Tick(op,map,now);
+                if(now-op.PhaseStartTick>24000)
+                { RHFOffenseDirectorS41.End(op,map); op.Phase=4; }
+                return;
+            }
             if(now-op.PhaseStartTick>24000){op.Phase=4;return;}
             // Existing rescued soldiers, not extra free enemies, now attack.
             // Cap target orders and let the rest use original CE/vanilla verbs.

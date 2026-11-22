@@ -69,6 +69,19 @@ jobs:
           python3 tests/rhf_139_assembly_breach_fortify.py
           python3 tests/rhf_140_s221_engineer_door_contact.py
           python3 tests/rhf_144_s311_vip_native.py
+          python3 tests/rhf_151_s41_rescue_single_writer.py
+          python3 tests/rhf_152_s41_agent_review_fixes.py
+          python3 tests/rhf_153_s41_agent3_combat_and_escort.py
+          python3 tests/rhf_154_s41_phase3_native_roles.py
+          python3 tests/rhf_155_s41_airflight.py
+          python3 tests/rhf_156_s41_offense_single_writer.py
+          python3 tests/rhf_157_s41_native_lords.py
+          python3 tests/rhf_158_s41_beast_incident_and_flank.py
+          python3 tests/rhf_159_s41_native_lord_identity.py
+          python3 tests/rhf_160_s41_multivip_downed_single_writer.py
+          python3 tests/rhf_161_s41_air_vip_lifetime_and_exit_recovery.py
+          python3 tests/rhf_162_s41_fuel_reachable_destination.py
+          python3 tests/rhf_163_s41_offense_missing_breacher.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)

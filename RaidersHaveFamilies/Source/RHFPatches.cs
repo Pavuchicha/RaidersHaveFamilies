@@ -180,7 +180,7 @@ namespace RaidersHaveFamilies
     public static class RHFExitEvent
     {
         [HarmonyPrefix]
-        public static void Prefix(Pawn __instance, out RHFExitState __state)
+        public static bool Prefix(Pawn __instance, out RHFExitState __state)
         {
             __state = new RHFExitState
             {
@@ -188,6 +188,8 @@ namespace RaidersHaveFamilies
                 ExitCell = __instance?.Position ?? IntVec3.Invalid,
                 Released = __instance?.guest != null && __instance.guest.Released
             };
+            // Filter by explicit mission membership and actual rescuer contact.
+            return RHFRescuePlannerS41.GuardExit(__instance);
         }
 
         [HarmonyPostfix]

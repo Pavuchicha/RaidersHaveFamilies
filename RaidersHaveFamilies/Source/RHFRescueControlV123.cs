@@ -488,6 +488,10 @@ namespace RaidersHaveFamilies
     {
         private static bool Prefix(Pawn __instance)
         {
+            // S4.1 rescue uses the same scoped exit permission as RHFExitEvent.
+            // Do not wake the obsolete V123 external job writer.
+            if (RHFRescuePlannerS41.Enabled)
+                return RHFRescuePlannerS41.GuardExit(__instance);
             return RHFRescueControlV123.PermitExit(__instance);
         }
     }

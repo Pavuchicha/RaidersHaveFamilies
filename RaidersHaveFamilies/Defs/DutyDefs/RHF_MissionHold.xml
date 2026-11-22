@@ -8,6 +8,7 @@
     <thinkNode Class="ThinkNode_Priority">
       <subNodes>
         <!-- Mission-scoped self-defence: never target own hostages/coalition. -->
+        <li Class="RaidersHaveFamilies.RHFRescueRoleJobGiverS41" />
         <li Class="RaidersHaveFamilies.RHFJobGiverMissionDefenseV136" />
         <li Class="JobGiver_WanderNearDutyLocation">
           <wanderRadius>1</wanderRadius>
