@@ -3,7 +3,7 @@
   <ThingDef ParentName="BuildingBase">
     <defName>RHF_ExtractionPod</defName>
     <label>improvised evacuation pod</label>
-    <description>An armored field-built capsule used by a raiding team to extract a captive important to its sponsors. It remains as loot or debris after a successful launch.</description>
+    <description>LEGACY DEF (save compatibility only). Modern NJR VIP flight uses the physical vanilla TransportPod / PodLauncher instead of this decorative old experimental object.</description>
     <thingClass>Building</thingClass>
     <category>Building</category>
     <graphicData>
@@ -20,7 +20,7 @@
   <ThingDef ParentName="BuildingBase">
     <defName>RHF_FieldLauncher</defName>
     <label>improvised pod launcher</label>
-    <description>A disposable emergency field launcher assembled by a prison rescue squad.</description>
+    <description>LEGACY DEF (save compatibility only). Modern NJR VIP flight builds the physical vanilla PodLauncher. Not a functional launch object.</description>
     <thingClass>Building</thingClass>
     <category>Building</category>
     <graphicData>

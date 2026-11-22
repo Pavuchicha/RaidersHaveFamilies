@@ -52,58 +52,46 @@ namespace RaidersHaveFamilies
                 bestDistance = dist;
                 best = p;
             }
-            if (best == null) return null;
-            // Enemy pawns generally have no enabled WorkSettings; WorkGivers
-            // must also be called with forced=true and their actual Job verified.
-            try
-            {
-                best.workSettings?.EnableAndInitializeIfNotAlreadyInitialized();
-                if (best.workSettings != null)
-                {
-                    best.workSettings.SetPriority(WorkTypeDefOf.Construction, 3);
-                    if (!best.WorkTypeIsDisabled(WorkTypeDefOf.Hauling))
-                        best.workSettings.SetPriority(WorkTypeDefOf.Hauling, 3);
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Warning("[RHF][S311] Cannot initialize enemy engineer: " + e.Message);
-                return null;
-            }
+            if (best == null || !NativePrepareEngineerS41(best)) return null;
             return best;
         }
 
-        private IntVec3 NativeCargoCellS311(IntVec3 near, HashSet<IntVec3> used)
+        private static bool NativePrepareEngineerS41(Pawn p)
         {
-            for (int radius = 1; radius <= 7; radius++)
-            for (int dx = -radius; dx <= radius; dx++)
-            for (int dz = -radius; dz <= radius; dz++)
+            try
             {
-                if (Math.Max(Math.Abs(dx), Math.Abs(dz)) != radius) continue;
-                IntVec3 cell = near + new IntVec3(dx, 0, dz);
-                if (used.Contains(cell) || !cell.InBounds(map) || !cell.Standable(map) ||
-                    cell.GetEdifice(map) != null || cell.GetFirstBuilding(map) != null ||
-                    cell.GetFirstPawn(map) != null) continue;
-                bool occupied = false;
-                foreach (Thing thing in map.thingGrid.ThingsListAt(cell))
-                    if (thing.def.category == ThingCategory.Item) { occupied = true; break; }
-                if (!occupied) { used.Add(cell); return cell; }
+                p.workSettings?.EnableAndInitializeIfNotAlreadyInitialized();
+                if(p.workSettings==null)return false;
+                p.workSettings.SetPriority(WorkTypeDefOf.Construction,3);
+                // Vanilla LordToil_Siege similarly trains its assigned builders
+                // up to the actual construction prerequisite. This only
+                // applies to the mission engineer, not the entire raid.
+                ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher");
+                ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod");
+                int required=Math.Max(launcher?.constructionSkillPrerequisite ?? 0,
+                    pod?.constructionSkillPrerequisite ?? 0);
+                p.skills?.GetSkill(SkillDefOf.Construction)?.EnsureMinLevelWithMargin(required);
+                if(!p.WorkTypeIsDisabled(WorkTypeDefOf.Hauling))
+                    p.workSettings.SetPriority(WorkTypeDefOf.Hauling,3);
+                return true;
             }
-            return IntVec3.Invalid;
+            catch(Exception e)
+            {Log.Warning("[RHF][AirS41] Engineer rejected: "+e.Message);return false;}
         }
 
-        private static void NativeAddStacksS311(List<Thing> destination, ThingDef def, int total)
+        private static void NativeAddStacksS311(List<Thing> destination, ThingDef def,
+            int total, int maxPerStack = 12)
         {
             if (total < 0 || def == null || def.stackLimit <= 0)
                 throw new InvalidOperationException("Invalid supply quantity or stack definition");
             while (total > 0)
             {
                 Thing thing = ThingMaker.MakeThing(def);
-                int count = Math.Min(total, def.stackLimit);
+                int count = Math.Min(total, Math.Min(def.stackLimit, maxPerStack));
                 thing.stackCount = count;
                 destination.Add(thing);
                 total -= count;
-                if (destination.Count > 16)
+                if (destination.Count > 48)
                     throw new InvalidOperationException("Unsupported modded supply stack count");
             }
         }
@@ -146,59 +134,79 @@ namespace RaidersHaveFamilies
                 fuel > 16 * ThingDefOf.Chemfuel.stackLimit)
             { NativeCancelAirBeforeExtractionS311(op, "modded supply exceeds tracked stack capacity"); return; }
 
+            // Make real small stacks; their actual mass must fit into the
+            // existing raiders' inventories. Nothing lands as an extra drop.
             var supplied = new List<Thing>();
-            var used = new HashSet<IntVec3>();
-            var places = new List<IntVec3>();
+            var carried = new List<Thing>();
             try
             {
-                if (steel > 2 * ThingDefOf.Steel.stackLimit)
-                    throw new InvalidOperationException("steel exceeds two tracked military stacks");
-                NativeAddStacksS311(supplied, ThingDefOf.Steel, steel);
-                NativeAddStacksS311(supplied, ThingDefOf.ComponentIndustrial, components);
-                NativeAddStacksS311(supplied, ThingDefOf.Chemfuel, fuel);
+                NativeAddStacksS311(supplied, ThingDefOf.Steel, steel, 8);
+                NativeAddStacksS311(supplied, ThingDefOf.ComponentIndustrial, components, 6);
+                NativeAddStacksS311(supplied, ThingDefOf.Chemfuel, fuel, 24);
+                var candidates = new List<Pawn>();
+                foreach (Pawn soldier in op.Squad)
+                    if (NativeAliveS311(soldier, map) && soldier.Faction == party.Faction &&
+                        soldier.inventory?.innerContainer != null &&
+                        soldier.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation) == true)
+                        candidates.Add(soldier);
+                if (candidates.Count == 0)
+                    throw new InvalidOperationException("no living mission cargo carriers");
+                // Order by remaining real carrying capacity. A soldier who
+                // can't carry a stack never receives an overweight phantom kit.
                 foreach (Thing stack in supplied)
                 {
-                    IntVec3 position = NativeCargoCellS311(owner.Position, used);
-                    if (!position.IsValid)
-                        throw new InvalidOperationException("no distinct physical cargo landing cells");
-                    places.Add(position);
+                    Pawn carrier = null;
+                    float mostFree = -1f;
+                    foreach (Pawn p in candidates)
+                    {
+                        float available = MassUtility.FreeSpace(p);
+                        if (available <= mostFree ||
+                            MassUtility.WillBeOverEncumberedAfterPickingUp(
+                                p, stack, stack.stackCount))continue;
+                        carrier = p; mostFree = available;
+                    }
+                    if (carrier == null ||
+                        !carrier.inventory.innerContainer.TryAdd(stack,
+                            canMergeWithExistingStacks: false))
+                        throw new InvalidOperationException("no physical inventory room for " + stack);
+                    carried.Add(stack);
                 }
-                // Latch BEFORE first spawn: partial failure is a failure, not a
-                // reason to conjure a second complete kit on the next tick.
+                // One-way latch after the entire real payload has been placed
+                // in existing pawn inventories. Subsequent phases only move it.
                 op.PodSuppliesIssued = true;
                 op.PodNativeS311 = true;
                 op.PodCargoOwnerFactionS311 = party.Faction;
                 op.PodFuelStacksS311.Clear();
-                int index = 0;
-                for (int i = 0; i < supplied.Count; i++)
+                op.PodCargoStacksS41.Clear();
+                int steelIndex = 0;
+                foreach (Thing stack in carried)
                 {
-                    Thing stack = supplied[i];
-                    Thing spawned = GenSpawn.Spawn(stack, places[i], map);
-                    // Prevent colonist AI hauling foreign military supplies away.
-                    // The explicitly FORCED enemy WorkGiver jobs must still be
-                    // verified; a forbidden stack is never assumed usable.
-                    spawned.SetForbidden(true, false);
+                    op.PodCargoStacksS41.Add(stack);
                     if (stack.def == ThingDefOf.Steel)
                     {
-                        if (index++ == 0) op.PodSteel = spawned;
-                        else op.PodSteelExtra = spawned;
+                        if (steelIndex++ == 0) op.PodSteel = stack;
+                        else if (steelIndex == 2) op.PodSteelExtra = stack;
                     }
                     else if (stack.def == ThingDefOf.ComponentIndustrial)
-                        op.PodComponents = spawned;
+                        op.PodComponents = stack;
                     else if (stack.def == ThingDefOf.Chemfuel)
-                        op.PodFuelStacksS311.Add(spawned);
+                        op.PodFuelStacksS311.Add(stack);
                 }
                 op.PodStageStartedTickS311 = now;
-                Log.Message("[RHF][S311] Physical drop-rescue cargo: owner=" + party.Faction +
-                    ", steel=" + steel + ", components=" + components + ", fuel=" + fuel);
+                Log.Message("[RHF][AirS41] Cargo carried by " + candidates.Count +
+                    " mission soldiers, owner=" + party.Faction +
+                    "; steel=" + steel + ", components=" + components + ", fuel=" + fuel);
             }
             catch (Exception e)
             {
-                // Items already spawned remain real loot, not refunded or replaced.
+                // No replenishment. Real already-carried stacks stay on
+                // those soldiers and can be looted if they are defeated.
+                foreach (Thing stack in supplied)
+                    if (stack.holdingOwner == null && !stack.Destroyed) stack.Destroy();
                 op.PodSuppliesIssued = true;
                 op.PodNativeS311 = true;
-                Log.Warning("[RHF][S311] Incomplete physical drop cargo: " + e);
-                NativeCancelAirBeforeExtractionS311(op, "physical arrival kit incomplete");
+                Log.Warning("[RHF][AirS41] Insufficient physical inventory cargo: " + e);
+                NativeCancelAirBeforeExtractionS311(op, "air cargo could not be carried by actual raid");
             }
         }
 
@@ -244,6 +252,9 @@ namespace RaidersHaveFamilies
 
         private bool NativeConstructionOrderS311(Pawn engineer, Thing site)
         {
+            // S4.1: strategy writes a role, only ThinkTree issues the
+            // native physical construction job. Never issue both.
+            if(RHFRescuePlannerS41.Enabled)return true;
             // Vanilla WorkGivers, vanilla JobDrivers, vanilla Frame resource
             // consumption and pawn work ticks. No ThingMaker completed building.
             if (site is Blueprint_Build)
@@ -258,6 +269,8 @@ namespace RaidersHaveFamilies
 
         private void NativeDefendSiteS311(RHFOperation op, Pawn engineer, int now)
         {
+            // Screen roles now belong to S4.1 Blackboard/ThinkTree.
+            if(RHFRescuePlannerS41.Enabled)return;
             if (!op.PodLauncherCell.IsValid || now % 360 > 90 || op.Squad == null) return;
             int issued = 0;
             int[] dx = {-5, 5, -5, 5, 0, 0};
@@ -301,47 +314,129 @@ namespace RaidersHaveFamilies
                     return;
                 }
             }
+            if(RHFRescuePlannerS41.Enabled)
+                RHFPodPlannerS41.ResetAfterFallback(op);
             FallBackToLand(op, now, reason);
         }
 
-        // CompLaunchable connection properties are not exposed by the
-        // RimWorld 1.7.5014-unstable reference package. Inspect the real
-        // runtime fuel port via reflection, never assume that fuel on a
-        // nearby unrelated launcher makes this pod ready. Fail closed if the
-        // actual game implementation does not expose that relationship.
-        private static bool NativeConnectedAndFueledS311(
-            CompLaunchable launch, Thing expectedLauncher)
+        // Never depend on guessed private fueling-port fields. The engine's
+        // own CompLaunchable.CanLaunch checks actual transporter group, roof,
+        // mass, minimum fuel and cooldown. The launcher must be the actual
+        // enemy-owned built structure; we never borrow a colonist launcher.
+        private static bool NativeLaunchReadyS41(CompLaunchable launch,
+            Thing expectedLauncher, Faction faction)
         {
             if (launch == null || expectedLauncher == null ||
-                !expectedLauncher.Spawned) return false;
-            try
+                faction == null || faction.IsPlayer ||
+                !expectedLauncher.Spawned || expectedLauncher.Faction != faction)
+                return false;
+            try { return launch.CanLaunch(); }
+            catch(Exception e)
             {
-                const System.Reflection.BindingFlags flags =
-                    System.Reflection.BindingFlags.Instance |
-                    System.Reflection.BindingFlags.Public |
-                    System.Reflection.BindingFlags.NonPublic;
-                var property = launch.GetType().GetProperty("FuelingPortSource", flags);
-                ThingWithComps source = property?.GetValue(launch, null) as ThingWithComps;
-                if (source == null)
-                {
-                    var field = launch.GetType().GetField("fuelingPortSource", flags);
-                    source = field?.GetValue(launch) as ThingWithComps;
-                }
-                return source == expectedLauncher && source.Spawned &&
-                    source.GetComp<CompRefuelable>()?.HasFuel == true;
-            }
-            catch (Exception exception)
-            {
-                Log.Warning("[RHF][S311] Could not inspect actual fueling link: " +
-                    exception.GetBaseException().Message);
+                Log.Warning("[RHF][AirS41] Native CanLaunch rejected: " +
+                    e.GetBaseException().Message);
                 return false;
             }
+        }
+
+        // Native S4.1 fortification: enemy-owned BLUEPRINT -> FRAME -> WALL.
+        // Exactly the construction pipeline used by LordToil_Siege. Never
+        // spawn a completed wall, never spend steel by editing stack counts.
+        private Thing NativeFortificationWorkS41(RHFOperation op,
+            Pawn vip,Faction owner,int now)
+        {
+            if(op==null || vip==null || !vip.Spawned ||
+               owner==null || owner.IsPlayer ||
+               !op.FortifyPrison || op.BarricadesBuilt>=2)return null;
+            if(!op.BarricadeCell.IsValid)
+            {
+                IntVec3 best=IntVec3.Invalid;
+                int bestScore=int.MaxValue;
+                for(int radius=3;radius<=6;radius++)
+                for(int dx=-radius;dx<=radius;dx++)
+                for(int dz=-radius;dz<=radius;dz++)
+                {
+                    if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                    IntVec3 cell=op.PodLauncherCell+new IntVec3(dx,0,dz);
+                    if(!cell.InBounds(map) || !cell.Standable(map) ||
+                       cell.GetEdifice(map)!=null ||
+                       cell.GetFirstBuilding(map)!=null ||
+                       cell.GetFirstPawn(map)!=null ||
+                       op.CompletedBarricades.Contains(cell) ||
+                       (cell-op.PodLauncherCell).LengthHorizontalSquared<=8 ||
+                       (cell-op.PodCell).LengthHorizontalSquared<=8 ||
+                       !OpenRouteExcept(vip.Position,op.PodCell,cell) ||
+                       !OpenRouteExcept(op.PodLauncherCell,op.PodCell,cell))continue;
+                    Pawn worker=NativeEngineerS311(op,cell);
+                    if(worker==null ||
+                       !worker.CanReach(cell,PathEndMode.Touch,Danger.Some))continue;
+                    // Favor actual outer cover near the captive's room.
+                    int nearWalls=0;
+                    for(int ox=-2;ox<=2;ox++)
+                    for(int oz=-2;oz<=2;oz++)
+                    {
+                        IntVec3 near=cell+new IntVec3(ox,0,oz);
+                        if(near.InBounds(map) && near.GetEdifice(map)!=null)
+                            nearWalls++;
+                    }
+                    int score=(cell-vip.Position).LengthHorizontalSquared-
+                        nearWalls*16;
+                    if(score<bestScore){best=cell;bestScore=score;}
+                }
+                if(!best.IsValid)
+                {
+                    Log.Warning("[RHF S41][Fortify] No safe physical wall site: " +
+                        "proceeding with pod, not blocking prisoner exit");
+                    op.FortifyPrison=false;
+                    return null;
+                }
+                op.BarricadeCell=best;
+                op.FortifyStartedTick=now;
+            }
+            IntVec3 target=op.BarricadeCell;
+            foreach(Thing item in map.thingGrid.ThingsListAt(target))
+            {
+                if(item==null || item.Destroyed)continue;
+                if(item.def==ThingDefOf.Wall && item.Faction==owner)
+                {
+                    op.BarricadesBuilt++;
+                    op.CompletedBarricades.Add(target);
+                    op.BarricadeCell=IntVec3.Invalid;
+                    op.FortifyStartedTick=0;
+                    return NativeFortificationWorkS41(op,vip,owner,now);
+                }
+                if((item is Blueprint_Build || item is Frame) &&
+                   item.Faction==owner)return item;
+            }
+            if(!target.Standable(map) ||
+               !OpenRouteExcept(vip.Position,op.PodCell,target))
+            {
+                op.FortifyPrison=false;
+                return null;
+            }
+            try
+            {
+                Blueprint_Build plan=GenConstruct.PlaceBlueprintForBuild(
+                    ThingDefOf.Wall,target,map,Rot4.North,owner,ThingDefOf.Steel);
+                if(plan!=null && plan.Faction==owner)
+                {
+                    Log.Message("[RHF S41][Fortify] Real enemy wall blueprint " +
+                        target+" / op="+op.CreatedTick);
+                    return plan;
+                }
+            }
+            catch(Exception e)
+            {Log.Warning("[RHF S41][Fortify] Blueprint failed: "+e.Message);}
+            op.FortifyPrison=false;
+            return null;
         }
 
         private void BuildAndLaunchNativeS311(RHFOperation op, int now)
         {
             RHFStrikeParty owner = NativeRescueOwnerS311(op);
             Pawn vip = op?.Vip;
+            if(owner!=null && (owner.Faction==null || owner.Faction==Faction.OfPlayer))
+            { NativeFallBackS311(op,now,"INVALID: player-owned rescue construction faction");return; }
             if (owner == null || !op.TryPod || !op.PodBudgetPaid ||
                 vip == null || vip.Dead || vip.Downed ||
                 (vip.Map != map && vip.Spawned))
@@ -379,8 +474,60 @@ namespace RaidersHaveFamilies
                 !op.PodLauncherCell.InBounds(map) || !op.PodCell.InBounds(map))
             { NativeFallBackS311(op, now, "site invalidated"); return; }
             IntVec3 siteCell = op.PodConstructionStage == 2 ? op.PodCell : op.PodLauncherCell;
-            Pawn engineer = NativeEngineerS311(op, siteCell);
+            // S4.1: stable engineer assignment avoids 90-tick ownership thrash.
+            Pawn engineer = RHFRescuePlannerS41.Enabled &&
+                RHFPodPlannerS41.PinnedEngineerValid(op,map,siteCell) ?
+                    op.BoardS41.PodEngineerS41 : NativeEngineerS311(op,siteCell);
+            if(RHFRescuePlannerS41.Enabled)
+            {
+                Thing currentSite=NativeWorkSiteS311(map,siteCell,owner.Faction) ??
+                    (op.PodConstructionStage==3 ? op.PodLauncherThing : null);
+                if(op.PodConstructionStage<=3 && currentSite!=null &&
+                   now%360<90 && RHFPodPlannerS41.WorkJob(engineer,currentSite)==null)
+                {
+                    // A pawn may be physically reachable yet unable to get
+                    // a construction/hauling job. Try another qualified real
+                    // soldier instead of waiting 15000 ticks with an idle blueprint.
+                    int checkedPawns=0;
+                    foreach(Pawn available in op.Squad)
+                    {
+                        if(++checkedPawns>16)break;
+                        if(available==null || available==engineer ||
+                           available.Faction!=owner.Faction ||
+                           !NativeAliveS311(available,map) ||
+                           available.WorkTypeIsDisabled(WorkTypeDefOf.Construction) ||
+                           !available.CanReach(siteCell,PathEndMode.Touch,Danger.Deadly))continue;
+                        if(!NativePrepareEngineerS41(available))continue;
+                        if(RHFPodPlannerS41.WorkJob(available,currentSite)==null)continue;
+                        engineer=available;
+                        break;
+                    }
+                }
+                RHFPodPlannerS41.RememberEngineer(op,engineer);
+            }
             NativeDefendSiteS311(op, engineer, now);
+            Thing fortifyWork=null;
+            if(op.PodConstructionStage==3 && op.FortifyPrison &&
+               op.BarricadesBuilt<2)
+            {
+                if(now-op.PodStageStartedTickS311<7200)
+                    fortifyWork=NativeFortificationWorkS41(op,vip,owner.Faction,now);
+                else
+                {
+                    Log.Warning("[RHF S41][Fortify] Defensive work window " +
+                        "elapsed; preserve physical extraction");
+                    op.FortifyPrison=false;
+                }
+            }
+            if(RHFRescuePlannerS41.Enabled)
+                RHFPodPlannerS41.Plan(op,map,engineer,
+                    fortifyWork ??
+                    (op.PodConstructionStage==4 ? op.PodVehicleThing :
+                    NativeWorkSiteS311(map,siteCell,owner.Faction) ??
+                    (op.PodConstructionStage==3 ? op.PodLauncherThing : null)),now);
+            // Never convert unfinished fortification into a completed wall:
+            // the native WorkGiver must consume actual steel and work ticks.
+            if(fortifyWork!=null)return;
             if (op.PodConstructionStage <= 3 && engineer == null)
             {
                 if (now - op.PodStageStartedTickS311 > NativeVipWorkTimeoutS311)
@@ -415,6 +562,17 @@ namespace RaidersHaveFamilies
                     { NativeFallBackS311(op, now, "native blueprint failed: " + e.Message); return; }
                     if (site == null)
                     { NativeFallBackS311(op, now, "native blueprint unavailable"); return; }
+                    Log.Message("[RHF][AirS41] Blueprint generated: faction=" +
+                        site.Faction + ", intended=" + owner.Faction +
+                        ", engineer=" + (engineer?.Faction?.Name ?? "none"));
+                }
+                if(site.Faction!=owner.Faction || engineer.Faction!=owner.Faction)
+                {
+                    Log.Error("[RHF][AirS41] Construction faction mismatch: site=" +
+                        site.Faction + ", engineer=" + engineer.Faction + ", operator=" +
+                        owner.Faction + "; never commandeering player blueprints");
+                    NativeFallBackS311(op,now,"construction site belongs to another faction");
+                    return;
                 }
                 if (now - op.PodStageStartedTickS311 > NativeVipWorkTimeoutS311)
                 { NativeFallBackS311(op, now, "native construction could not finish"); return; }
@@ -435,7 +593,8 @@ namespace RaidersHaveFamilies
                 }
                 if (now - op.PodStageStartedTickS311 > NativeVipWorkTimeoutS311)
                 { NativeFallBackS311(op, now, "native refueling did not complete"); return; }
-                NativeJobFromWorkGiverS311(engineer, launchThing, "Refuel");
+                if(!RHFRescuePlannerS41.Enabled)
+                    NativeJobFromWorkGiverS311(engineer, launchThing, "Refuel");
                 return;
             }
             if (op.PodConstructionStage == 4)
@@ -446,17 +605,23 @@ namespace RaidersHaveFamilies
                 if (comp == null || launch == null || !vehicle.Spawned ||
                     vehicle.Faction != owner.Faction)
                 { NativeFallBackS311(op, now, "vanilla transporter/launchable missing"); return; }
-                if (!NativeConnectedAndFueledS311(launch, op.PodLauncherThing))
-                { NativeFallBackS311(op, now, "launcher not connected or fueled"); return; }
-                // No non-existent InitiateLoad API: vanilla initializes its
-                // groupID through UniqueIDsManager. Other factions may board.
+                // Vanilla needs a real transporter group before CanLaunch()
+                // is meaningful. Verify AFTER grouping rather than checking
+                // an undocumented reflection-only fuel link.
                 if (!comp.LoadingInProgressOrReadyToLaunch)
                     comp.groupID = Find.UniqueIDsManager.GetNextTransporterGroupID();
+                if (!NativeLaunchReadyS41(launch,op.PodLauncherThing,owner.Faction))
+                {
+                    if(now-op.PodStageStartedTickS311>NativeVipBoardTimeoutS311)
+                        NativeFallBackS311(op,now,"native launcher cannot launch after ready timeout");
+                    return;
+                }
                 if (vip.Spawned)
                 {
                     if (now - op.PodStageStartedTickS311 > NativeVipBoardTimeoutS311)
                     { NativeFallBackS311(op, now, "VIP failed to board real pod"); return; }
-                    if (vip.jobs?.curJob?.def != JobDefOf.EnterTransporter)
+                    if(!RHFRescuePlannerS41.Enabled &&
+                       vip.jobs?.curJob?.def != JobDefOf.EnterTransporter)
                         vip.jobs?.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.EnterTransporter, vehicle));
                     return;
                 }
@@ -470,11 +635,31 @@ namespace RaidersHaveFamilies
                 NativeFallBackS311(op, now, "VIP not in transporter container");
                 return;
             }
+            if (op.PodConstructionStage == 6)
+            {
+                // Successful departure is signaled ONLY by the actual
+                // FlyShipLeaving world handoff, never by stage number.
+                if(op.PodLaunchCompleted)return;
+                if(RHFEnemyPodLaunchS41.Reconcile(op,map))return;
+                if(now-op.PodStageStartedTickS311>2400)
+                    Log.ErrorOnce("[RHF S41] Flight transfer did not complete: " +
+                        op.CreatedTick,op.CreatedTick ^ 417611);
+                return;
+            }
             if (op.PodConstructionStage == 5)
             {
-                // S3.1.1 has no validated hostile-faction WORLD arrival action.
-                // A fake Skyfaller or disappearance is strictly prohibited.
-                // Return the SAME VIP to the map before ground-exit fallback.
+                // S4.1-A/F: physically fire the built and fueled native transporter.
+                // The vanilla skyfaller MUST become a real world traveler
+                // carrying THIS VIP before PodLaunchCompleted is credited.
+                if (RHFRescuePlannerS41.Enabled)
+                {
+                    if(RHFEnemyPodLaunchS41.TryLaunch(op,map,now) ||
+                       RHFEnemyPodLaunchS41.DepartureInFlight(op,map))
+                        op.PodConstructionStage=6;
+                    else if(op.PodVehicleThing != null && op.PodVehicleThing.Spawned)
+                        NativeFallBackS311(op,now,"hostile flight validation rejected launch");
+                    return;
+                }
                 NativeFallBackS311(op, now, "native hostile pod launch not yet supported (S3.2)");
             }
         }

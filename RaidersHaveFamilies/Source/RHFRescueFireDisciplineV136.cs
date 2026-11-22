@@ -33,7 +33,8 @@ namespace RaidersHaveFamilies
                 ((op.Squad!=null && op.Squad.Contains(pawn)) ||
                  (op.Diversion!=null && op.Diversion.Contains(pawn)) ||
                  (op.Targets!=null && op.Targets.Contains(pawn)) ||
-                 (op.Freed!=null && op.Freed.Contains(pawn)));
+                 (op.Freed!=null && op.Freed.Contains(pawn)) ||
+                 (op.NativeAnimalsS41!=null && op.NativeAnimalsS41.Contains(pawn)));
         }
 
         // CE fires physical projectiles. Neutrality via HostileTo alone is not
@@ -56,7 +57,8 @@ namespace RaidersHaveFamilies
             return MemberInLine(op.Squad,shooter,target,dx,dz,len) ||
                 MemberInLine(op.Diversion,shooter,target,dx,dz,len) ||
                 MemberInLine(op.Targets,shooter,target,dx,dz,len) ||
-                MemberInLine(op.Freed,shooter,target,dx,dz,len);
+                MemberInLine(op.Freed,shooter,target,dx,dz,len) ||
+                MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len);
         }
 
         private static bool MemberInLine(List<Pawn> members,Pawn shooter,Thing target,

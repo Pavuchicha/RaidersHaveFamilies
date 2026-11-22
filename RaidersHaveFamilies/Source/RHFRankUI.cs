@@ -84,7 +84,7 @@ namespace RaidersHaveFamilies
         {
             if (p == null) return "Выбери персонажа на карте.";
             var b = new StringBuilder(700);
-            b.AppendLine(p.LabelShortCap + " — Raiders Have Families");
+            b.AppendLine(p.LabelShortCap + " — NJR");
             b.AppendLine(Short(p));
             RHFHostageRecord captured = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
             int rank = EffectiveRank(p);
@@ -134,7 +134,7 @@ namespace RaidersHaveFamilies
             lines.height = area.height - 28f;
             Widgets.Label(lines, Short(pawn));
             Rect btn = new Rect(area.x + 7f, area.yMax - 25f, area.width - 14f, 20f);
-            if (Widgets.ButtonText(btn, "RHF: показать источники связей")) OpenDetails(pawn);
+            if (Widgets.ButtonText(btn, "NJR: показать источники связей")) OpenDetails(pawn);
             Text.Font = GameFont.Small;
         }
     }
@@ -150,12 +150,12 @@ namespace RaidersHaveFamilies
             string office = record?.OfficeName ?? RHFRankResolver.OfficeFor(pawn, rank);
             Text.Font = GameFont.Tiny;
             Widgets.Label(new Rect(area.x, area.y, area.width, 28f),
-                "RHF: " + rank + "/8 — " + office);
+                "NJR: " + rank + "/8 — " + office);
             if (record != null)
                 Widgets.Label(new Rect(area.x, area.y+23f, area.width, 40f),
                     "Выкуп: " + RHFHostageDiplomacy.SilverPrice(record) + " серебра; " +
                     "бесплатный возврат: до +" + RHFHostageDiplomacy.GoodwillReward(record) + " репутации");
-            if (Widgets.ButtonText(new Rect(area.x, area.y+61f, area.width, 22f), "RHF: подробности и связи"))
+            if (Widgets.ButtonText(new Rect(area.x, area.y+61f, area.width, 22f), "NJR: подробности и связи"))
                 RHFRankUI.OpenDetails(pawn);
             Text.Font = GameFont.Small;
         }

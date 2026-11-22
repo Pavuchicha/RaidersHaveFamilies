@@ -1,4 +1,4 @@
-// Raiders Have Families v0.2.0 — RimWorld 1.7
+// NJR — Not Just Raiders v0.2.0 — RimWorld 1.7
 // Event-driven spawn processing via Harmony: no repeated map-pawn discovery.
 // Family generation is bounded per arrival batch; diplomatic checks run infrequently.
 using System;
@@ -136,7 +136,7 @@ namespace RaidersHaveFamilies
             Settings.Clamp();
         }
 
-        public override string SettingsCategory() { return "Raiders Have Families"; }
+        public override string SettingsCategory() { return "NJR — Not Just Raiders"; }
 
         public override void DoSettingsWindowContents(Rect rect)
         {
@@ -174,9 +174,9 @@ namespace RaidersHaveFamilies
                 ref Settings.EnableRescueOperations);
             listing.CheckboxLabeled("Полевые капсулы эвакуации VIP (эксперимент)",
                 ref Settings.FieldEvacPod);
-            listing.CheckboxLabeled("RHF: групповая тактика спасателей/прикрытия (TPS)",
+            listing.CheckboxLabeled("NJR: групповая тактика спасателей/прикрытия (TPS)",
                 ref Settings.TacticalCombat);
-            listing.CheckboxLabeled("RHF: реальные расходуемые комплекты роли (ограниченный бюджет)",
+            listing.CheckboxLabeled("NJR: реальные расходуемые комплекты роли (ограниченный бюджет)",
                 ref Settings.RoleEquipment);
             listing.Label("Мощность интервенций: " + Settings.InterventionStrength.ToString("P0"));
             Settings.InterventionStrength=listing.Slider(Settings.InterventionStrength,.5f,2f);
@@ -303,7 +303,7 @@ namespace RaidersHaveFamilies
                 catch (Exception e)
                 {
                     if (RHFMod.Settings?.VerboseLogging == true)
-                        Log.Warning("[Raiders Have Families] Kin cleanup was deferred: " + e);
+                        Log.Warning("[NJR — Not Just Raiders] Kin cleanup was deferred: " + e);
                 }
             }
             // Drop references to deleted off-map kin in one bounded pass.
@@ -486,7 +486,7 @@ namespace RaidersHaveFamilies
 
         public string FamilyAudit()
         {
-            return "RHF: автоматическая генерация семей, карта " + map.Parent?.Label +
+            return "NJR: автоматическая генерация семей, карта " + map.Parent?.Label +
                 "\nВ очереди: " + pending.Count + "; входов в очередь: " + totalQueued +
                 "; обработанных партий: " + totalBatches +
                 "; подтверждённых RHF-связей: " + totalFamiliesLinked +
@@ -553,7 +553,7 @@ namespace RaidersHaveFamilies
             catch (Exception e)
             {
                 failedBatches++;
-                Log.Warning("[Raiders Have Families] Family generation failed for arrival batch; " +
+                Log.Warning("[NJR — Not Just Raiders] Family generation failed for arrival batch; " +
                     "pawns will remain eligible for a later recovery: " + e);
             }
         }
@@ -802,7 +802,7 @@ namespace RaidersHaveFamilies
             }
 
             if (cfg.VerboseLogging)
-                Log.Message("[Raiders Have Families] batch=" + newcomers.Count +
+                Log.Message("[NJR — Not Just Raiders] batch=" + newcomers.Count +
                     ", world pawns=" + created + ", links=" + links +
                     ", total created=" + ledger.CreatedWorldPawns +
                     ", live generated=" + ledger.ActiveGeneratedKin);
@@ -1085,7 +1085,7 @@ namespace RaidersHaveFamilies
                 // One warning per faction def, not one expensive warning per raid.
                 string key = relativeOf.Faction?.def?.defName ?? "unknown";
                 if (warnedFactionDefs.Add(key))
-                    Log.Warning("[Raiders Have Families] Off-map family generation skipped for faction " +
+                    Log.Warning("[NJR — Not Just Raiders] Off-map family generation skipped for faction " +
                         key + ": " + e);
                 return null;
             }

@@ -94,6 +94,12 @@ namespace RaidersHaveFamilies
         public List<Pawn> Freed = new List<Pawn>();
         public List<RHFEscortLink> Escorts = new List<RHFEscortLink>();
         public int EscapedWithEscort;
+        // S4.1-A saveable mission blackboard; legacy saves initialize at load.
+        public RHFTacticalBoardS41 BoardS41 = new RHFTacticalBoardS41();
+        public RHFTacticalBoardS41 OffenseBoardS41 = new RHFTacticalBoardS41();
+        public List<RHFNativeWingS41> NativeWingsS41 = new List<RHFNativeWingS41>();
+        public int NextNativeObservationS41;
+        public List<Pawn> NativeAnimalsS41 = new List<Pawn>();
         public List<Pawn> Diversion = new List<Pawn>();
         public List<Faction> Sponsors = new List<Faction>();
         public List<RHFStrikeParty> Parties = new List<RHFStrikeParty>();
@@ -122,6 +128,9 @@ namespace RaidersHaveFamilies
         public bool PodNativeS311;
         public Faction PodCargoOwnerFactionS311;
         public List<Thing> PodFuelStacksS311 = new List<Thing>();
+        // Physical inventory cargo, persisted as references, never replenished
+        // by a save/load or spawned from a blueprint on an arbitrary tick.
+        public List<Thing> PodCargoStacksS41 = new List<Thing>();
         public int PodStageStartedTickS311;
         public Thing PodSteel;
         public Thing PodSteelExtra;
@@ -171,6 +180,11 @@ namespace RaidersHaveFamilies
             Scribe_Collections.Look(ref Freed, "freed", LookMode.Reference);
             Scribe_Collections.Look(ref Escorts, "rhfEscortsV11", LookMode.Deep);
             Scribe_Values.Look(ref EscapedWithEscort, "rhfEvacuatedV11", 0);
+            Scribe_Deep.Look(ref BoardS41, "rhfBlackboardS41");
+            Scribe_Deep.Look(ref OffenseBoardS41, "rhfOffenseBoardS41AG");
+            Scribe_Collections.Look(ref NativeWingsS41, "rhfNativeWingsS41AH", LookMode.Deep);
+            Scribe_Values.Look(ref NextNativeObservationS41, "rhfNextNativeScanS41AH", 0);
+            Scribe_Collections.Look(ref NativeAnimalsS41, "rhfNativeAnimalsS41AI", LookMode.Reference);
             Scribe_Collections.Look(ref Diversion, "diversion", LookMode.Reference);
             Scribe_Collections.Look(ref Sponsors, "sponsors", LookMode.Reference);
             Scribe_Collections.Look(ref Parties, "strikeParties", LookMode.Deep);
@@ -198,6 +212,7 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref PodNativeS311, "rhfNativeS311", false);
             Scribe_References.Look(ref PodCargoOwnerFactionS311, "rhfCargoOwnerS311");
             Scribe_Collections.Look(ref PodFuelStacksS311, "rhfFuelStacksS311", LookMode.Reference);
+            Scribe_Collections.Look(ref PodCargoStacksS41, "rhfPodCargoInventoryS41AO", LookMode.Reference);
             Scribe_Values.Look(ref PodStageStartedTickS311, "rhfNativeStageTimeS311", 0);
             Scribe_References.Look(ref PodSteel, "podSteel");
             Scribe_References.Look(ref PodSteelExtra, "rhfPodSteelExtraV130");
@@ -235,6 +250,10 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref PodSupplyCost, "rhfPodSupplyCostV12", 0f);
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                if (BoardS41 == null) BoardS41 = new RHFTacticalBoardS41();
+                if (OffenseBoardS41 == null) OffenseBoardS41 = new RHFTacticalBoardS41();
+                if (NativeWingsS41 == null) NativeWingsS41 = new List<RHFNativeWingS41>();
+                if (NativeAnimalsS41 == null) NativeAnimalsS41 = new List<Pawn>();
                 if (Targets == null) Targets = new List<Pawn>();
                 if (Squad == null) Squad = new List<Pawn>();
                 if (Freed == null) Freed = new List<Pawn>();
@@ -245,6 +264,7 @@ namespace RaidersHaveFamilies
                 if (TacticalMembers == null) TacticalMembers = new List<RHFTacticalMember>();
                 if (CompletedBarricades == null) CompletedBarricades = new List<IntVec3>();
                 if (PodFuelStacksS311 == null) PodFuelStacksS311 = new List<Thing>();
+                if (PodCargoStacksS41 == null) PodCargoStacksS41 = new List<Thing>();
                 // Existing v0.3.x operations were already queued through the storyteller.
                 // Do not create a duplicate raid when upgrading a saved game.
                 if (Parties.Count == 0) Deployed = true;
@@ -326,7 +346,7 @@ namespace RaidersHaveFamilies
         public string DebugStatus()
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("RHF: активные спецоперации " + operations.Count + "/" + MaxOperationsPerMap);
+            sb.AppendLine("NJR: активные спецоперации " + operations.Count + "/" + MaxOperationsPerMap);
             for (int i=0; i<operations.Count; i++)
             {
                 RHFOperation op=operations[i];
@@ -385,7 +405,7 @@ namespace RaidersHaveFamilies
                     if (party==null) continue;
                     sb.AppendLine("• " + (party.Faction?.Name ?? "?") + ": " +
                         (RHFStrikeRole)party.Role + ", " + party.Members + " бойцов, " +
-                        party.BreachKits + " комплектов взлома, " + party.Medics +
+                        party.BreachKits + " бойцов с проломным оружием, " + party.Medics +
                         " санитаров, без оружия " + party.UnarmedCount + "; бюджет " +
                         Mathf.RoundToInt(party.SupplySpent) + "/" + Mathf.RoundToInt(party.SupplyBudget));
                 }
@@ -396,7 +416,7 @@ namespace RaidersHaveFamilies
                     if (m?.Pawn == null) continue;
                     sb.AppendLine("  " + m.Pawn.LabelShortCap + " — " +
                         RHFTactical.RoleName(m.Role) + ", оружие=" + (!m.WeaponMissing) +
-                        ", инструмент взлома=" + RHFTactical.HasBreachKit(m.Pawn));
+                        ", топор для пролома=" + RHFTactical.IsBreachAxe(m.Pawn));
                     shown++;
                 }
                 if (op.TacticalMembers.Count > shown) sb.AppendLine("  ...остальные по лимиту интерфейса");
@@ -425,7 +445,24 @@ namespace RaidersHaveFamilies
         public void ObserveSpawn(Pawn pawn)
         {
             if (pawn == null || !pawn.Spawned || pawn.Faction == null || pawn.Dead ||
-                pawn.RaceProps == null || !pawn.RaceProps.Humanlike) return;
+                pawn.RaceProps == null) return;
+            if (!pawn.RaceProps.Humanlike)
+            {
+                // Never enlist unrelated animals on the map: ONLY active
+                // incident scope may claim a native non-human raider.
+                if (pawn.RaceProps.Animal &&
+                    activeOperation != null && activeParty != null &&
+                    pawn.Faction == activeParty.Faction &&
+                    activeParty.Role != (int)RHFStrikeRole.Rescue)
+                {
+                    if (activeOperation.NativeAnimalsS41 == null)
+                        activeOperation.NativeAnimalsS41 = new List<Pawn>();
+                    if (activeOperation.NativeAnimalsS41.Count < MaxSquad &&
+                        !activeOperation.NativeAnimalsS41.Contains(pawn))
+                        activeOperation.NativeAnimalsS41.Add(pawn);
+                }
+                return;
+            }
             if (activeOperation != null && activeParty != null &&
                 pawn.Faction == activeParty.Faction)
             {
@@ -596,6 +633,26 @@ namespace RaidersHaveFamilies
                     " members, phase="+op.Phase);
         }
 
+        // The before/after delta is consumed while the incident call is
+        // still synchronous. No world/faction scans on ordinary tactical ticks.
+        private void RecoverIncidentBeastsS41(RHFOperation op,
+            RHFStrikeParty party,HashSet<int> before)
+        {
+            if(op==null || party?.Faction==null || before==null ||
+               party.Role==(int)RHFStrikeRole.Rescue)return;
+            if(op.NativeAnimalsS41==null)op.NativeAnimalsS41=new List<Pawn>();
+            foreach(Pawn pawn in map.mapPawns.AllPawnsSpawned)
+            {
+                if(op.NativeAnimalsS41.Count>=MaxSquad)break;
+                if(pawn==null || pawn.Dead || !pawn.Spawned ||
+                   pawn.RaceProps?.Animal!=true ||
+                   pawn.Faction!=party.Faction ||
+                   before.Contains(pawn.thingIDNumber) ||
+                   op.NativeAnimalsS41.Contains(pawn))continue;
+                op.NativeAnimalsS41.Add(pawn);
+            }
+        }
+
         private bool Deploy(RHFOperation op)
         {
             if (op == null || op.Deployed) return op != null && op.SuccessfulParties > 0;
@@ -624,6 +681,16 @@ namespace RaidersHaveFamilies
                 party.Attempted = true;
                 activeOperation = op;
                 activeParty = party;
+                // Snapshot exactly this synchronous incident's non-human pawns.
+                // A faction-wide delayed search is NOT safe and is prohibited.
+                HashSet<int> beastsBeforeRaid=null;
+                if(op.Type==(int)RHFOperationType.Vengeance)
+                {
+                    beastsBeforeRaid=new HashSet<int>();
+                    foreach(Pawn already in map.mapPawns.AllPawnsSpawned)
+                        if(already?.RaceProps?.Animal==true)
+                            beastsBeforeRaid.Add(already.thingIDNumber);
+                }
                 // Snapshot the map just before THIS incident; never identify
                 // an unrelated pre-existing enemy as part of the rescue.
                 HashSet<int> presentBeforeRaid = null;
@@ -697,7 +764,23 @@ namespace RaidersHaveFamilies
                         // into the player's bedroom for a ground prison breakout.
                         parms.raidArrivalMode = DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("EdgeWalkIn");
                         if (parms.raidArrivalMode == null)
-                            throw new InvalidOperationException("RHF: EdgeWalkIn not available for rescue");
+                            throw new InvalidOperationException("NJR: EdgeWalkIn not available for rescue");
+                        // A vanilla random edge can insert a rescue wing into
+                        // an obvious turret killzone. Choose a bounded safe
+                        // edge first; EdgeWalkIn honors valid spawnCenter.
+                        // A threat-scoring bug must NEVER cancel the actual
+                        // incident. Vanilla EdgeWalkIn is the guaranteed fallback.
+                        try
+                        {
+                            IntVec3 safer=RHFRescueGroundEntryS41.Choose(map,op);
+                            if(safer.IsValid)parms.spawnCenter=safer;
+                        }
+                        catch(Exception e)
+                        {
+                            parms.spawnCenter=IntVec3.Invalid;
+                            Log.Warning("[RHF][EntryS41AP] Tactical entry scan failed; " +
+                                "using native EdgeWalkIn: " + e);
+                        }
                     }
                     if (party.Drop)
                     {
@@ -711,23 +794,45 @@ namespace RaidersHaveFamilies
                             if (nearPrison.IsValid && parms.raidArrivalMode != null)
                                 parms.spawnCenter = nearPrison;
                             else
-                                throw new InvalidOperationException("RHF: нет допустимой площадки " +
+                                throw new InvalidOperationException("NJR: нет допустимой площадки " +
                                     "для десанта вблизи тюрьмы; рейд отменён, а не подменён " +
                                     "обычным десантом в центр колонии.");
                         }
                     }
                     // RaidEnemy.Worker.TryExecute fires *now*. The Harmony SpawnSetup
                     // hook binds each generated pawn to this specific party.
-                    accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op);
+                    try
+                    {
+                        accepted=RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms,op);
+                    }
+                    catch(Exception firstFailure)
+                    {
+                        // No scripted spawn. Preserve the native incident but
+                        // let its own edge finder retry after our optional
+                        // tactical insertion failed. A partial raid cannot be
+                        // duplicated: the member/arrival capture guards below.
+                        if(party.Drop || party.Members>0)throw;
+                        Log.Warning("[RHF][EntryS41AP] First ground incident threw; " +
+                            "native retry requested: " + firstFailure);
+                        accepted=false;
+                    }
                     // If a special strategy is invalid for this modded faction,
                     // retry a plain immediate assault only when no pawns spawned.
                     if (!accepted && !party.Drop && party.Members == 0)
                     {
-                        // A refused prison drop is NOT an ordinary center raid.
-                        // Keep the selected arrival mode and insertion point.
-                        parms.raidStrategy = RaidStrategyDefOf.ImmediateAttack;
-                        if (!party.Drop && op.Type != (int)RHFOperationType.Rescue) parms.raidArrivalMode = null;
-                        accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op);
+                        // Retry first without our custom spawn position. The
+                        // incident may reject a handpicked perimeter cell even
+                        // though its own vanilla Entry finder can use another.
+                        // No pawns means this retry cannot duplicate a raid.
+                        parms.raidStrategy=RaidStrategyDefOf.ImmediateAttack;
+                        parms.spawnCenter=IntVec3.Invalid;
+                        if(op.Type==(int)RHFOperationType.Rescue)
+                            parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;
+                        else parms.raidArrivalMode=null;
+                        Log.Warning("[RHF][EntryS41AP] First ground incident was refused " +
+                            "(faction=" + party.Faction + ", points=" + parms.points +
+                            "); retrying native spawn-center selection");
+                        accepted=RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms,op);
                     }
                 }
                 catch (Exception e)
@@ -737,6 +842,7 @@ namespace RaidersHaveFamilies
                 }
                 finally { activeOperation = null; activeParty = null; }
                 RecoverFreshRescueMembers(op, party, presentBeforeRaid);
+                RecoverIncidentBeastsS41(op,party,beastsBeforeRaid);
                 party.Succeeded = accepted || party.Members > 0;
                 if (party.Succeeded) success++;
                 else Log.Warning("[RHF] RaidEnemy declined " + party.Faction.Name +
@@ -788,7 +894,7 @@ namespace RaidersHaveFamilies
                         reserve.Succeeded=true;
                         op.Executor=alternate;
                         success++;
-                        Messages.Message("RHF: исходная фракция не смогла собрать рейд; " +
+                        Messages.Message("NJR: исходная фракция не смогла собрать рейд; " +
                             "операцию выполняет " + alternate.Name + ".",
                             MessageTypeDefOf.NeutralEvent,false);
                         break;
@@ -849,7 +955,7 @@ namespace RaidersHaveFamilies
                         (party.Drop ? ", десантирование" : party.Breach ? ", прорыв" :
                         party.Siege ? ", осада" : ", наземное прибытие") +
                         "; сила около " + Mathf.RoundToInt(party.Points) + " очков." +
-                        " Комплекты взлома: " + party.BreachKits + ", санитары: " + party.Medics +
+                        " Бойцов с проломным оружием: " + party.BreachKits + ", санитары: " + party.Medics +
                         ", без основного оружия: " + party.UnarmedCount + ".");
                 }
                 // RaidEnemy already issued an arrival letter with an actual raid
@@ -902,13 +1008,14 @@ namespace RaidersHaveFamilies
                 RHFOperation op = operations[i];
                 if (op == null || op.Finished || now > op.ExpiryTick ||
                     now - op.CreatedTick > MaxOperationDuration)
-                { operations.RemoveAt(i); continue; }
+                { if(op!=null)RHFOffenseDirectorS41.End(op,map);
+                  operations.RemoveAt(i); continue; }
                 if (now >= op.SpawnTick && !op.Deployed && op.Parties.Count > 0)
                 {
                     if (!Deploy(op))
                     {
                         RHFReprisalSystem.OnOperationFailed(op);
-                        Messages.Message("RHF: фракции не удалось собрать рейд. Проверьте журнал ошибок и тип фракции.",
+                        Messages.Message("NJR: фракции не удалось собрать рейд. Проверьте журнал ошибок и тип фракции.",
                             MessageTypeDefOf.RejectInput, false);
                         operations.RemoveAt(i);
                         continue;
@@ -919,18 +1026,15 @@ namespace RaidersHaveFamilies
                 {
                     if (now >= op.SpawnTick && (op.Diversion.Count>0 || op.Squad.Count>0) && !op.SupportUsed)
                         DeployVengeanceSupport(op);
-                    if (RHFMod.Settings?.TacticalCombat == true)
-                    {
-                        RHFTactical.PressureAssault(map, op, now);
-                        if (op.HuntTarget != null) PursuePriorityTarget(op, now);
-                        if (op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ||
-                            op.Doctrine==(int)RHFDoctrine.PunitiveAssault ||
-                            (op.HuntTarget != null && op.AssaultAfterObjective))
-                            AssaultStrategicStructures(op, now);
-                    }
+                    // S4.1-A/G: no external TryTakeOrderedJob in vengeance.
+                    // Native siege/animal lords remain intact, mission pawns
+                    // outside them receive only ThinkTree role orders.
+                    if(RHFMod.Settings?.TacticalCombat == true)
+                        RHFOffenseDirectorS41.Tick(op,map,now);
                     int vengeanceDuration=op.HuntTarget!=null ||
                         op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ? 48000 : 18000;
-                    if (now > op.SpawnTick + vengeanceDuration) operations.RemoveAt(i);
+                    if (now > op.SpawnTick + vengeanceDuration)
+                    { RHFOffenseDirectorS41.End(op,map); operations.RemoveAt(i); }
                     continue; // vanilla Lord still controls ordinary assault formations
                 }
                 if (now < op.SpawnTick) continue;
@@ -953,6 +1057,9 @@ namespace RaidersHaveFamilies
                 // One source of truth for rescue authority. Reconcile late
                 // capsule arrivals before AI gets another assault ThinkTree tick.
                 RHFRescueCommandV124.OnDeploy(this, op, true);
+                // Opposite-flank diversion uses its own tactical board and Lords.
+                if(op.Diversion!=null && op.Diversion.Count>0)
+                    RHFOffenseDirectorS41.Tick(op,map,now);
                 // Real kit is dropped by an arrived rescue party, before VIP liberation.
                 if (op.TryPod && op.PodBudgetPaid && !op.PodSuppliesIssued)
                     NativeIssueCargoOnArrivalS311(op, now);
@@ -976,7 +1083,8 @@ namespace RaidersHaveFamilies
                 }
                 else if (op.Phase == 3) BuildAndLaunch(op, now);
                 else if (op.Phase == 5) PostExtractionAssault(op, now);
-                else if (op.Phase == 4) { op.Finished = true; operations.RemoveAt(i); }
+                else if (op.Phase == 4)
+                { RHFOffenseDirectorS41.End(op,map); op.Finished = true; operations.RemoveAt(i); }
             }
         }
 
@@ -1109,11 +1217,10 @@ namespace RaidersHaveFamilies
                     Thing barrier = sharedBarrier;
                     if (barrier != null && !barrier.Destroyed)
                     {
-                        bool planted=TryBreachCharge(op,target,barrier,rescuer,now);
-                        // Do not restart a melee attack job every 90 ticks:
-                        // doing so can indefinitely reset the actual strike.
-                        if (!planted && (rescuer.jobs?.curJob?.def != JobDefOf.AttackMelee ||
-                            rescuer.jobs.curJob.targetA.Thing != barrier))
+                        // Real melee weapon damage only, no remote or timer damage.
+                        // Do not restart each 90 ticks: that resets melee swings.
+                        if (rescuer.jobs?.curJob?.def != JobDefOf.AttackMelee ||
+                            rescuer.jobs.curJob.targetA.Thing != barrier)
                             Order(rescuer,JobDefOf.AttackMelee,barrier);
                         orders++;
                     }
@@ -1227,83 +1334,13 @@ namespace RaidersHaveFamilies
                     "; missionLord="+(p.GetLord()?.LordJob is RHFRescueLordJobV124));
                 // Take an initial step together immediately instead of waiting
                 // another 450 ticks while vanilla AI sends them different ways.
-                if (!p.Downed)
+                if (!RHFRescuePlannerS41.Enabled && !p.Downed)
                 {
                     RHFEscortLink link=FindEscort(op,p);
                     if (link?.Escort != null)
                         OrderGotoIfNeeded(p,link.Escort.Position,9);
                 }
             }
-        }
-
-        private bool TryBreachCharge(RHFOperation op, Pawn captive, Thing barrier,
-            Pawn rescuer, int now)
-        {
-            if (op == null || barrier == null || rescuer == null ||
-                (barrier.Position-captive.Position).LengthHorizontalSquared > 49 ||
-                (rescuer.Position-barrier.Position).LengthHorizontalSquared > 16 ||
-                op.BreachChargesUsed >= 4 ||
-                RHFMod.Settings?.RoleEquipment != true) return false;
-            if (op.BreachChargeTick > 0 &&
-                (op.BreachOwner == null || op.BreachOwner.Dead || op.BreachOwner.Map != map ||
-                 !op.BreachCell.IsValid || op.BreachCell.GetEdifice(map) == null))
-            {
-                op.BreachChargeTick = 0;
-                op.BreachCell = IntVec3.Invalid;
-                op.BreachOwner = null;
-            }
-            RHFTacticalMember member = RHFTactical.Member(op, rescuer);
-            if (member == null || member.Role != (int)RHFCombatRole.Breacher ||
-                !RHFTactical.HasBreachKit(rescuer)) return false;
-            if (op.BreachChargeTick == 0)
-            {
-                op.BreachChargeTick = now;
-                op.BreachCell = barrier.Position;
-                op.BreachOwner = rescuer;
-                Messages.Message("Сапёр RHF устанавливает инструмент прорыва у преграды.",
-                    barrier, MessageTypeDefOf.ThreatSmall, false);
-                return true;
-            }
-            if (op.BreachCell != barrier.Position || op.BreachOwner != rescuer)
-                return false; // Another operator must not consume this pawn's kit.
-            if (now - op.BreachChargeTick < 750) return true;
-            if (!RHFTactical.ConsumeBreachKit(rescuer))
-            {
-                op.BreachChargeTick = 0;
-                op.BreachCell = IntVec3.Invalid;
-                op.BreachOwner = null;
-                return false;
-            }
-            // Primitive factions break the door manually. Industrial explosives are
-            // forbidden right beside the captive to avoid killing the rescue target.
-            bool industrial = rescuer.Faction?.def?.techLevel >= TechLevel.Industrial;
-            bool safelyAway = (barrier.Position - captive.Position).LengthHorizontalSquared >= 7;
-            // Explosive entry is forbidden with the operator OR any friendly
-            // soldier/captive in the 3-tile danger zone. A breaching tool then
-            // strikes the identified barrier directly instead of suiciding.
-            bool clearBlast = industrial && safelyAway &&
-                (rescuer.Position-barrier.Position).LengthHorizontalSquared >= 9;
-            if (clearBlast)
-            {
-                int checkedPawns = 0;
-                foreach (Pawn nearby in map.mapPawns.AllPawnsSpawned)
-                {
-                    if (checkedPawns++ >= 256) { clearBlast=false; break; }
-                    if (nearby == null || nearby.Dead || !nearby.Spawned) continue;
-                    if ((nearby.Position-barrier.Position).LengthHorizontalSquared <= 9)
-                    { clearBlast=false; break; }
-                }
-            }
-            if (clearBlast)
-                GenExplosion.DoExplosion(op.BreachCell, map, 1.15f, DamageDefOf.Bomb, rescuer, 52);
-            else
-                barrier.TakeDamage(new DamageInfo(DamageDefOf.Blunt, 45f, 0f, -1f, rescuer));
-            op.BreachChargesUsed++;
-            op.BreachChargeTick = 0;
-            op.BreachCell = IntVec3.Invalid;
-            op.BreachOwner = null;
-            op.LastProgressTick = now;
-            return true;
         }
 
         private Thing FindBarrier(Pawn captive, Pawn rescuer)
@@ -1479,7 +1516,7 @@ namespace RaidersHaveFamilies
                 if (op.AssaultAfterObjective)
                 {
                     op.Phase=5; op.PhaseStartTick=now;
-                    Messages.Message("RHF: спасённые покинули карту. Оставшиеся штурмовики " +
+                    Messages.Message("NJR: спасённые покинули карту. Оставшиеся штурмовики " +
                         "переходят к карательной фазе.",MessageTypeDefOf.ThreatSmall,false);
                     return;
                 }
@@ -1806,6 +1843,14 @@ namespace RaidersHaveFamilies
 
         private void PostExtractionAssault(RHFOperation op,int now)
         {
+            // S4.1-A/G: no legacy direct jobs after extraction.
+            if(RHFOffenseDirectorS41.Enabled)
+            {
+                RHFOffenseDirectorS41.Tick(op,map,now);
+                if(now-op.PhaseStartTick>24000)
+                { RHFOffenseDirectorS41.End(op,map); op.Phase=4; }
+                return;
+            }
             if(now-op.PhaseStartTick>24000){op.Phase=4;return;}
             // Existing rescued soldiers, not extra free enemies, now attack.
             // Cap target orders and let the rest use original CE/vanilla verbs.
@@ -1869,6 +1914,8 @@ namespace RaidersHaveFamilies
             out IntVec3 launchCell,out IntVec3 podCell)
         {
             launchCell=IntVec3.Invalid;podCell=IntVec3.Invalid;
+            int bestScore=int.MaxValue;
+            int inspectedLocations=0;
             for(int radius=6;radius<=20;radius++)
             for(int dx=-radius;dx<=radius;dx++)
             for(int dz=-radius;dz<=radius;dz++)
@@ -1893,17 +1940,35 @@ namespace RaidersHaveFamilies
                     {exposed=true;break;}
                 }
                 if(exposed)continue;
-                launchCell=cell;podCell=vehicle;return true;
+                // Rank real roofless footprints by near-prison proximity and
+                // adjacent EXISTING hard cover. This favors a defensible open
+                // courtyard over the first arbitrary grass patch. Do not
+                // conjure a roof-compatible indoor transporter.
+                int cover=0;
+                for(int ox=-5;ox<=5;ox+=2)
+                for(int oz=-5;oz<=5;oz+=2)
+                {
+                    IntVec3 point=cell+new IntVec3(ox,0,oz);
+                    if(point.InBounds(map) && point.GetEdifice(map)!=null)cover++;
+                }
+                int score=(cell-vip.Position).LengthHorizontalSquared*4-
+                    Math.Min(cover,12)*65;
+                if(score<bestScore)
+                {bestScore=score;launchCell=cell;podCell=vehicle;}
+                if(++inspectedLocations>=72)return launchCell.IsValid;
             }
-            return false;
+            return launchCell.IsValid;
         }
 
         private bool HasFieldSteel(RHFOperation op,int required)
         {
             int total=0;
-            Thing[] stocks={op.PodSteel,op.PodSteelExtra};
+            IEnumerable<Thing> stocks=op.PodCargoStacksS41!=null &&
+                op.PodCargoStacksS41.Count>0 ? op.PodCargoStacksS41 :
+                (IEnumerable<Thing>)new Thing[]{op.PodSteel,op.PodSteelExtra};
             foreach(Thing stack in stocks)
-                if(stack!=null && !stack.Destroyed && stack.Map==map &&
+                if(stack!=null && stack.def==ThingDefOf.Steel &&
+                   !stack.Destroyed && stack.Map==map &&
                    (stack.Position-op.PodCell).LengthHorizontalSquared<=100)
                     total+=stack.stackCount;
             return total>=required;
@@ -1912,10 +1977,14 @@ namespace RaidersHaveFamilies
         private bool SpendFieldSteel(RHFOperation op,int amount)
         {
             if(!HasFieldSteel(op,amount))return false;
-            foreach(Thing stack in new Thing[]{op.PodSteel,op.PodSteelExtra})
+            IEnumerable<Thing> steelStocks=op.PodCargoStacksS41!=null &&
+                op.PodCargoStacksS41.Count>0 ? op.PodCargoStacksS41 :
+                (IEnumerable<Thing>)new Thing[]{op.PodSteel,op.PodSteelExtra};
+            foreach(Thing stack in steelStocks)
             {
                 if(amount==0)break;
-                if(stack==null || stack.Destroyed || stack.Map!=map)continue;
+                if(stack==null || stack.def!=ThingDefOf.Steel ||
+                   stack.Destroyed || stack.Map!=map)continue;
                 int take=Math.Min(stack.stackCount,amount);
                 UseFieldMaterial(stack,take);
                 amount-=take;
@@ -1979,7 +2048,7 @@ namespace RaidersHaveFamilies
             op.Phase=2;op.PhaseStartTick=now;
             op.TryPod=false;
             Log.Warning("[RHF][VIP] Native transport fallback to ground exit: " + reason);
-            Messages.Message("RHF: воздушная эвакуация VIP невозможна ("+reason+"). " +
+            Messages.Message("NJR: воздушная эвакуация VIP невозможна ("+reason+"). " +
                 "Группа переходит к наземному отходу.",
                 MessageTypeDefOf.ThreatSmall,false);
         }

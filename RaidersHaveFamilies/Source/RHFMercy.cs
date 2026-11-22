@@ -69,7 +69,7 @@ namespace RaidersHaveFamilies
             // don't award retroactive memories to future colonists or on map reload.
             record.MercyAwarded = true;
             if (awarded > 0)
-                Messages.Message("RHF: " + awarded + " поселенцев получили воспоминание за " +
+                Messages.Message("NJR: " + awarded + " поселенцев получили воспоминание за " +
                     (ordinarySale ? "гуманную обычную продажу" : "милосердное освобождение") +
                     " пленника " + record.Pawn.LabelShortCap + ".",
                     MessageTypeDefOf.PositiveEvent, false);

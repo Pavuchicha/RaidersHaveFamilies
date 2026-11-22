@@ -12,7 +12,7 @@ namespace RaidersHaveFamilies
 {
     public static class RHFMissionCommandAuditV132
     {
-        [DebugAction("RHF - ТЕСТЫ | ДИАГНОСТИКА", "33 — Кто командует рейдом и зачем", 
+        [DebugAction("NJR - ТЕСТЫ | ДИАГНОСТИКА", "33 — Кто командует рейдом и зачем", 
             actionType=DebugActionType.Action,allowedGameStates=AllowedGameStates.PlayingOnMap)]
         public static void Show()
         {

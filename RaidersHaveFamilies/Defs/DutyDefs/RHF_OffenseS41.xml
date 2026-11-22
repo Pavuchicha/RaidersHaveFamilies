@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <DutyDef>
+    <defName>RHF_OffenseMissionS41</defName>
+    <alwaysShowWeapon>true</alwaysShowWeapon>
+    <thinkNode Class="ThinkNode_Priority">
+      <subNodes>
+        <li Class="RaidersHaveFamilies.RHFOffenseRoleJobGiverS41" />
+        <li Class="RaidersHaveFamilies.RHFOffenseDefenseJobGiverS41" />
+        <li Class="JobGiver_WanderNearDutyLocation"><wanderRadius>2</wanderRadius></li>
+      </subNodes>
+    </thinkNode>
+  </DutyDef>
+</Defs>

@@ -39,7 +39,8 @@ namespace RaidersHaveFamilies
     [StaticConstructorOnStartup]
     public static class RHFPreceptNotes
     {
-        private const string Marker = "[Raiders Have Families]";
+        private const string Marker = "[NJR — Not Just Raiders]";
+        private const string LegacyMarker = "[Raiders Have Families]";
 
         static RHFPreceptNotes()
         {
@@ -53,12 +54,12 @@ namespace RaidersHaveFamilies
                     if (name.Equals("WCE2_Torture_AlwaysRespected", StringComparison.OrdinalIgnoreCase))
                     {
                         AddMoodEntry(def, "RHF_PublicCruelty1",
-                            "RHF — Обнародованы мучения пленника его родным/фракции: " +
+                            "NJR — Обнародованы мучения пленника его родным/фракции: " +
                             "+2 / +4 / +8 / +16 / +32 / +48 на 5 дней " +
                             "(тяжесть подтверждённых издевательств × статус пленника; " +
                             "только после первого сообщения, не за саму операцию)");
                         SetShortDescription(def,
-                            "Дополнительное воспоминание RHF выдаётся после раскрытия мучений. " +
+                            "Дополнительное воспоминание NJR выдаётся после раскрытия мучений. " +
                             "Черты «Кровожадность», «Психопат» и поддерживаемый «Садист» " +
                             "тоже дают право на этот бонус без принципа; эффекты не суммируются. " +
                             "Бонус WCE2 за саму пытку действует отдельно.");
@@ -66,12 +67,12 @@ namespace RaidersHaveFamilies
                     else if (name.Equals("WCE2_Torture_RespectedGuilty", StringComparison.OrdinalIgnoreCase))
                     {
                         AddMoodEntry(def, "RHF_PublicCruelty1",
-                            "RHF — Обнародованы мучения ВИНОВНОГО пленника: " +
+                            "NJR — Обнародованы мучения ВИНОВНОГО пленника: " +
                             "+2 / +4 / +8 / +16 / +32 / +48 на 5 дней " +
                             "(тяжесть и статус; после первого сообщения родным или фракции; " +
                             "принцип работает только при виновности жертвы)");
                         SetShortDescription(def,
-                            "Дополнительное воспоминание RHF возникает при сообщении о мучениях " +
+                            "Дополнительное воспоминание NJR возникает при сообщении о мучениях " +
                             "виновного пленника. Подходящие черты характера действуют независимо " +
                             "от принципа. Эффекты WCE2 за саму пытку остаются отдельными.");
                     }
@@ -80,7 +81,7 @@ namespace RaidersHaveFamilies
                          Contains(name, "Honorable")))
                     {
                         AddMoodEntry(def, "RHF_PublicCruelty1",
-                            "RHF — Признание казни пленника его семье/фракции: " +
+                            "NJR — Признание казни пленника его семье/фракции: " +
                             "+2 / +4 / +8 / +16 / +32 / +48 на 5 дней " +
                             "(зависит от значимости жертвы; не за саму казнь)");
                         SetShortDescription(def,
@@ -91,7 +92,7 @@ namespace RaidersHaveFamilies
                         (Contains(name, "Abhorrent") || Contains(name,"Horrible") || Contains(name,"Disapproved")))
                     {
                         AddMoodEntry(def, "RHF_PublicCannibalismDisgust",
-                            "RHF — Нам рассказали о каннибализме пленника: -8 на 5 дней " +
+                            "NJR — Нам рассказали о каннибализме пленника: -8 на 5 дней " +
                             "(только при раскрытии случая, не за обычное питание)");
                         SetShortDescription(def,
                             "Отрицательное воспоминание за сознательное обнародование " +
@@ -101,11 +102,11 @@ namespace RaidersHaveFamilies
                         (Contains(name, "Required") || Contains(name, "Respected")))
                     {
                         AddMoodEntry(def, "RHF_PublicCruelty6",
-                            "RHF — Обнародован подтверждённый каннибализм с пленником: " +
+                            "NJR — Обнародован подтверждённый каннибализм с пленником: " +
                             "+48 на 5 дней (только при сознательном признании его фракции; " +
                             "после подтверждения разделки/употребления; не за обычное питание)");
                         SetShortDescription(def,
-                            "Дополнительное воспоминание RHF за признание в каннибализме. " +
+                            "Дополнительное воспоминание NJR за признание в каннибализме. " +
                             "Обычные бонусы Ideology за употребление человеческого мяса " +
                             "остаются отдельными. Признание вызывает попытку карательного рейда.");
                     }
@@ -120,10 +121,10 @@ namespace RaidersHaveFamilies
                         int release = tier == 3 ? 9 : tier == 2 ? 6 : 3;
                         int sale = tier == 3 ? 3 : tier == 2 ? 2 : 1;
                         AddMoodEntry(def, "RHF_MercyFreedom" + tier,
-                            "RHF — Гуманное освобождение пленника без выкупа: +" +
+                            "NJR — Гуманное освобождение пленника без выкупа: +" +
                             release + " на 5 дней (после фактического освобождения)");
                         AddMoodEntry(def, "RHF_MercyTrade" + tier,
-                            "RHF — Гуманная обычная продажа пленника: +" +
+                            "NJR — Гуманная обычная продажа пленника: +" +
                             sale + " на 5 дней (не выкуп)");
                         SetShortDescription(def,
                             "Оба эффекта RHF требуют отсутствия пыток, рабства, увечий " +
@@ -133,7 +134,7 @@ namespace RaidersHaveFamilies
             }
             catch (Exception e)
             {
-                Log.Warning("[Raiders Have Families] Не удалось добавить RHF-эффекты в настроение принципов: " + e);
+                Log.Warning("[NJR] Не удалось добавить RHF-эффекты в настроение принципов: " + e);
             }
         }
 
@@ -167,8 +168,15 @@ namespace RaidersHaveFamilies
 
         private static void SetShortDescription(PreceptDef def, string note)
         {
-            if (string.IsNullOrEmpty(note) ||
-                (def.description != null && def.description.Contains(Marker))) return;
+            if (string.IsNullOrEmpty(note)) return;
+            // An already initialized save or a hot-reload can retain the old
+            // display marker. Rebrand it in-place, never append a second note.
+            if (def.description != null && def.description.Contains(LegacyMarker))
+            {
+                def.description = def.description.Replace(LegacyMarker, Marker);
+                return;
+            }
+            if (def.description != null && def.description.Contains(Marker)) return;
             def.description = (def.description ?? "").TrimEnd() + "\n\n" + Marker + " " + note;
         }
     }

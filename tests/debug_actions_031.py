@@ -26,6 +26,6 @@ assert 'controller.ForceDeployNow(op)' in debug
 assert 'MaxDebugTargets = 24' in debug
 assert 'RHFMod.Settings?.Retaliation != true' in ops
 assert 'RHFStrikeRole.Diversion' in debug
-assert 'RHF - ТЕСТЫ | ПЛЕННИКИ' in debug
+assert 'NJR - ТЕСТЫ | ПЛЕННИКИ' in debug
 assert 'DebugActionType.ToolMap' in debug
 print('PASS: immediate test raids, rescue/diversion roles, multi-sponsor coalition, hostage rank toolmap.')

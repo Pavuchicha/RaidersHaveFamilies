@@ -148,12 +148,12 @@ namespace RaidersHaveFamilies
         internal static string MissionTitle(RHFOperation op)
         {
             if (op.Type == (int)RHFOperationType.Vengeance)
-                return "RHF: карательная операция";
+                return "NJR: карательная операция";
             if (op.TryPod && op.Vip != null)
-                return "RHF: эвакуация важного пленника";
+                return "NJR: эвакуация важного пленника";
             if (op.Targets != null && op.Targets.Count > 1)
-                return "RHF: массовое освобождение";
-            return "RHF: освобождение пленника";
+                return "NJR: массовое освобождение";
+            return "NJR: освобождение пленника";
         }
 
         internal static string MissionBriefing(RHFOperation op)
@@ -165,9 +165,13 @@ namespace RaidersHaveFamilies
                 sb.AppendLine("План: проникнуть в тюрьму, освободить " +
                     (op.Targets?.Count ?? 0) + " пленников и организованно вывести их.");
                 if (op.TryPod && op.Vip != null)
-                    sb.AppendLine("План VIP: удержать плацдарм, собрать обычную пусковую " +
-                        "установку и транспортную капсулу, эвакуировать VIP по воздуху. " +
-                        "При невозможности запуска — выход наземной группой.");
+                    sb.AppendLine("План VIP: удержать плацдарм, возвести укрепления, " +
+                        "собрать пусковую установку и эвакуировать пленника по воздуху. " +
+                        "Даже при нехватке дальности прямого полёта фракция заранее " +
+                        "подготовила промежуточные площадки для дозаправки — " +
+                        "дальнейший маршрут выполняется последовательными перелётами " +
+                        "(без отдельных игровых карт площадок). " +
+                        "Наземный отход — только при невозможности запуска.");
                 else if (op.Targets?.Count > 1)
                     sb.AppendLine("Группы освобождения должны найти каждого пленника; " +
                         "эвакуация одного не означает завершения операции.");
@@ -302,7 +306,7 @@ namespace RaidersHaveFamilies
 
     public static class RHFMissionAuditV130
     {
-        [DebugAction("RHF - ТЕСТЫ | ДИАГНОСТИКА", "32 — Свой-чужой, VIP и этапы операции",
+        [DebugAction("NJR - ТЕСТЫ | ДИАГНОСТИКА", "32 — Свой-чужой, VIP и этапы операции",
             actionType=DebugActionType.Action, allowedGameStates=AllowedGameStates.PlayingOnMap)]
         public static void Show()
         {Find.WindowStack.Add(new Dialog_MessageBox(RHFMissionIntegrityV130.Audit(Find.CurrentMap)));}

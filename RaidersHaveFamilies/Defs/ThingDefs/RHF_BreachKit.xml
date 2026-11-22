@@ -1,20 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Defs>
-  <ThingDef ParentName="ResourceBase">
-    <defName>RHF_BreachKit</defName>
-    <label>комплект для взлома преград RHF</label>
-    <description>Ограниченный комплект инструментов и зарядов, доставленный специальной группой RHF. Для технологичной фракции позволяет один контролируемый подрыв; для племён обеспечивает ручное вскрытие. Он находится в реальном инвентаре бойца и расходуется при применении.</description>
-    <graphicData>
-      <texPath>RaidersHaveFamilies/BreachKit</texPath>
-      <graphicClass>Graphic_Single</graphicClass>
-      <drawSize>(1,1)</drawSize>
-    </graphicData>
-    <stackLimit>1</stackLimit>
-    <statBases>
-      <MarketValue>48</MarketValue>
-      <Mass>0.65</Mass>
-      <MaxHitPoints>60</MaxHitPoints>
-      <Flammability>0.45</Flammability>
-    </statBases>
-  </ThingDef>
-</Defs>
+<!-- Obsolete breaching kit removed in S4.1-A/O. Do not restore the Def. -->
+<Defs/>

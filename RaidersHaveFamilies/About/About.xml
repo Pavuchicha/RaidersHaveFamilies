@@ -1,9 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <ModMetaData>
-  <name>Raiders Have Families</name>
+  <name>NJR — Not Just Raiders</name>
   <author>Pavuchicha</author>
   <packageId>pavuk.raidshavefamilies</packageId>
-  <supportedVersions><li>1.7</li></supportedVersions>
+  <supportedVersions>
+    <li>1.7</li>
+  </supportedVersions>
   <modDependencies>
     <li>
       <packageId>brrainz.harmony</packageId>
@@ -11,6 +13,14 @@
       <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
     </li>
   </modDependencies>
-  <loadAfter><li>Mersid.WCE2Updated.Core</li></loadAfter>
-  <description>RimWorld 1.7: real faction-radio prisoner negotiations after arrival at comms console; multi-stage hostage dialogue; proper distinction between ransom amounts and acceptance probability; surgery evidence for WCE2 and vanilla organ harvesting; actual goodwill vs internal faction tension; clickable ransom-delivery notification; ranks 0-8 and social provenance; bounded event-driven AI and dedicated developer test actions with rank-by-click spawns. Experimental v0.12.1: faction-preserving squad roles, bounded support/fire support, physical limited breaching equipment, extraction of unconscious captives, developer audit. Separate dead-hostage radio choices, record-based publicity for murder/execution/cannibalism, genuine search raid followed by coalition reprisal for concealed dead VIPs; old factions/AI used for incident generation. Ideology precepts now show real RHF mood-memory descriptions in the vanilla Mood section, not just appended tooltip prose; no extra automatic thought grants. Experimental family-generation repair (including old-save recheck), protected off-map kin, staged captive/escort exit path, bounded prison-room insertion search, 0–8 office catalogue including Royalty titles, native execution/cannibalism Ideology mood entries, manual and medical-event evidence tracking, conversational variants separated from diagnostic data. Experimental v0.12: actual captive ideology changes and VIP recruitment response, near-slave drops, saved mission doctrines, limited prison barricades, physically loaded field-evacuation skyfaller, bounded industrial targets and traitor pursuit; not a universal combat AI replacement or verified game build. Save backup advised. New experimental faction-recruitment detection and actual Ideology conversion disclosure with group-wide mood gains/losses; multi-phase raids (targeted traitor hunts, breakouts then assault), field fortifications and actual VIP transporter skyfaller. Experimental code, no gameplay confirmation; see REQUIREMENTS_AUDIT_MASTER_RU.md in the source package.  Experimental v0.13.0: mission-local coalition identification, safer rescue pod insertion, vanilla PodLauncher/TransportPod field construction with physical supplies and timed builder work, custom raid mission briefing and extraction safeguards. The field departure still uses the existing physical Skyfaller cargo mechanism; full native CompLaunchable launch is not implemented. Build and runtime testing required. Experimental v0.13.1: immediate released-VIP mission ownership, guard against recursive vanilla ExitMap jobs, auto-liberation adoption, construction-stage diagnostics, WCE2 Harmony argument binding correction.  Experimental v0.13.2: rescue mission authority is dispatched directly, automatic destructive diversion removed from basic and pure-coalition rescues, hostage-search raiders get mission Lord ownership, route breach restricted to chosen structural objective, actual progress and an on-map commander audit. Gameplay confirmation still required. Experimental v0.13.3: one native RHF mission arrival letter, removed scheduled-reprisal duplicate letter, retired conflicting older AI hooks, mission-only narrow combat duty, improved incident-scoped squad binding. GitHub Actions compilation and gameplay confirmation still required. </description>
+  <loadAfter>
+    <li>Mersid.WCE2Updated.Core</li>
+  </loadAfter>
+  <description>Not Just Raiders (NJR) gives hostile factions more than disposable raid squads: raiders may have families and social ties, and important prisoners can become the subject of ransom negotiations, diplomatic disputes, rescue operations, and retaliation. Experimental tactics include prisoner extraction, mixed-faction operations, coordinated attacks, guarded VIP evacuation and physical construction of hostile field transport pods. 
+
+Works with RimWorld 1.7. Harmony is required. Combat Extended and War Crimes Expanded 2 integration is optional and has not been fully validated in game. This is a beta: not every raid scenario or long-term save/load path has been playtested. Make a backup of your saves before enabling the mod. 
+
+Compatibility: the historical package ID pavuk.raidshavefamilies is deliberately retained to avoid breaking existing mod lists and savegames.
+
+[Русский] NJR — Not Just Raiders: у рейдеров есть семьи, отношения и причины действовать. Мод добавляет переговоры о пленниках, дипломатические последствия, спасательные и карательные операции. Тактика и эвакуация VIP остаются экспериментальными: не все 18 сценариев проверены в игре. Для тестирования сделайте резервную копию сохранения.</description>
 </ModMetaData>

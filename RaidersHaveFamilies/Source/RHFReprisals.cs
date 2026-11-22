@@ -258,7 +258,7 @@ namespace RaidersHaveFamilies
             c.DueTick = now + Rand.Range(15000, 135000);
             Map map = HomeMap();
             if (map == null) return;
-            Find.LetterStack.ReceiveLetter("RHF: пропажа важного пленника обнаружена",
+            Find.LetterStack.ReceiveLetter("NJR: пропажа важного пленника обнаружена",
                 "Поисковая группа фракции " + c.Faction.Name +
                 " прибыла за «" + c.VictimName + "», но пленника в указанном месте нет. " +
                 "Сообщение о смерти было скрыто. Командование получило донесение " +

@@ -1,0 +1,519 @@
+{
+  "product": "NJR — Not Just Raiders",
+  "version": "0.14.0-beta1",
+  "base_main_sha": "1b17a0c635ede9e164ccd7a9b37ed1a5535101fa",
+  "summary": "NJR v0.14.0-beta1 - Rebrand, preserve saves and audit all 18 raids",
+  "count": 85,
+  "contents": [
+    {
+      "path": "RaidersHaveFamilies/About/About.xml",
+      "kind": "modified",
+      "sha256": "e2058d3c79d82af5ef3ee2fa1c9d12465a8dfa7067bfef235a286a37ff272fb0",
+      "bytes": 2048
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFEnemyPodLaunchS41.cs",
+      "kind": "added",
+      "sha256": "896eec8b5ff0bcb2db6cb0d3af8f2a20a96f417d04fa54f7a6264d2dcc24b4f3",
+      "bytes": 18269
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RaidersHaveFamilies.cs",
+      "kind": "modified",
+      "sha256": "7eeef8c39334d90c95b03a14384541112adde5fca9e0119f8b7a3a071d0bcfd5",
+      "bytes": 58309
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFReprisals.cs",
+      "kind": "modified",
+      "sha256": "1d4ea50e6deaa3b14e8d0c52c9946b21afe61283d92ee5c3ea7d5455a095324d",
+      "bytes": 14430
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFDebugActions.cs",
+      "kind": "modified",
+      "sha256": "32acaa1fd244ee97ddfa8f9f8a1abab35fd817dcda7c9692bca7b7bddd21af15",
+      "bytes": 57882
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFPreceptNotes.cs",
+      "kind": "modified",
+      "sha256": "c9d235556f15182953444f7d2e510ba5e548c3a2b93ae42779a6a4c707582eb2",
+      "bytes": 11828
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFRescueCommandV124.cs",
+      "kind": "modified",
+      "sha256": "98fae51e2efbebb582667c7ca7ea387fc3235a8948094d78f4890da7a9db2f39",
+      "bytes": 63903
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFTactical.cs",
+      "kind": "modified",
+      "sha256": "a58e327bc365005bb18f02279e320a28e625152e301729cfc0fb2b537f16d8e1",
+      "bytes": 19405
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFAutoLiberationS41.cs",
+      "kind": "added",
+      "sha256": "c63c92ff38be082699e2b17800f7b406eab7edef559fb542f29d5877b3f6b91a",
+      "bytes": 1932
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFVipEvacS311.cs",
+      "kind": "modified",
+      "sha256": "500c71910c2d78aab16429aaebbe7f81e93bd1236c3e20a39e5aa27d8affc76c",
+      "bytes": 34565
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFRescuePlannerS41.cs",
+      "kind": "added",
+      "sha256": "8319850568cd7ac8284f9b002b26d7f26be24a1de90b58ca2dfb882ffb018dcb",
+      "bytes": 39791
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFRescueFireDisciplineV136.cs",
+      "kind": "modified",
+      "sha256": "927736a8e69cba49be800e5b5311e35c3a503851d05111ed9b0d03ad5f88a8af",
+      "bytes": 6389
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFHostageSystems.cs",
+      "kind": "modified",
+      "sha256": "a8074654455c35ab0dca35d15875231e0ae9b96e5ed6dab1d007fef57f3f148c",
+      "bytes": 85051
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFPatches.cs",
+      "kind": "modified",
+      "sha256": "a7758f2c4dfe9b8be9d31b1e15be3fcedceb73d335bf82a179a8e6cd0f1b4270",
+      "bytes": 15444
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFPodPlannerS41.cs",
+      "kind": "added",
+      "sha256": "1b06a916c8086708099120fd9d720b49596a8c5063bf8ecda3ccc0d05edd6f6d",
+      "bytes": 10356
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFCombatPlannerV125.cs",
+      "kind": "modified",
+      "sha256": "c7f332b6bf4a5a54cafe70aedabf273a17f45c5ba23b020c27dd25f8f2aa1306",
+      "bytes": 47873
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/JobDriver_RHFPodCargoS41.cs",
+      "kind": "added",
+      "sha256": "0d7119d3c500f3bb6ac55c6e21e12033f3f76b0377f9e50a1769b2f1f550ad1b",
+      "bytes": 4236
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFVipDiagnosticsS311.cs",
+      "kind": "modified",
+      "sha256": "3f2cc3dffc20054b8a7968dcfd75c24e49868913397054202bd6c99a21f79c81",
+      "bytes": 3257
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/JobDriver_RHFPlantBreachChargeS41.cs",
+      "kind": "added",
+      "sha256": "a06f36c52829eab9043ee0a61f197a70ec3f3232d434873f3fd55df7f2b6561d",
+      "bytes": 103
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFOffenseS41.cs",
+      "kind": "added",
+      "sha256": "3a481cef19fc2d596fa655e6c726ef1cb290eaa097335296a03e6398b185c631",
+      "bytes": 34929
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFRescueRoleJobGiverS41.cs",
+      "kind": "added",
+      "sha256": "457f5dde3ae4222f9d36d7134f87d244e4e500929b596dd1e11e12665aa0ea16",
+      "bytes": 16039
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFTacticalBoardS41.cs",
+      "kind": "added",
+      "sha256": "288dded95058aea8452dad774c50a4af27776c1d86d28d10c857844c3c203038",
+      "bytes": 8950
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFMercy.cs",
+      "kind": "modified",
+      "sha256": "d3b0023668943bbf394e749b86073baddf2debf1d51fbc162c706a1fbad4f799",
+      "bytes": 4500
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFNativeDoctrineS41.cs",
+      "kind": "added",
+      "sha256": "c916ceb3d91f7b7c0dff66abb3801d556a7a0c1447c0dbd1aa6cf9f3d189c0fc",
+      "bytes": 14095
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFRescueControlV123.cs",
+      "kind": "modified",
+      "sha256": "2749c64c440ae4fa2c48f11df9cb5f2f9aedf77ca217ec774971b96ead1b76b3",
+      "bytes": 24183
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFMissionCommandAuditV132.cs",
+      "kind": "modified",
+      "sha256": "62253990b40b983f3b54f367cc2225d55742bc1096929564784f3e4855555c49",
+      "bytes": 3810
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFObjectiveRouteV128.cs",
+      "kind": "modified",
+      "sha256": "4b16d1899ffa4829ba6d32ee04bc494de1967ab20dd0d8003d3a3f20dcb0949c",
+      "bytes": 28275
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFRescueGroundEntryS41.cs",
+      "kind": "added",
+      "sha256": "6d7ca6842f1c7e2c80f953adb68fbea5dea9617e01227df13d00299049eb4bf7",
+      "bytes": 4375
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFOperations.cs",
+      "kind": "modified",
+      "sha256": "1da503a32f5636bf3f545456c0a5f45520c3e1060efad784467895f8dd982728",
+      "bytes": 129281
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFMissionIntegrityV130.cs",
+      "kind": "modified",
+      "sha256": "b9e442d9bdd00a8c01cc70685a26c7f0a64984cb47f5f76a227c9f9afe5a2721",
+      "bytes": 16028
+    },
+    {
+      "path": "RaidersHaveFamilies/Source/RHFRankUI.cs",
+      "kind": "modified",
+      "sha256": "592faca19456de38c368efd52fad7f3a125e3fc51db67223280952054ab0d0cd",
+      "bytes": 14329
+    },
+    {
+      "path": "RaidersHaveFamilies/Defs/ThingDefs/RHF_BreachKit.xml",
+      "kind": "modified",
+      "sha256": "03c25784c2e91b5f53a3ffba713f1ee7de38666c8696017246c3d9903a42676f",
+      "bytes": 124
+    },
+    {
+      "path": "RaidersHaveFamilies/Defs/ThingDefs/RHF_ExtractionEquipment.xml",
+      "kind": "modified",
+      "sha256": "0a111596b349401074bbe2afcd4b887320dc802aa719ab039c5776d655d559af",
+      "bytes": 1655
+    },
+    {
+      "path": "RaidersHaveFamilies/Defs/JobDefs/RHF_BreachChargeS41.xml",
+      "kind": "added",
+      "sha256": "03c25784c2e91b5f53a3ffba713f1ee7de38666c8696017246c3d9903a42676f",
+      "bytes": 124
+    },
+    {
+      "path": "RaidersHaveFamilies/Defs/JobDefs/RHF_PodCargoS41.xml",
+      "kind": "added",
+      "sha256": "88f45770aec7a9cdd679a21fd153be2a93c4f6f99b7ac8ba5888d460a1181afa",
+      "bytes": 325
+    },
+    {
+      "path": "RaidersHaveFamilies/Defs/DutyDefs/RHF_OffenseS41.xml",
+      "kind": "added",
+      "sha256": "48d12a2dbb2e30803524c6cecb7807981f9c95614bec99c205c8bd3c37db19a8",
+      "bytes": 494
+    },
+    {
+      "path": "RaidersHaveFamilies/Defs/DutyDefs/RHF_MissionHold.xml",
+      "kind": "modified",
+      "sha256": "d9256a98129273dc242a4748f7bfff08cac492b92e730d1be52adbb7e5a7e67b",
+      "bytes": 724
+    },
+    {
+      "path": "tests/rhf_153_s41_agent3_combat_and_escort.py",
+      "kind": "added",
+      "sha256": "72a14e5369f0b2c03e571c315116a8e59769ca1f7bade58b7c730744f6d724dc",
+      "bytes": 4382
+    },
+    {
+      "path": "tests/rhf_132_mission_authority.py",
+      "kind": "modified",
+      "sha256": "90d0d73eea2798a7c267b3f9e9add3e69f14c568287376644bf0e67a620cd168",
+      "bytes": 4008
+    },
+    {
+      "path": "tests/rhf_163_s41_offense_missing_breacher.py",
+      "kind": "added",
+      "sha256": "48d91053a9535ba6cd1533dc9dee8adf6fccb39c7e85b4825c0990b072558b56",
+      "bytes": 3645
+    },
+    {
+      "path": "tests/rhf_110_family_escort_dialogue.py",
+      "kind": "modified",
+      "sha256": "bbaec1ba147a807925a32420c44bdceca9d373a5494fdba2c908abb24e4047d1",
+      "bytes": 4726
+    },
+    {
+      "path": "tests/rhf_156_s41_offense_single_writer.py",
+      "kind": "added",
+      "sha256": "b3de9f19dbd8b7249a506c852c4631f55ce5e5f1927e29e24b843aeb427c5e2f",
+      "bytes": 5095
+    },
+    {
+      "path": "tests/rhf_162_s41_fuel_reachable_destination.py",
+      "kind": "added",
+      "sha256": "91dd7e5cda271d26fc6343c20aa572d5133226cf278a2bf4c5716bd934c0a32a",
+      "bytes": 1149
+    },
+    {
+      "path": "tests/rhf_160_s41_multivip_downed_single_writer.py",
+      "kind": "added",
+      "sha256": "0a2cc274ff2576f0c656196a6f901271433c8b11d3095d8570919c33608023e0",
+      "bytes": 3382
+    },
+    {
+      "path": "tests/rhf_080_mercy_and_drops.py",
+      "kind": "modified",
+      "sha256": "1f90c52461e48fd7b037053b813cdabd0f4618b9726e7add35f794d7399998d1",
+      "bytes": 2185
+    },
+    {
+      "path": "tests/rhf_128_route_control.py",
+      "kind": "modified",
+      "sha256": "38360b79bd9a84912c0f8c23f27bc57da87bcf792b2660d261146073ee51afce",
+      "bytes": 4336
+    },
+    {
+      "path": "tests/njr_201_release_zip.py",
+      "kind": "added",
+      "sha256": "0a32ee8c58c6df4579915d5428a6bc952d5ea6f683a46e1d94731aba13a92f1f",
+      "bytes": 1337
+    },
+    {
+      "path": "tests/rhf_161_s41_air_vip_lifetime_and_exit_recovery.py",
+      "kind": "added",
+      "sha256": "a626ca59bbf02806a784afe1832a6a3b1f2837fe09143b5de84579bdd02ff172",
+      "bytes": 3872
+    },
+    {
+      "path": "tests/rhf_159_s41_native_lord_identity.py",
+      "kind": "added",
+      "sha256": "417b9e0fb0b7a8c8875ab22662394dba55c78926f0434204b2be8d30c25b9f57",
+      "bytes": 3787
+    },
+    {
+      "path": "tests/rhf_158_s41_beast_incident_and_flank.py",
+      "kind": "added",
+      "sha256": "9125e4e5675d0ad166c627505354557dfe47c123e9928f2c231327ac80f8edd9",
+      "bytes": 4299
+    },
+    {
+      "path": "tests/rhf_135_s1_rescue_contracts.py",
+      "kind": "modified",
+      "sha256": "d0927522c9196acae2dd341b62b7c5e6c91bc28a47637a8077bfecca479f7c06",
+      "bytes": 3963
+    },
+    {
+      "path": "tests/rhf_154_s41_phase3_native_roles.py",
+      "kind": "added",
+      "sha256": "f17215de6f637f4b71ce782498c54a4e6dd04be046b3c9bcfd8b8dd06283af30",
+      "bytes": 3238
+    },
+    {
+      "path": "tests/rhf_155_s41_airflight.py",
+      "kind": "added",
+      "sha256": "f190767f0cca85ae5b78f050b16e798ab1292f418d6961c27ecc27590d58f2ce",
+      "bytes": 2339
+    },
+    {
+      "path": "tests/rhf_131_vip_job_recovery.py",
+      "kind": "modified",
+      "sha256": "ebb80cd424c49e910951a2de8145c2eb0ba8e9f52d0e958939b28e4123de1ddc",
+      "bytes": 3236
+    },
+    {
+      "path": "tests/rhf_152_s41_agent_review_fixes.py",
+      "kind": "added",
+      "sha256": "daa085b6afb3b8199d9fa8c9511f10f0e089066e2be67cd635b21aeceb394439",
+      "bytes": 3851
+    },
+    {
+      "path": "tests/rhf_050_diplomacy.py",
+      "kind": "modified",
+      "sha256": "215645aef078574de9d466e46493038a06600faf7e80e97769aae448a03b66d5",
+      "bytes": 1828
+    },
+    {
+      "path": "tests/rhf_133_arrival_and_lord.py",
+      "kind": "modified",
+      "sha256": "059a5e07a78d3c0cd4ce05bd9a8356e1da60e6a4181ca77a23da4b71dfca7943",
+      "bytes": 3370
+    },
+    {
+      "path": "tests/rhf_167_s41_prepared_relay.py",
+      "kind": "added",
+      "sha256": "fc3add178bec32398f32d82225a82bdcbae6152bcd79625a4046c0cee0561ef8",
+      "bytes": 2687
+    },
+    {
+      "path": "tests/rhf_125_combat_planner.py",
+      "kind": "modified",
+      "sha256": "9a1da788b5846694663bd06dae634df9a0ccf25f8ad72f29343e492208c6e2fd",
+      "bytes": 2730
+    },
+    {
+      "path": "tests/rhf_144_s311_vip_native.py",
+      "kind": "modified",
+      "sha256": "c7e3f3a25ff851c48dba5b992b145fd2d43756f0d4e817f87a3302e9f639bfed",
+      "bytes": 4479
+    },
+    {
+      "path": "tests/njr_200_integrity_audit.py",
+      "kind": "added",
+      "sha256": "f386eaf95119bd934e7c474c93033a8c8a70ba6ce11b4f4e567e03c764b710e2",
+      "bytes": 5161
+    },
+    {
+      "path": "tests/rhf_151_s41_rescue_single_writer.py",
+      "kind": "added",
+      "sha256": "33c074e1262a89a79e7dea9de95dedad87fc97f75b899079e59ca367e9ef5d7b",
+      "bytes": 5183
+    },
+    {
+      "path": "tests/rhf_124_rescue_command.py",
+      "kind": "modified",
+      "sha256": "f4ef25dead548e1abaccfc888d98176a6d97d10d41bb7c58c748f75bc534e3c1",
+      "bytes": 2798
+    },
+    {
+      "path": "tests/debug_actions_031.py",
+      "kind": "modified",
+      "sha256": "f733c62da18d1fa805848258553dfac87e130248fd55ad6bb1fa3d7576494acd",
+      "bytes": 1669
+    },
+    {
+      "path": "tests/rhf_061_compile_contract.py",
+      "kind": "modified",
+      "sha256": "e324bdf3f2fa23329291e9612c729b233d2ac161092a278d99d229263a981899",
+      "bytes": 894
+    },
+    {
+      "path": "tests/rhf_130_mission_integrity.py",
+      "kind": "modified",
+      "sha256": "bdbdf866cb47e9a536fa74cdb23fbc53f5c9cbd1ae16a416ccb7628f6869dbfb",
+      "bytes": 5675
+    },
+    {
+      "path": "tests/rhf_139_assembly_breach_fortify.py",
+      "kind": "modified",
+      "sha256": "73562b0a98872c824868333d45a654aab6f745b67d06d5a929e33d00e4f3fa4f",
+      "bytes": 3921
+    },
+    {
+      "path": "tests/rhf_164_s41_field_breach_pod_entry.py",
+      "kind": "added",
+      "sha256": "87fbbbfb5050f942fb60eb20d542ea6d0a7bc31c42665c542a8db465fa709031",
+      "bytes": 4585
+    },
+    {
+      "path": "tests/rhf_120_conversion_campaigns.py",
+      "kind": "modified",
+      "sha256": "83db3da36f77819f7d533b0b5b74d897611dd8fbfd3321899d58a9c6a08cbf81",
+      "bytes": 6511
+    },
+    {
+      "path": "tests/rhf_126_smart_routes_and_cover.py",
+      "kind": "modified",
+      "sha256": "48c32f0fa081936ce8b41c49586f263d67caedd73c5c0dbe6107cca99d01fc94",
+      "bytes": 3969
+    },
+    {
+      "path": "tests/rhf_070_regressions.py",
+      "kind": "modified",
+      "sha256": "81b1f7090feef228528357b785e94c5c9be5eb38eb32c01e9293616702dbc731",
+      "bytes": 2853
+    },
+    {
+      "path": "tests/rhf_127_faction_and_strength.py",
+      "kind": "modified",
+      "sha256": "5c00d2c5520a0647d537f95e432ca8057ac89439a8988aa1a547c989ba9f4754",
+      "bytes": 3484
+    },
+    {
+      "path": "tests/rhf_166_s41_spawn_and_barricade.py",
+      "kind": "added",
+      "sha256": "8b8feb63b713e73c816c8725aeae4da1679ca329cf094ee0ab2186325131a6a1",
+      "bytes": 1614
+    },
+    {
+      "path": "tests/validate.py",
+      "kind": "modified",
+      "sha256": "8e9b435ca79fd47fa3ab0557d161c3c77e3cf2ad043532428fa210f63d4e82f3",
+      "bytes": 2026
+    },
+    {
+      "path": "tests/rhf_090_tactical.py",
+      "kind": "modified",
+      "sha256": "36d217740c834941a47217ecf4eaacce0deb4494e8ab6ab9985a1c12e298faeb",
+      "bytes": 3065
+    },
+    {
+      "path": "tests/rhf_157_s41_native_lords.py",
+      "kind": "added",
+      "sha256": "e0f8ffccb1c677d286cd8a37a3b509fe279aa4def759b52cb9132281c716a34d",
+      "bytes": 3932
+    },
+    {
+      "path": "tests/rhf_165_s41_inventory_pod_enemy_faction.py",
+      "kind": "added",
+      "sha256": "ceabd178f779c5e3c3a01bb66e8d19bf3d15a367a006292a60bc9830315f84ad",
+      "bytes": 3897
+    },
+    {
+      "path": "tests/rhf_121_coherent_ops.py",
+      "kind": "modified",
+      "sha256": "b7e61758b056783c30173e095785926dc48644e9f7afd19f790689b417eddddb",
+      "bytes": 1964
+    },
+    {
+      "path": "tests/rhf_129_firebreak.py",
+      "kind": "modified",
+      "sha256": "930ef3851e14e60b2ffbf130f4fe629e66a36a59c4aba16795a5b1e41a0feb0f",
+      "bytes": 4802
+    },
+    {
+      "path": "docs/LEGACY_README_PRE_NJR.md",
+      "kind": "added",
+      "sha256": "6a76787d8e0c06f355b7cf1e88e1892dac358776dc613a0a79cacdce349df9f8",
+      "bytes": 48174
+    },
+    {
+      "path": "docs/NJR_STATIC_TEST_RESULTS.json",
+      "kind": "added",
+      "sha256": "fa4890dc42c82093423f547b11f194f18d37449fecfc8a398f4b9e7744bf29f1",
+      "bytes": 14286
+    },
+    {
+      "path": "docs/NJR_FULL_AUDIT_AND_RELEASE_RU.md",
+      "kind": "added",
+      "sha256": "6941bfb9e604cbc9803ee3c493e3181424358fff912ff7c2ef7bd3d729a990d5",
+      "bytes": 14641
+    },
+    {
+      "path": "docs/RHF_S41_AI_NATIVE_BEAST_SCOPE_RU.md",
+      "kind": "added",
+      "sha256": "11c9b1dc85f59dd0c4681e1203cc6f7177e6fb67fdc0e3b52e83ef0131fcf3e0",
+      "bytes": 2518
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "kind": "modified",
+      "sha256": "d48b428e0c74b3bbca1e651284d5d7b2a6ab051356a096f62fcafc817bf84f58",
+      "bytes": 5139
+    },
+    {
+      "path": "README.md",
+      "kind": "modified",
+      "sha256": "3569e33f002f60935579800502de62c25e3da551c000aafd645672ddbb7ab83d",
+      "bytes": 2726
+    }
+  ]
+}

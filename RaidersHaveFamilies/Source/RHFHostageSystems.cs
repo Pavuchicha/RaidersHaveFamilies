@@ -195,7 +195,7 @@ namespace RaidersHaveFamilies
             // No faction awareness, goodwill loss or retaliation on this secret
             // local event. A player disclosure reveals it immediately; otherwise
             // an intelligence report reaches the origin faction after 7 days.
-            Messages.Message("RHF: вербовка «"+r.NameAtCapture+
+            Messages.Message("NJR: вербовка «"+r.NameAtCapture+
                 "» зарегистрирована. Исходная фракция пока об этом не осведомлена.",
                 pawn, MessageTypeDefOf.NeutralEvent, false);
         }
@@ -850,7 +850,7 @@ namespace RaidersHaveFamilies
                         tick-r.RecruitmentTick>=420000) // seven RimWorld days
                     {
                         RevealRecruitment(r);
-                        Find.LetterStack.ReceiveLetter("RHF: фракция узнала о вербовке",
+                        Find.LetterStack.ReceiveLetter("NJR: фракция узнала о вербовке",
                             "Прошла неделя после вербовки " + r.Pawn.LabelShortCap +
                             ". По торговым и информационным каналам сведения дошли до «" +
                             r.OriginalFaction.Name + "». Теперь фракция знает о переходе " +

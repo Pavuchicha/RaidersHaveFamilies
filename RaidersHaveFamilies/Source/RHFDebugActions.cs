@@ -33,9 +33,9 @@ namespace RaidersHaveFamilies
 
     public static class RHFDebugActions
     {
-        private const string Category = "RHF - ТЕСТЫ | РЕЙДЫ";
-        private const string PrisonersCategory = "RHF - ТЕСТЫ | ПЛЕННИКИ";
-        private const string ChecksCategory = "RHF - ТЕСТЫ | ДИАГНОСТИКА";
+        private const string Category = "NJR - ТЕСТЫ | РЕЙДЫ";
+        private const string PrisonersCategory = "NJR - ТЕСТЫ | ПЛЕННИКИ";
+        private const string ChecksCategory = "NJR - ТЕСТЫ | ДИАГНОСТИКА";
         private const int MaxDebugTargets = 24;
         // Direct developer actions execute incidents synchronously (no wait queue).
         private const int MaxCoalitionParties = 5;
@@ -53,7 +53,7 @@ namespace RaidersHaveFamilies
             { Notify(Find.CurrentMap, "Нет доступных враждебных фракций с человекоподобными членами."); return; }
             int index = factions.IndexOf(pinnedTestFaction);
             pinnedTestFaction = factions[(index + 1) % factions.Count];
-            Notify(Find.CurrentMap, "RHF: выбрана фракция «" + pinnedTestFaction.Name +
+            Notify(Find.CurrentMap, "NJR: выбрана фракция «" + pinnedTestFaction.Name +
                 "». Новые пленники любого ранга будут принадлежать ей до сброса выбора.");
         }
 
@@ -62,7 +62,7 @@ namespace RaidersHaveFamilies
         public static void ResetPrisonerFaction()
         {
             pinnedTestFaction = null;
-            Notify(Find.CurrentMap, "RHF: фракции пленников снова автоматически чередуются.");
+            Notify(Find.CurrentMap, "NJR: фракции пленников снова автоматически чередуются.");
         }
 
         [DebugAction(PrisonersCategory, "Создать пленника: ранг 6 (индустриальная фракция)", actionType = DebugActionType.ToolMap,
@@ -115,7 +115,7 @@ namespace RaidersHaveFamilies
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void VipRescue() { Start(RHFDebugScenario.VipRescue); }
 
-        [DebugAction(Category, "04 — Спасение: полевая капсула (прототип)", actionType = DebugActionType.Action,
+        [DebugAction(Category, "04 — Спасение: полевая капсула (испытание)", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void FieldPod() { Start(RHFDebugScenario.FieldPod); }
 
@@ -264,7 +264,7 @@ namespace RaidersHaveFamilies
             string status = member == null ? "Пешка не состоит в активном специальном отряде RHF." :
                 pawn.LabelShortCap + ": " + RHFTactical.RoleName(member.Role) +
                 "; вооружён=" + (!member.WeaponMissing) +
-                "; инструменты для взлома=" + RHFTactical.HasBreachKit(pawn) +
+                "; проломный топор=" + RHFTactical.IsBreachAxe(pawn) +
                 "; медицинские припасы=" + member.MedicalSupplies +
                 "; штатное оружие/патроны не заменены.";
             Find.WindowStack.Add(new Dialog_MessageBox(status));
@@ -287,7 +287,7 @@ namespace RaidersHaveFamilies
             RHFHostageRecord r = p == null ? null :
                 Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("RHF: проверка условий мыслей (ничего не выдаёт)");
+            sb.AppendLine("NJR: проверка условий мыслей (ничего не выдаёт)");
             if (r != null)
             {
                 sb.AppendLine("Пленник: " + p.LabelShortCap);
@@ -367,7 +367,7 @@ namespace RaidersHaveFamilies
             RHFGameLedger ledger = Current.Game?.GetComponent<RHFGameLedger>();
             if (ledger?.ReprisalCases == null) return;
             var sb = new System.Text.StringBuilder(500);
-            sb.AppendLine("RHF: тайные поиски / карательные операции: " + ledger.ReprisalCases.Count);
+            sb.AppendLine("NJR: тайные поиски / карательные операции: " + ledger.ReprisalCases.Count);
             int n=0;
             foreach (RHFReprisalCase c in ledger.ReprisalCases)
             {
@@ -506,11 +506,11 @@ namespace RaidersHaveFamilies
                 }
                 Notify(map, "Создан пленник RHF " + rank + "/8: " + test.LabelShortCap +
                     "; фракция: «" + faction.Name + "» (" + faction.def.techLevel +
-                    "). Следующую фракцию можно выбрать в разделе RHF — пленники.");
+                    "). Следующую фракцию можно выбрать в разделе NJR — пленники.");
             }
             catch (Exception e)
             {
-                Log.Error("[Raiders Have Families][Debug] Prepare prisoner failed: " + e);
+                Log.Error("[NJR — Not Just Raiders][Debug] Prepare prisoner failed: " + e);
                 Notify(map, "Не удалось создать пленника. Подробности в игровом логе.");
             }
         }
@@ -585,7 +585,7 @@ namespace RaidersHaveFamilies
                  prisoners.Count>0 ? SourceFaction(prisoners[0]) : null) :
                 FirstEnemy(null, tribal, industrial);
             if (sponsor == null)
-            { Notify(map, rescue ? "Нужен реальный живой пленник. Сначала создай его в разделе RHF - ТЕСТЫ | ПЛЕННИКИ." :
+            { Notify(map, rescue ? "Нужен реальный живой пленник. Сначала создай его в разделе NJR - ТЕСТЫ | ПЛЕННИКИ." :
                 "Подходящей враждебной фракции для выбранного типа нападения нет."); return; }
 
             List<Faction> sponsors = new List<Faction> { sponsor };
@@ -898,7 +898,7 @@ namespace RaidersHaveFamilies
             Map map = Find.CurrentMap;
             if (map == null) return;
             int prisoners = Captives(map).Count;
-            Notify(map, "RHF: пленников враждебных фракций " + prisoners +
+            Notify(map, "NJR: пленников враждебных фракций " + prisoners +
                 ". Пленников рангов 0..8 создавай щелчком на карте. " +
                 "Коалиция: одна и более фракций-покровителей + наёмники, отдельный " +
                 "тест для 3+ VIP. Комбинированный рейд = спасение + фронтальная атака. " +
@@ -908,7 +908,7 @@ namespace RaidersHaveFamilies
 
         private static void Notify(Map map, string message)
         {
-            Log.Message("[Raiders Have Families][Debug] " + message);
+            Log.Message("[NJR — Not Just Raiders][Debug] " + message);
             if (map != null)
                 Messages.Message(message, new TargetInfo(map.Center, map), MessageTypeDefOf.NeutralEvent, false);
         }

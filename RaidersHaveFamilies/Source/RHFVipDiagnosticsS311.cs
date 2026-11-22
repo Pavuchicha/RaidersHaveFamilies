@@ -8,7 +8,7 @@ namespace RaidersHaveFamilies
 {
     public static class RHFVipDiagnosticsS311
     {
-        [DebugAction("RHF - ТЕСТЫ | ДИАГНОСТИКА",
+        [DebugAction("NJR - ТЕСТЫ | ДИАГНОСТИКА",
             "34 — S3.1.1 реальная стройка и загрузка VIP",
             actionType=DebugActionType.Action,
             allowedGameStates=AllowedGameStates.PlayingOnMap)]

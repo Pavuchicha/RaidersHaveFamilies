@@ -13,7 +13,8 @@ reprisal=(S/'RHFReprisals.cs').read_text('utf8')
 wf=(R/'.github/workflows/build.yml').read_text('utf8')
 # First / any subsequent faction waves in one operation all route through the
 # same ambient RHF letter; no synthetic letter after vanilla raid generation.
-assert ops.count('ExecuteRaidWithoutVanillaLetter(parms, op)')==3
+assert ops.count('ExecuteRaidWithoutVanillaLetter(parms, op)')+ops.count('ExecuteRaidWithoutVanillaLetter(parms,op)')==3
+assert 'retrying native spawn-center selection' in ops
 assert 'RHFMissionIntegrityV130.ShowMissionLetter(op,map)' not in ops
 assert 'AllowOneNativeLetter(out bool entered)' in mission
 assert 'if (state.Sent) return false' in mission
@@ -50,5 +51,5 @@ assert 'pawn.Faction != party.Faction' in ops
 assert 'op.Diversion.Contains(pawn)' in ops
 # Test harness really runs this newer contract and includes new XML in build.
 assert 'python3 tests/rhf_133_arrival_and_lord.py' in wf
-assert 'v0.13.3-S2.2.1-ENGINEER-DOOR-CONTACT-TEST' in wf
+assert 'v0.14.0-beta1' in wf
 print('PASS: one RHF native arrival letter, no scheduled duplicate, direct mission Lord, bounded newly-spawned attribution')

@@ -84,7 +84,6 @@ namespace RaidersHaveFamilies
         public int ProgressBarrierHP;
         public int NextBarrierSearch;
         public int LastDiagnosticTick;
-        public int LastCohesionTick;
         public IntVec3 BarrierForCaptive = IntVec3.Invalid;
         public string LastDecision = "ожидается начало операции";
         public int RecoveredFromVanilla;
@@ -147,10 +146,28 @@ namespace RaidersHaveFamilies
             RHFOperation op=controller?.FindRescueFor(rescued.ThingID);
             if(!IsRescue(op) || op.Phase!=2 || op.Freed==null ||
                !op.Freed.Contains(rescued) || !op.Squad.Contains(carrier))return;
-            MissionExit(rescued);
-            if(rescued.MapHeld==map)return; // do not claim a rejected exit
+            // A downed pair must use the SAME conservative order as a
+            // walking pair. If a pawn cannot exit, never fabricate success.
             MissionExit(carrier);
-            if(carrier.MapHeld!=map)op.EscapedWithEscort++;
+            if(carrier.MapHeld==map)return;
+            MissionExit(rescued);
+            if(rescued.MapHeld!=map)
+                op.EscapedWithEscort++;
+            else
+            {
+                // The carrier left but the patient remained at the edge.
+                // They remain an on-map rescued VIP and must receive a new
+                // escort; do not mark the operation as successful.
+                if(op.Escorts!=null)
+                    foreach(RHFEscortLink link in op.Escorts)
+                        if(link?.Captive==rescued && link.Escort==carrier)
+                            link.Escort=null;
+                if(op.BoardS41!=null)
+                {
+                    op.BoardS41.NextReplanTick=0;
+                    op.BoardS41.LastPlanTick=0;
+                }
+            }
         }
 
         private static Map MapFor(RHFOperationController controller)
@@ -495,6 +512,10 @@ namespace RaidersHaveFamilies
 
         internal static void Infiltrate(RHFOperationController controller, RHFOperation op, int now)
         {
+            // S4.1 replaces the regular legacy external pawn-job writer.
+            // Keep older code only as a migration reference, not a second commander.
+            if (RHFRescuePlannerS41.Enabled)
+            { RHFRescuePlannerS41.Infiltrate(controller,op,now); return; }
             if (!IsRescue(op)) return; // CaseKeyV10 is NOT a routing override.
             Map map = MapFor(controller);
             if (map == null) return;
@@ -623,9 +644,7 @@ namespace RaidersHaveFamilies
                 bool attacking = current?.def == JobDefOf.AttackMelee &&
                     sharedBarrier != null && current.targetA.Thing == sharedBarrier &&
                     !sharedBarrier.Destroyed;
-                bool canPlaceBreach = attacking &&
-                    RHFTactical.Member(op,rescuer)?.Role==(int)RHFCombatRole.Breacher &&
-                    RHFTactical.HasBreachKit(rescuer);
+                bool canPlaceBreach=false; // no demolition charges in RHF
                 if (attacking && !canPlaceBreach && now-moved<1600) continue;
                 // Do not reissue a different waypoint every 90 ticks. The
                 // current waypoint is still on the costed corridor and must
@@ -842,6 +861,12 @@ namespace RaidersHaveFamilies
             // Preserve the prisoner's authentic original affiliation while
             // giving them a rescue-specific Lord and defend objective.
             RebindFreed(op,captive);
+            // Mission duty must be restored after faction and Lord handoff or load.
+            Lord lord=captive.GetLord();
+            if(lord?.LordJob is RHFRescueLordJobV124 job &&
+               job.MissionKey==Key(op) &&
+               captive.mindState?.duty?.def?.defName!="RHF_HoldForMissionOrders")
+                lord.CurLordToil?.UpdateAllDuties();
         }
 
         internal static bool IsControlledFreed(Pawn captive)
@@ -899,6 +924,9 @@ namespace RaidersHaveFamilies
         // the rear guard must remain close to the rescued group until its exit.
         internal static bool Extract(RHFOperationController controller, RHFOperation op, int now)
         {
+            // S4.1 controls escort movement via role JobGivers, not 90-tick Goto.
+            if (RHFRescuePlannerS41.Enabled)
+                return RHFRescuePlannerS41.Extract(controller,op,now);
             if (!IsRescue(op)) return false;
             Map map = MapFor(controller);
             if (map == null) return false;
@@ -1176,7 +1204,7 @@ namespace RaidersHaveFamilies
 
     public static class RHFRescueDiagnosticsV124
     {
-        [DebugAction("RHF - ТЕСТЫ | ДИАГНОСТИКА", "29 — Групповой командир и эвакуация RHF",
+        [DebugAction("NJR - ТЕСТЫ | ДИАГНОСТИКА", "29 — Групповой командир и эвакуация RHF",
             actionType=DebugActionType.Action,allowedGameStates=AllowedGameStates.PlayingOnMap)]
         public static void Show()
         {

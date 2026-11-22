@@ -69,7 +69,7 @@ for stage in (1,2,3):
         assert name in defs
         assert defs[name].findtext('durationDays')=='5'
 assert '26 — Аудит вербовки' in dbg and '27 — Аудит боевой доктрины' in dbg
-assert '0.13.3' in (r/'.github/workflows/build.yml').read_text()
+assert '0.14.0-beta1' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: actual conversion/recruitment hooks, mood reporting, slave drop, real pod cargo, phased mission orders and debug diagnostics')
 # A durable trace of all gathered requirements and their distinct tactical cases
 # must survive the next archive transfer, not just appear in prose once.
@@ -87,7 +87,12 @@ print('PASS: full 82-item requirements audit and tactical-doctrine design preser
 # A hostile VIP hunt must also attack the settlement, using a separate cool-
 # down and (when possible) a separate combat wing from its named-target hunt.
 assert 'op.AssaultAfterObjective=true' in profiles
-assert 'op.HuntTarget != null && op.AssaultAfterObjective' in ops
+# S4.1 delegates vengeance combat to the independent offense planner.
+offense=(r/'RaidersHaveFamilies/Source/RHFOffenseS41.cs').read_text('utf8')
+assert 'bool hunt=op.HuntTarget!=null &&' in offense
+assert 'bool raze=op.AssaultAfterObjective ||' in offense
+assert 'Thing building=raze ? VisibleObjective(members,map) : null;' in offense
+assert 'RHFRoleS41.OffenseHunt' in offense and 'RHFRoleS41.OffenseStrike' in offense
 assert 'LastInfrastructureOrderTick' in ops and 'rhfLastInfrastructureOrderV12' in ops
 assert 'op.Diversion.Count==0 &&' in ops and 'attackers.Count/2' in ops
 print('PASS: dual-objective VIP retribution includes active settlement destruction')

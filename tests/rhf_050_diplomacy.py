@@ -15,7 +15,7 @@ assert 'DropPodUtility.DropThingsNear' in host and 'new LookTargets(dropCenter, 
 assert 'ExitCell' in patch and 'OnPrisonerExit(__instance, __state.Map, true, __state.ExitCell)' in patch
 assert 'SeverityOf(RecipeDef recipe)' in patch and 'recipe.isViolation' in patch
 assert 'RHFWCERegistry.SeverityOf(recipe.defName)' in patch
-assert 'RHF - ТЕСТЫ | РЕЙДЫ' in debug and 'RHF - ТЕСТЫ | ПЛЕННИКИ' in debug
+assert 'NJR - ТЕСТЫ | РЕЙДЫ' in debug and 'NJR - ТЕСТЫ | ПЛЕННИКИ' in debug
 assert 'DebugActionType.ToolMap' in debug and 'UI.MouseCell()' in debug
 assert debug.count('public static void Rank') == 10  # original eight ranks + two industrial VIP creation tools
 assert 'RHFHostageDiplomacy.RecordWceOperation' in debug

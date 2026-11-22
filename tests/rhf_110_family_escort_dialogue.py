@@ -37,7 +37,9 @@ for marker in ('class RHFEscortLink', 'Escorts = new List<RHFEscortLink>',
                'DropCellFinder.IsGoodDropSpot(cell,map,true,true)'):
     assert marker in ops, marker
 assert ops.index('captive.ExitMap(false,Rot4.Invalid)') < ops.index('if (escort.Spawned) escort.ExitMap(false,Rot4.Invalid)')
-assert 'if (!party.Drop && op.Type != (int)RHFOperationType.Rescue) parms.raidArrivalMode = null' in ops
+assert 'parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;' in ops
+assert 'else parms.raidArrivalMode=null;' in ops
+assert 'parms.spawnCenter=IntVec3.Invalid;' in ops
 assert 'member?.Role == (int)RHFCombatRole.Escort ? -36 : 0' in ops
 # Personal panel not drawn, nor all stat rows exposed, for player faction.
 assert 'pawn.Faction.IsPlayer' in ui
@@ -68,5 +70,5 @@ assert float(node.findtext('./stages/li/baseMoodEffect'))<0
 # Diagnostics available in Russian, 2 new tests.
 assert '24 — Аудит автоматических семей' in debug
 assert '25 — Аудит эвакуации' in debug
-assert '0.13.3' in (root/'.github/workflows/build.yml').read_text()
+assert '0.14.0-beta1' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: v0.11 family persistence/load backfill, escort extraction, medical, rank, ideology and dialogue contracts.')

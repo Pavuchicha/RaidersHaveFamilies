@@ -52,8 +52,6 @@ namespace RaidersHaveFamilies
         private const int FlankRefreshTicks = 900;
         private static readonly ConditionalWeakTable<RHFOperation, RHFCombatStateV125> States =
             new ConditionalWeakTable<RHFOperation, RHFCombatStateV125>();
-        private static readonly MethodInfo BreachMethod =
-            AccessTools.Method(typeof(RHFOperationController), "TryBreachCharge");
 
         private static bool Active(Pawn pawn, Map map)
         {
@@ -807,8 +805,7 @@ namespace RaidersHaveFamilies
                    !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
                    !pawn.CanReach(barrier.Position,PathEndMode.Touch,Danger.Deadly))continue;
                 RHFTacticalMember member=RHFTactical.Member(op,pawn);
-                bool charge=member?.Role==(int)RHFCombatRole.Breacher &&
-                    RHFTactical.HasBreachKit(pawn) && op.BreachChargesUsed<4;
+                bool specialist=member?.Role==(int)RHFCombatRole.Breacher;
                 ThingDef weapon=pawn.equipment?.Primary?.def;
                 bool melee=weapon==null || weapon.IsMeleeWeapon;
                 // Never ask a grenade-only fighter to attack a wall with the
@@ -818,9 +815,9 @@ namespace RaidersHaveFamilies
                     weapon.defName.IndexOf("Launcher",StringComparison.OrdinalIgnoreCase)<0 &&
                     weapon.defName.IndexOf("Rocket",StringComparison.OrdinalIgnoreCase)<0 &&
                     !RHFRescueFireDisciplineV136.UnsafeLine(op,pawn,barrier);
-                if(!charge && !melee && !safeRifle)continue;
+                if(!melee && !safeRifle)continue;
                 int skill=pawn.skills?.GetSkill(SkillDefOf.Melee)?.Level ?? 0;
-                int score=(charge?2000:0)+(melee?800:0)+(safeRifle?200:0)+
+                int score=(specialist && melee?2000:0)+(melee?800:0)+(safeRifle?200:0)+
                     skill*7-(pawn.Position-barrier.Position).LengthHorizontalSquared/3;
                 if(score>bestScore){best=pawn;bestScore=score;}
             }
@@ -839,67 +836,11 @@ namespace RaidersHaveFamilies
             return null;
         }
 
+        // Removed: damage is dealt only by the native attack JobDriver.
         internal static bool TryPaidBreach(RHFOperationController controller,
             RHFOperation op,Pawn captive,Thing barrier,Pawn rescuer,int now)
         {
-            if (controller == null || op == null || captive == null || barrier == null ||
-                rescuer == null || !IsBreachableStructure(barrier)) return false;
-            RHFCombatStateV125 state=States.GetValue(op,_=>new RHFCombatStateV125());
-            // Existing paid near-prison breaching takes precedence. Its real
-            // inventory, timed charge and ally-safe damage rules are retained.
-            if (BreachMethod != null &&
-                (barrier.Position-captive.Position).LengthHorizontalSquared<=49)
-            {
-                try
-                {
-                    bool used=(bool)BreachMethod.Invoke(controller,
-                        new object[]{op,captive,barrier,rescuer,now});
-                    if(used)return true;
-                }
-                catch(Exception e)
-                {
-                    if(RHFMod.Settings?.VerboseLogging==true)
-                        Log.Warning("[RHF][CombatV125] Breach API: "+e.GetBaseException().Message);
-                }
-            }
-            // Outer perimeters may be many cells away from the hostage. They
-            // still require a PHYSICAL breach kit paid for at squad creation.
-            RHFTacticalMember member=RHFTactical.Member(op,rescuer);
-            if (member==null || member.Role!=(int)RHFCombatRole.Breacher ||
-                !RHFTactical.HasBreachKit(rescuer) || op.BreachChargesUsed>=4 ||
-                (barrier.Position-rescuer.Position).LengthHorizontalSquared>16)
-                return false;
-            int id=rescuer.thingIDNumber;
-            if(!state.BreachTarget.TryGetValue(id,out Thing previous) || previous!=barrier)
-            {
-                state.BreachTarget[id]=barrier;
-                state.BreachReadyAt[id]=now+750;
-                return true; // an actual sapper spends time placing the charge
-            }
-            if(now<state.BreachReadyAt[id])return true;
-            state.BreachTarget.Remove(id);
-            state.BreachReadyAt.Remove(id);
-            if(!RHFTactical.ConsumeBreachKit(rescuer))return false;
-            bool clearBlast=(rescuer.Position-barrier.Position).LengthHorizontalSquared>=9;
-            if(clearBlast)
-            {
-                int checkedPawns=0;
-                foreach(Pawn nearby in rescuer.Map.mapPawns.AllPawnsSpawned)
-                {
-                    if(++checkedPawns>MaxPawnScan){clearBlast=false;break;}
-                    if(nearby==null || !nearby.Spawned || nearby.Dead)continue;
-                    if((nearby.Position-barrier.Position).LengthHorizontalSquared<=9)
-                    {clearBlast=false;break;}
-                }
-            }
-            if(clearBlast)
-                GenExplosion.DoExplosion(barrier.Position,rescuer.Map,1.15f,
-                    DamageDefOf.Bomb,rescuer,52);
-            else
-                barrier.TakeDamage(new DamageInfo(DamageDefOf.Blunt,150f,0f,-1f,rescuer));
-            op.BreachChargesUsed++;
-            state.BreachToolsUsed++;
-            return true;
+            return false;
         }
 
         // Vengeance and diversion retain their vanilla combat Lord. Upgrade
@@ -956,7 +897,7 @@ namespace RaidersHaveFamilies
 
     public static class RHFCombatAuditV125
     {
-        [DebugAction("RHF - ТЕСТЫ | ДИАГНОСТИКА","30 — Угрозы, прикрытие и обход",
+        [DebugAction("NJR - ТЕСТЫ | ДИАГНОСТИКА","30 — Угрозы, прикрытие и обход",
             actionType=DebugActionType.Action,allowedGameStates=AllowedGameStates.PlayingOnMap)]
         public static void Show()
         {Find.WindowStack.Add(new Dialog_MessageBox(RHFCombatPlannerV125.Diagnostic(Find.CurrentMap)));}

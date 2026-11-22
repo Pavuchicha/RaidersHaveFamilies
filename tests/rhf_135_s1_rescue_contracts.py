@@ -45,7 +45,12 @@ def test_extract(s,c,driver):
   assert 'rescued.ExitMap(' not in driver
   x=method_body(c,'internal static void CompleteCarriedExtraction(Pawn carrier, Pawn rescued)')
   assert 'MissionExit(rescued)' in x and 'MissionExit(carrier)' in x
-  assert 'if(rescued.MapHeld==map)return;' in x
+  # S4.1 checks carrier departure first; a rejected patient exit must
+  # NEVER claim success, and its escort assignment must be reset.
+  assert 'if(carrier.MapHeld==map)return;' in x
+  assert x.index('MissionExit(carrier)') < x.index('MissionExit(rescued)')
+  assert 'if(rescued.MapHeld!=map)' in x and 'op.EscapedWithEscort++' in x
+  assert 'link.Escort=null;' in x
 
 def test_letters(s):
   body=method_body(s,'private static void StartRetaliation(RHFHostageRecord r)')

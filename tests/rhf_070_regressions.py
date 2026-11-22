@@ -31,7 +31,7 @@ assert 'bool viaFamily=r.Importance<5 && family!=null' in dialog
 patch=source['RHFPatches']
 assert 'typeof(BodyPartRecord)' in patch and 'typeof(Bill)' in patch
 ops=source['RHFOperations']
-assert '(barrier.Position-captive.Position).LengthHorizontalSquared > 49' in ops
+assert 'if (!touchesPrison) continue;' in ops and 'IsBreachableStructure(edifice)' in ops
 assert 'rescuer.CanReach(target, PathEndMode.Touch, Danger.Deadly)' in ops
 # Normal raid letter comes from RimWorld; RHF must not add a duplicate centred on empty map.
 assert 'Find.LetterStack.ReceiveLetter("RHF: "' not in ops
@@ -39,5 +39,5 @@ assert 'ЦЕЛЬ ОПЕРАЦИИ' in ops and 'new LookTargets(map.Center, map)'
 assert '01 — Спасение' in source['RHFDebugActions']
 assert '09 — Месть' in source['RHFDebugActions']
 assert 'RHFPreceptMoodEntry : PreceptComp_SelfTookMemoryThought' in source['RHFPreceptNotes']
-assert '0.13.3' in (root/'.github/workflows/build.yml').read_text()
+assert '0.14.0-beta1' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: rank, family, medical, WCE2, single raid notification, and updated dialogs')

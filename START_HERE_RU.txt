@@ -1,0 +1,16 @@
+NJR — Not Just Raiders · v0.14.0-beta1
+
+КОПИРОВАНИЕ ПОВЕРХ MAIN (без bat/ps1):
+1. GitHub Desktop: Current repository = RaidersHaveFamilies, Current branch = main. Нажать Fetch/Pull при необходимости.
+2. Распаковать архив в пустую папку. Скопировать из неё `.github`, `RaidersHaveFamilies`, `tests`, `docs`, `README.md` В КОРЕНЬ локального репозитория (там, где `.git`) с объединением папок и ЗАМЕНОЙ совпадающих файлов.
+3. Проверить, что GitHub Desktop показывает изменения именно в main. Summary:
+NJR v0.14.0-beta1 - Rebrand, preserve saves and audit all 18 raids
+4. Commit → Push origin. GitHub Actions должен отработать 58 статических проверок, собрать DLL и проверить INSTALL-ZIP. До зелёного CI не устанавливать новую версию.
+5. После PASS скачать архив NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta1; внутри один установочный ZIP с папкой `RaidersHaveFamilies` (в игре имя NJR). Не держать одновременно старую/новую установку.
+
+ОСНОВА: main commit 1b17a0c635ede9e164ccd7a9b37ed1a5535101fa (S3.1.2).
+Состав пакета: 85 реальных изменённых/новых файлов. Это ПОЛНОЕ накопленное обновление S3.1.2 -> S4.1-A/P + NJR v0.14.0-beta1, НЕ только ребрендинг. Оно не накладывается поверх неизвестного нового main без сверки.
+Совместимость: сохранены packageId pavuk.raidshavefamilies, namespace, DLL, игровые DefNames и ключи сохранений. Название GitHub-репозитория не меняется автоматически.
+ВНИМАНИЕ: обновлённая версия пока не скомпилирована через настоящий .NET CI; предыдущая версия S4.1-A/O успешно собиралась, но наличие запуска 18/18 сценариев ещё НЕ доказано.
+
+Полный аудит: docs/NJR_FULL_AUDIT_AND_RELEASE_RU.md
