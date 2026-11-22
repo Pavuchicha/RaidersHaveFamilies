@@ -116,7 +116,7 @@ namespace RaidersHaveFamilies
             allowedGameStates=AllowedGameStates.PlayingOnMap)]
         public static void InspectNativeLords()
         {
-            Map map=Find.CurrentMap;
+            Map map=Verse.Find.CurrentMap;
             List<RHFOperation> ops=map==null ? null :
                 RHFMissionIntegrityV130.Operations(map);
             var report=new StringBuilder(600);
@@ -146,7 +146,7 @@ namespace RaidersHaveFamilies
                         " / last="+wing.LastObservedTick);
                 }
             }
-            Find.WindowStack.Add(new Dialog_MessageBox(report.ToString()));
+            Verse.Find.WindowStack.Add(new Dialog_MessageBox(report.ToString()));
         }
 
         internal static void Observe(RHFOperation op,Map map,int now)
