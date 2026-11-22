@@ -9,7 +9,7 @@ namespace RaidersHaveFamilies
     public sealed class JobDriver_NJRPodRoofS41 : JobDriver
     {
         public override bool TryMakePreToilReservations(bool errorOnFailed)
-        { return pawn.Reserve(job.targetA,this,errorOnFailed:errorOnFailed); }
+        { return pawn.Reserve(job.targetA,job,errorOnFailed:errorOnFailed); }
         protected override IEnumerable<Toil> MakeNewToils()
         {
             this.FailOn(() => pawn.Map==null || pawn.Dead || pawn.Downed ||
