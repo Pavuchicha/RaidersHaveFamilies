@@ -40,6 +40,14 @@ def contract(o,n,d,w):
         'IsCombatEmergencyJob(guard)',
         'NativeVipWorkTimeoutS311',
     ): assert marker in n, marker
+    # The 1.7 reference assembly lacks two direct CompLaunchable accessors.
+    # Inspect the actual linked launcher via runtime reflection and fail closed.
+    assert '.ConnectedToFuelingPort' not in n
+    assert '.FuelingPortSourceHasAnyFuel' not in n
+    assert 'NativeConnectedAndFueledS311(launch, op.PodLauncherThing)' in n
+    assert 'GetProperty("FuelingPortSource", flags)' in n
+    assert 'source == expectedLauncher && source.Spawned' in n
+    assert 'source.GetComp<CompRefuelable>()?.HasFuel == true' in n
     assert 'SkyfallerMaker' not in n
     assert 'ThingMaker.MakeThing(requested)' not in n
     assert 'GenSpawn.Spawn(completed' not in n
@@ -50,6 +58,7 @@ def contract(o,n,d,w):
 contract(ops,native,diag,ci)
 mutants = [
     ('owner drop gate', (ops,native.replace('party.Succeeded && party.Drop','party.Succeeded && true',1),diag,ci)),
+    ('connection unchecked', (ops,native.replace('source == expectedLauncher && source.Spawned','source != expectedLauncher && source.Spawned',1),diag,ci)),
     ('faction filter', (ops,native.replace('pawn.Faction == party.Faction','pawn.Faction != party.Faction',1),diag,ci)),
     ('budget fuel', (ops.replace('fuel*ThingDefOf.Chemfuel.BaseMarketValue','0f',1),native,diag,ci)),
     ('real blueprint', (ops,native.replace('GenConstruct.PlaceBlueprintForBuild','GenSpawn.Spawn',1),diag,ci)),
@@ -63,4 +72,4 @@ for label, inputs in mutants:
     try: contract(*inputs)
     except AssertionError: continue
     raise AssertionError('Undetected unsafe mutation: '+label)
-print('PASS: S3.1.1 static native-work, cargo, faction, rollback and guard contracts; 9 mutations. NOT gameplay.')
+print('PASS: S3.1.1 static native-work, cargo, faction, rollback and guard contracts; 10 mutations. NOT gameplay.')

@@ -304,6 +304,40 @@ namespace RaidersHaveFamilies
             FallBackToLand(op, now, reason);
         }
 
+        // CompLaunchable connection properties are not exposed by the
+        // RimWorld 1.7.5014-unstable reference package. Inspect the real
+        // runtime fuel port via reflection, never assume that fuel on a
+        // nearby unrelated launcher makes this pod ready. Fail closed if the
+        // actual game implementation does not expose that relationship.
+        private static bool NativeConnectedAndFueledS311(
+            CompLaunchable launch, Thing expectedLauncher)
+        {
+            if (launch == null || expectedLauncher == null ||
+                !expectedLauncher.Spawned) return false;
+            try
+            {
+                const System.Reflection.BindingFlags flags =
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic;
+                var property = launch.GetType().GetProperty("FuelingPortSource", flags);
+                ThingWithComps source = property?.GetValue(launch, null) as ThingWithComps;
+                if (source == null)
+                {
+                    var field = launch.GetType().GetField("fuelingPortSource", flags);
+                    source = field?.GetValue(launch) as ThingWithComps;
+                }
+                return source == expectedLauncher && source.Spawned &&
+                    source.GetComp<CompRefuelable>()?.HasFuel == true;
+            }
+            catch (Exception exception)
+            {
+                Log.Warning("[RHF][S311] Could not inspect actual fueling link: " +
+                    exception.GetBaseException().Message);
+                return false;
+            }
+        }
+
         private void BuildAndLaunchNativeS311(RHFOperation op, int now)
         {
             RHFStrikeParty owner = NativeRescueOwnerS311(op);
@@ -412,7 +446,7 @@ namespace RaidersHaveFamilies
                 if (comp == null || launch == null || !vehicle.Spawned ||
                     vehicle.Faction != owner.Faction)
                 { NativeFallBackS311(op, now, "vanilla transporter/launchable missing"); return; }
-                if (!launch.ConnectedToFuelingPort || !launch.FuelingPortSourceHasAnyFuel)
+                if (!NativeConnectedAndFueledS311(launch, op.PodLauncherThing))
                 { NativeFallBackS311(op, now, "launcher not connected or fueled"); return; }
                 // No non-existent InitiateLoad API: vanilla initializes its
                 // groupID through UniqueIDsManager. Other factions may board.
