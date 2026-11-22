@@ -68,6 +68,7 @@ jobs:
           python3 tests/rhf_138_air_only_pod_gate.py
           python3 tests/rhf_139_assembly_breach_fortify.py
           python3 tests/rhf_140_s221_engineer_door_contact.py
+          python3 tests/rhf_144_s311_vip_native.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)

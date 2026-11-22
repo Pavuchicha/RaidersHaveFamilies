@@ -118,6 +118,11 @@ namespace RaidersHaveFamilies
         public Pawn BreachOwner;
         public bool TryPod;
         public bool PodSuppliesIssued;
+        // S3.1.1: persist owner, native stages and the real refueling cargo.
+        public bool PodNativeS311;
+        public Faction PodCargoOwnerFactionS311;
+        public List<Thing> PodFuelStacksS311 = new List<Thing>();
+        public int PodStageStartedTickS311;
         public Thing PodSteel;
         public Thing PodSteelExtra;
         public Thing PodComponents;
@@ -190,6 +195,10 @@ namespace RaidersHaveFamilies
             Scribe_References.Look(ref BreachOwner, "breachOwner");
             Scribe_Values.Look(ref TryPod, "tryPod", false);
             Scribe_Values.Look(ref PodSuppliesIssued, "podSuppliesIssued", false);
+            Scribe_Values.Look(ref PodNativeS311, "rhfNativeS311", false);
+            Scribe_References.Look(ref PodCargoOwnerFactionS311, "rhfCargoOwnerS311");
+            Scribe_Collections.Look(ref PodFuelStacksS311, "rhfFuelStacksS311", LookMode.Reference);
+            Scribe_Values.Look(ref PodStageStartedTickS311, "rhfNativeStageTimeS311", 0);
             Scribe_References.Look(ref PodSteel, "podSteel");
             Scribe_References.Look(ref PodSteelExtra, "rhfPodSteelExtraV130");
             Scribe_References.Look(ref PodComponents, "rhfPodComponentsV130");
@@ -235,6 +244,7 @@ namespace RaidersHaveFamilies
                 if (Parties == null) Parties = new List<RHFStrikeParty>();
                 if (TacticalMembers == null) TacticalMembers = new List<RHFTacticalMember>();
                 if (CompletedBarricades == null) CompletedBarricades = new List<IntVec3>();
+                if (PodFuelStacksS311 == null) PodFuelStacksS311 = new List<Thing>();
                 // Existing v0.3.x operations were already queued through the storyteller.
                 // Do not create a duplicate raid when upgrading a saved game.
                 if (Parties.Count == 0) Deployed = true;
@@ -242,7 +252,7 @@ namespace RaidersHaveFamilies
         }
     }
 
-    public sealed class RHFOperationController : MapComponent
+    public sealed partial class RHFOperationController : MapComponent
     {
         private const int MaxOperationsPerMap = 4;
         private const int MaxSquad = 96;
@@ -654,9 +664,13 @@ namespace RaidersHaveFamilies
                             FieldCost(pod,ThingDefOf.Steel) + (op.FortifyPrison?20:0);
                         int components=FieldCost(launcher,ThingDefOf.ComponentIndustrial) +
                             FieldCost(pod,ThingDefOf.ComponentIndustrial);
+                        CompProperties_Refuelable refuelProps=
+                            launcher?.GetCompProperties<CompProperties_Refuelable>();
+                        int fuel=refuelProps==null?0:Mathf.CeilToInt(refuelProps.fuelCapacity);
                         float cost=steel*ThingDefOf.Steel.BaseMarketValue+
-                            components*ThingDefOf.ComponentIndustrial.BaseMarketValue;
-                        if(launcher!=null && pod!=null && steel>0 && components>0 &&
+                            components*ThingDefOf.ComponentIndustrial.BaseMarketValue+
+                            fuel*ThingDefOf.Chemfuel.BaseMarketValue;
+                        if(launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
                             effectivePoints>=cost+350f)
                         {effectivePoints-=cost;op.PodSupplyCost=cost;op.PodBudgetPaid=true;}
                         else
@@ -939,6 +953,9 @@ namespace RaidersHaveFamilies
                 // One source of truth for rescue authority. Reconcile late
                 // capsule arrivals before AI gets another assault ThinkTree tick.
                 RHFRescueCommandV124.OnDeploy(this, op, true);
+                // Real kit is dropped by an arrived rescue party, before VIP liberation.
+                if (op.TryPod && op.PodBudgetPaid && !op.PodSuppliesIssued)
+                    NativeIssueCargoOnArrivalS311(op, now);
                 if (!string.IsNullOrEmpty(op.CaseKeyV10) && op.Targets.Count == 0 &&
                     op.Type == (int)RHFOperationType.Rescue && op.Phase == 1)
                     SearchMissingVip(op, now);
@@ -1969,6 +1986,19 @@ namespace RaidersHaveFamilies
 
         private void BuildAndLaunch(RHFOperation op,int now)
         {
+            // S3.1.1 native path supersedes legacy hand-spawned buildings
+            // and Skyfaller. Legacy BODY retained solely for historical
+            // regression compatibility; NEVER called for a funded pod.
+            if (op.TryPod || op.PodNativeS311)
+            {
+                if (op.PodSuppliesIssued && !op.PodNativeS311)
+                { FallBackToLand(op,now,"legacy untracked kit cannot be upgraded mid-save"); return; }
+                BuildAndLaunchNativeS311(op,now);
+                return;
+            }
+            // All non-air operations withdraw; legacy handmade buildings are disabled.
+            if (!op.TryPod)
+            { FallBackToLand(op,now,"air-rescue only; legacy launch disabled"); return; }
             bool successfulDropRescue=false;
             if(op.Parties!=null)
                 foreach(RHFStrikeParty party in op.Parties)
