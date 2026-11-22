@@ -760,6 +760,7 @@ namespace RaidersHaveFamilies
                                 "components or affordable resources missing. Land extraction selected.");
                         }
                     }
+                    IntVec3 plannedRescueEntry=IntVec3.Invalid;
                     var parms = new IncidentParms
                     { target = map, faction = party.Faction,
                       points = Mathf.Clamp(effectivePoints, 300f, 15000f) };
@@ -781,19 +782,24 @@ namespace RaidersHaveFamilies
                         // A vanilla random edge can insert a rescue wing into
                         // an obvious turret killzone. Choose a bounded safe
                         // edge first; EdgeWalkIn honors valid spawnCenter.
-                        // A threat-scoring bug must NEVER cancel the actual
-                        // incident. Vanilla EdgeWalkIn is the guaranteed fallback.
+                        // An unsafe random fallback is NOT a rescue: a squad
+                        // stranded inside a mountain does not reach its target.
                         try
                         {
                             IntVec3 safer=RHFRescueGroundEntryS41.Choose(map,op);
-                            if(safer.IsValid)parms.spawnCenter=safer;
+                            if(safer.IsValid)
+                            {plannedRescueEntry=safer;parms.spawnCenter=safer;}
                         }
                         catch(Exception e)
                         {
                             parms.spawnCenter=IntVec3.Invalid;
                             Log.Warning("[RHF][EntryS41AP] Tactical entry scan failed; " +
-                                "using native EdgeWalkIn: " + e);
+                                "cannot safely choose ground entry: " + e);
                         }
+                        if(!parms.spawnCenter.IsValid)
+                            throw new InvalidOperationException(
+                                "NJR: no verified walk-in edge reachable from the prison; " +
+                                "refusing a random cave/remote map spawn");
                     }
                     if (party.Drop)
                     {
@@ -833,18 +839,18 @@ namespace RaidersHaveFamilies
                     // retry a plain immediate assault only when no pawns spawned.
                     if (!accepted && !party.Drop && party.Members == 0)
                     {
-                        // Retry first without our custom spawn position. The
-                        // incident may reject a handpicked perimeter cell even
-                        // though its own vanilla Entry finder can use another.
-                        // No pawns means this retry cannot duplicate a raid.
+                        // Keep the verified position on retry. Unconditionally
+                        // clearing spawnCenter sent rescuers into distant caves.
                         parms.raidStrategy=RaidStrategyDefOf.ImmediateAttack;
-                        parms.spawnCenter=IntVec3.Invalid;
                         if(op.Type==(int)RHFOperationType.Rescue)
+                        {
                             parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;
-                        else parms.raidArrivalMode=null;
-                        Log.Warning("[RHF][EntryS41AP] First ground incident was refused " +
-                            "(faction=" + party.Faction + ", points=" + parms.points +
-                            "); retrying native spawn-center selection");
+                            parms.spawnCenter=plannedRescueEntry;
+                        }
+                        else {parms.raidArrivalMode=null;
+                            parms.spawnCenter=IntVec3.Invalid;}
+                        Log.Warning("[NJR][EntryS41] Native retry with safe rescue " +
+                            "spawnCenter=" + parms.spawnCenter + ", faction=" + party.Faction);
                         accepted=RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms,op);
                     }
                 }
@@ -1944,16 +1950,19 @@ namespace RaidersHaveFamilies
                 IntVec3 vehicle=FuelingPortUtility.GetFuelingPortCell(cell,Rot4.North);
                 int clearance=NJRPodSiteClearS41.Needed(map,cell,vehicle,
                     launcher,pod,vip);
-                if(clearance<0 ||
+                // Do not demolish existing walls or colony furniture for a
+                // slightly closer site: search empty indoor footprints first.
+                if(clearance!=0 ||
                    !vip.CanReach(cell,PathEndMode.Touch,Danger.Deadly))continue;
                 Room candidate=cell.GetRoom(map);
-                if(candidate==null || (clearance==0 &&
-                   vehicle.GetRoom(map)!=candidate))continue;
+                if(candidate==null || vehicle.GetRoom(map)!=candidate)continue;
                 // Keep roof-punch labor away from the captive, even if the
                 // same prison room is large enough for the built structures.
                 RoofDef roof=map.roofGrid.RoofAt(vehicle);
                 if(roof!=null && (roof.isThickRoof ||
-                    (vehicle-vip.Position).LengthHorizontalSquared<25))continue;
+                    // A five-tile exclusion rejected almost every ordinary
+                    // 5x5 prison even with a clear physically buildable site.
+                    (vehicle-vip.Position).LengthHorizontalSquared<9))continue;
                 int tier = candidate==prison ? 0 :
                     !candidate.PsychologicallyOutdoors &&
                     NJRRescueInteriorS41.DirectDoor(map,prison,candidate,vip.Position) ? 1 :
@@ -1970,7 +1979,7 @@ namespace RaidersHaveFamilies
                 // A room with a door and cover is preferable even if an
                 // unprotected outdoor tile is geometrically closer.
                 int score=tier*100000+risk+dist*6 +
-                    clearance*1500 + (roof!=null ? 150 : 0);
+                    (roof!=null ? 150 : 0);
                 if(score<bestScore)
                 {bestScore=score;launchCell=cell;podCell=vehicle;}
                 if(++examined>3200)return launchCell.IsValid;

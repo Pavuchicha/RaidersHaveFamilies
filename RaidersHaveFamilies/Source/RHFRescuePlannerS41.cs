@@ -361,11 +361,16 @@ namespace RaidersHaveFamilies
             Pawn previousTarget=board.RescueTarget;
             board.RescueTarget=captive;
             board.LastKnownCell=captive.Position; // declared hostage location, not enemy omniscience
-            Pawn lead=null;
+            // Choosing the first generated soldier made the squad route from
+            // the farthest stray pawn, leaving nearby fighters idle.
+            Pawn lead=null;int leadCost=int.MaxValue;
             for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
-                if(Active(op.Squad[i],map) &&
-                   !escortedDuringAssault.Contains(op.Squad[i]))
-                {lead=op.Squad[i];break;}
+            {
+                Pawn candidate=op.Squad[i];
+                if(!Active(candidate,map) || escortedDuringAssault.Contains(candidate))continue;
+                int cost=(candidate.Position-captive.Position).LengthHorizontalSquared;
+                if(cost<leadCost){lead=candidate;leadCost=cost;}
+            }
             if(lead==null)
             {
                 // An entire squad protecting first-liberated hostages is not
@@ -431,6 +436,11 @@ namespace RaidersHaveFamilies
             board.LastPlanTick=now;
             RHFRoutePlanV128 route=RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now);
             Thing obstacle=route.Valid ? route.FirstBarrier : null;
+            // If the expensive route solver cannot establish a corridor,
+            // rally toward an actually reachable objective approach instead
+            // of giving every soldier Hold for 27,000 ticks.
+            IntVec3 fallback=route.Valid ? IntVec3.Invalid :
+                ChooseReachableApproach(lead,captive,map);
             if(obstacle==null && !route.Valid)
             {
                 bool clear;
@@ -523,6 +533,10 @@ namespace RaidersHaveFamilies
                 }
                 if(way.IsValid)
                     board.Assign(soldier,RHFRoleS41.Advance,null,way,now);
+                else if(!route.Valid && obstacle==null && fallback.IsValid &&
+                    soldier.CanReach(fallback,PathEndMode.OnCell,Danger.Some) &&
+                    (soldier.Position-fallback).LengthHorizontalSquared>4)
+                    board.Assign(soldier,RHFRoleS41.Advance,null,fallback,now);
                 else if(obstacle==null && soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
                     board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);
                 else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
@@ -533,6 +547,51 @@ namespace RaidersHaveFamilies
                 (board.Threat!=null && shooters==0?" / NO VIABLE TURRET FIRE POSITION":"") :
                 route.Valid?"advance via cached corridor; suppress="+shooters:
                 "no valid route: "+route.Explanation;
+        }
+
+        // Bounded fallthrough for a failed route: choose a physically reachable
+        // cell nearer the prisoner without teleporting through solid rock.
+        // One lookup per strategic plan, never one A* scan per combat tick.
+        private static IntVec3 ChooseReachableApproach(Pawn lead,Pawn captive,Map map)
+        {
+            if(lead==null || captive==null || map==null)return IntVec3.Invalid;
+            int start=(lead.Position-captive.Position).LengthHorizontalSquared;
+            IntVec3 best=IntVec3.Invalid;int bestDistance=start;
+            // Probe a few points along the direct advance first.
+            for(int step=9;step>=1;step--)
+            {
+                IntVec3 cell=new IntVec3(
+                    lead.Position.x+(captive.Position.x-lead.Position.x)*step/10,
+                    0,
+                    lead.Position.z+(captive.Position.z-lead.Position.z)*step/10);
+                if(!cell.InBounds(map) || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null)continue;
+                int distance=(cell-captive.Position).LengthHorizontalSquared;
+                if(distance>=bestDistance ||
+                   !lead.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
+                best=cell;bestDistance=distance;
+            }
+            // If the direct line intersects a mountain, probe real reachable
+            // positions around the cell. Caps keep the incident TPS bounded.
+            if(!best.IsValid)
+            {
+                int queries=0;
+                for(int radius=3;radius<=30 && queries<48;radius+=3)
+                for(int dx=-radius;dx<=radius && queries<48;dx+=3)
+                for(int dz=-radius;dz<=radius && queries<48;dz+=3)
+                {
+                    if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                    IntVec3 cell=captive.Position+new IntVec3(dx,0,dz);
+                    if(!cell.InBounds(map) || !cell.Standable(map) ||
+                       cell.GetEdifice(map)!=null)continue;
+                    int distance=(cell-captive.Position).LengthHorizontalSquared;
+                    if(distance>=bestDistance)continue;
+                    queries++;
+                    if(lead.CanReach(cell,PathEndMode.OnCell,Danger.Some))
+                    {best=cell;bestDistance=distance;}
+                }
+            }
+            return best;
         }
 
         // When every approach crosses a turret ring the safe objective route

@@ -38,7 +38,7 @@ for marker in ('class RHFEscortLink', 'Escorts = new List<RHFEscortLink>',
     assert marker in ops, marker
 assert ops.index('captive.ExitMap(false,Rot4.Invalid)') < ops.index('if (escort.Spawned) escort.ExitMap(false,Rot4.Invalid)')
 assert 'parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;' in ops
-assert 'else parms.raidArrivalMode=null;' in ops
+assert 'else {parms.raidArrivalMode=null;' in ops
 assert 'parms.spawnCenter=IntVec3.Invalid;' in ops
 assert 'member?.Role == (int)RHFCombatRole.Escort ? -36 : 0' in ops
 # Personal panel not drawn, nor all stat rows exposed, for player faction.

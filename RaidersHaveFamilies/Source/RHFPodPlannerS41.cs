@@ -56,6 +56,14 @@ namespace RaidersHaveFamilies
             board.NextReplanTick=now+120;
             board.Decision="Phase3 native build/load: stage "+op.PodConstructionStage;
             IntVec3 assembly=ChooseAssemblyCell(op,map);
+            // Do not move the VIP's assembly point after every 120-tick plan.
+            // The old nearest-cell heuristic chased its own moving target.
+            RHFOrderS41 vipOrder=board.For(op.Vip,false);
+            if(vipOrder!=null && vipOrder.Role==(int)RHFRoleS41.PodAssembly &&
+               vipOrder.Cell.IsValid && vipOrder.Cell.InBounds(map) &&
+               vipOrder.Cell.Standable(map) && op.Vip!=null &&
+               op.Vip.CanReach(vipOrder.Cell,PathEndMode.OnCell,Danger.Some))
+                assembly=vipOrder.Cell;
             var occupied=new HashSet<Pawn>();
             // Supplies arrived in soldier inventories, NOT as spawned loot.
             // Carriers must physically travel to the build site to unpack.
@@ -134,7 +142,15 @@ namespace RaidersHaveFamilies
                 Pawn soldier=op.Squad[i];
                 if(!RHFRescuePlannerS41.ActiveForRoleS41(soldier,map) ||
                    occupied.Contains(soldier))continue;
-                IntVec3 cell=GuardCell(soldier,assembly,map,positions);
+                RHFOrderS41 previous=board.For(soldier,false);
+                IntVec3 cell=IntVec3.Invalid;
+                // A stable interior guard slot is a tactical position, not
+                // a continuously moving waypoint calculated from current feet.
+                if(previous!=null && previous.Role==(int)RHFRoleS41.Screen &&
+                   ValidGuardCell(previous.Cell,op,map,positions) &&
+                   soldier.CanReach(previous.Cell,PathEndMode.OnCell,Danger.Some))
+                {cell=previous.Cell;positions.Add(cell);}
+                else cell=GuardCell(soldier,assembly,map,positions,op);
                 if(cell.IsValid && guards++<MaxGuards)
                     board.Assign(soldier,RHFRoleS41.Screen,null,cell,now);
                 else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
@@ -167,8 +183,26 @@ namespace RaidersHaveFamilies
             return best.IsValid ? best : vip.Position;
         }
 
-        private static IntVec3 GuardCell(Pawn pawn,IntVec3 anchor,Map map,
+        private static bool InFootprint(IntVec3 cell,IntVec3 origin,ThingDef def)
+        {
+            return origin.IsValid && def!=null &&
+                cell.x>=origin.x && cell.x<origin.x+def.size.x &&
+                cell.z>=origin.z && cell.z<origin.z+def.size.z;
+        }
+
+        private static bool ValidGuardCell(IntVec3 cell,RHFOperation op,Map map,
             HashSet<IntVec3> occupied)
+        {
+            return cell.IsValid && cell.InBounds(map) && cell.Standable(map) &&
+                cell.GetEdifice(map)==null && !occupied.Contains(cell) &&
+                !InFootprint(cell,op.PodLauncherCell,
+                    DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher")) &&
+                !InFootprint(cell,op.PodCell,
+                    DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod"));
+        }
+
+        private static IntVec3 GuardCell(Pawn pawn,IntVec3 anchor,Map map,
+            HashSet<IntVec3> occupied,RHFOperation op)
         {
             if(!anchor.IsValid || !anchor.InBounds(map) || pawn==null)
                 return IntVec3.Invalid;
@@ -186,8 +220,7 @@ namespace RaidersHaveFamilies
             {
                 if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
                 IntVec3 cell=anchor+new IntVec3(dx,0,dz);
-                if(!cell.InBounds(map) || !cell.Standable(map) ||
-                   cell.GetEdifice(map)!=null || occupied.Contains(cell))continue;
+                if(!ValidGuardCell(cell,op,map,occupied))continue;
                 Room room=cell.GetRoom(map);
                 bool atSite=siteRoom!=null && room==siteRoom;
                 if(!atSite && room!=startRoom)continue;

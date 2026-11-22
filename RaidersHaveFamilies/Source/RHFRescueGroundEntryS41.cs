@@ -56,7 +56,7 @@ namespace RaidersHaveFamilies
             for(int side=0;side<4;side++)
             {
                 int span=(side<2 ? map.Size.z : map.Size.x);
-                for(int t=5;t<span-5;t+=11)
+                for(int t=5;t<span-5;t+=7)
                 {
                     IntVec3 edge=side==0 ? new IntVec3(0,0,t) :
                         side==1 ? new IntVec3(map.Size.x-1,0,t) :
@@ -102,7 +102,10 @@ namespace RaidersHaveFamilies
                     }
                     // Prefer the safest usable entry; distance is a secondary
                     // cost and may not outweigh one actual turret firing lane.
-                    int cost=danger+(edge-captive.Position).LengthHorizontalSquared;
+                    // Put objective distance ahead of a speculative threat
+                    // penalty: an entire idle squad at the farthest corner
+                    // is not safer when it cannot influence the operation.
+                    int cost=danger/4+(edge-captive.Position).LengthHorizontalSquared;
                     if(cost<bestScore){best=edge;bestScore=cost;}
                 }
             }

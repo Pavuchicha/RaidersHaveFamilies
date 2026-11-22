@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using RimWorld;
 using Verse;
+using Verse.AI.Group;
 namespace RaidersHaveFamilies
 {
     internal static class NJRPodSiteClearS41
@@ -40,7 +41,13 @@ namespace RaidersHaveFamilies
                     }
                     else if(!c.Standable(map) || c.GetFirstBuilding(map)!=null)
                         return false;
-                    if(c.GetFirstPawn(map)!=null && c!=vip.Position)return false;
+                    // A mission soldier can step off a proposed footprint.
+                    // Treating every arriving raider as permanent terrain
+                    // made all indoor sites appear occupied and selected lawns.
+                    Pawn occupant=c.GetFirstPawn(map);
+                    if(occupant!=null && occupant!=vip &&
+                       !(occupant.GetLord()?.LordJob is RHFRescueLordJobV124))
+                        return false;
                 }
                 return true;
             }

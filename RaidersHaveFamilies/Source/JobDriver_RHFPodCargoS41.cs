@@ -30,13 +30,23 @@ namespace RaidersHaveFamilies
                !op.PodLauncherCell.IsValid)return IntVec3.Invalid;
             IntVec3 center=op.PodLauncherCell;
             IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
-            for(int radius=2;radius<=5;radius++)
+            for(int radius=2;radius<=7;radius++)
             for(int dx=-radius;dx<=radius;dx++)
             for(int dz=-radius;dz<=radius;dz++)
             {
                 if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
                 IntVec3 c=center+new IntVec3(dx,0,dz);
-                if(c==op.PodLauncherCell || c==op.PodCell ||
+                // Delivery stacks must never block the actual physical
+                // launcher/pod footprints while the engineer is building.
+                ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher");
+                ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod");
+                bool launcherFloor=op.PodLauncherCell.IsValid && launcher!=null &&
+                    c.x>=op.PodLauncherCell.x && c.x<op.PodLauncherCell.x+launcher.size.x &&
+                    c.z>=op.PodLauncherCell.z && c.z<op.PodLauncherCell.z+launcher.size.z;
+                bool podFloor=op.PodCell.IsValid && pod!=null &&
+                    c.x>=op.PodCell.x && c.x<op.PodCell.x+pod.size.x &&
+                    c.z>=op.PodCell.z && c.z<op.PodCell.z+pod.size.z;
+                if(launcherFloor || podFloor ||
                    !c.InBounds(map) || !c.Standable(map) ||
                    c.GetEdifice(map)!=null ||
                    !pawn.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;

@@ -353,7 +353,7 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 best=IntVec3.Invalid;
                 int bestScore=int.MaxValue;
-                for(int radius=3;radius<=6;radius++)
+                for(int radius=2;radius<=10;radius++)
                 for(int dx=-radius;dx<=radius;dx++)
                 for(int dz=-radius;dz<=radius;dz++)
                 {
@@ -365,13 +365,19 @@ namespace RaidersHaveFamilies
                        cell.GetFirstPawn(map)!=null ||
                        op.CompletedBarricades.Contains(cell) ||
                        (cell-op.PodLauncherCell).LengthHorizontalSquared<=8 ||
-                       (cell-op.PodCell).LengthHorizontalSquared<=8 ||
-                       !OpenRouteExcept(vip.Position,op.PodCell,cell) ||
-                       !OpenRouteExcept(op.PodLauncherCell,op.PodCell,cell))continue;
-                    Pawn worker=NativeEngineerS311(op,cell);
-                    if(worker==null ||
-                       !worker.CanReach(cell,PathEndMode.Touch,Danger.Some))continue;
-                    // Favor actual outer cover near the captive's room.
+                       (cell-op.PodCell).LengthHorizontalSquared<=8)continue;
+                    // Cheap geometry checks must precede any 6500-cell flood
+                    // fills or engineer A* probes. This method can run every
+                    // strategic decision while the barricade is incomplete.
+                    // Only a genuine single-width passage is worth sealing.
+                    // The old heuristic built decorative walls on open floors.
+                    bool n=SolidFlankS41(cell+IntVec3.North);
+                    bool s=SolidFlankS41(cell+IntVec3.South);
+                    bool e=SolidFlankS41(cell+IntVec3.East);
+                    bool w=SolidFlankS41(cell+IntVec3.West);
+                    if(!(n&&s) && !(e&&w))continue;
+                    // Keep the barricade on a corridor or doorway approach,
+                    // not in an otherwise empty prison floor.
                     int nearWalls=0;
                     for(int ox=-2;ox<=2;ox++)
                     for(int oz=-2;oz<=2;oz++)
@@ -393,6 +399,12 @@ namespace RaidersHaveFamilies
                             near.GetEdifice(map) is Building_Door)
                             seenDoors++;
                     }
+                    if(seenDoors==0 ||
+                       !OpenRouteExcept(vip.Position,op.PodCell,cell) ||
+                       !OpenRouteExcept(op.PodLauncherCell,op.PodCell,cell))continue;
+                    Pawn worker=NativeEngineerS311(op,cell);
+                    if(worker==null ||
+                       !worker.CanReach(cell,PathEndMode.Touch,Danger.Some))continue;
                     score-=seenDoors*35;
                     if(score<bestScore){best=cell;bestScore=score;}
                 }
@@ -414,6 +426,9 @@ namespace RaidersHaveFamilies
                 {
                     op.BarricadesBuilt++;
                     op.CompletedBarricades.Add(target);
+                    // Construction must receive its own full stage timeout
+                    // after the actual protective wall was finished.
+                    op.PodStageStartedTickS311=now;
                     op.BarricadeCell=IntVec3.Invalid;
                     op.FortifyStartedTick=0;
                     return NativeFortificationWorkS41(op,vip,owner,now);
@@ -442,6 +457,15 @@ namespace RaidersHaveFamilies
             {Log.Warning("[RHF S41][Fortify] Blueprint failed: "+e.Message);}
             op.FortifyPrison=false;
             return null;
+        }
+
+        // A protected narrow corridor has solid opposite sides. Doors are
+        // deliberately not counted as walls: a door can be opened in combat.
+        private bool SolidFlankS41(IntVec3 cell)
+        {
+            if(!cell.InBounds(map))return false;
+            Thing wall=cell.GetEdifice(map);
+            return wall!=null && !(wall is Building_Door) && !cell.Standable(map);
         }
 
         // A freed captive does NOT normally own RHFRescueLordJobV124. The

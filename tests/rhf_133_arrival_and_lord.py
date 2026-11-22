@@ -14,7 +14,8 @@ wf=(R/'.github/workflows/build.yml').read_text('utf8')
 # First / any subsequent faction waves in one operation all route through the
 # same ambient RHF letter; no synthetic letter after vanilla raid generation.
 assert ops.count('ExecuteRaidWithoutVanillaLetter(parms, op)')+ops.count('ExecuteRaidWithoutVanillaLetter(parms,op)')==3
-assert 'retrying native spawn-center selection' in ops
+assert 'Native retry with safe rescue' in ops
+assert 'refusing a random cave/remote map spawn' in ops
 assert 'RHFMissionIntegrityV130.ShowMissionLetter(op,map)' not in ops
 assert 'AllowOneNativeLetter(out bool entered)' in mission
 assert 'if (state.Sent) return false' in mission

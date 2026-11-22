@@ -10,7 +10,8 @@ checks=[
  (ops,'RHFRescueGroundEntryS41.Choose(map,op)'),
  (ops,'parms.spawnCenter=IntVec3.Invalid;'),
  (ops,'RHFRescueGroundEntryS41.Choose(map,op);'),
- (ops,'retrying native spawn-center selection'),
+ (ops,'Native retry with safe rescue'),
+ (ops,'refusing a random cave/remote map spawn'),
  (ops,'parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;'),
  (entry,'map.reachability.CanReach(edge,captive.Position'),
  (pod,'private Thing NativeFortificationWorkS41('),
@@ -32,4 +33,4 @@ for text,m in checks:
   assert m not in mutant
 assert 'GenSpawn.Spawn(wall' not in pod
 assert 'wall.SetFaction(' not in pod
-print('PASS AP: vanilla ground fallback and physically constructed enemy-owned barricades (STATIC ONLY)')
+print('PASS AP: verified ground rescue entry and physical enemy-owned barricades (STATIC ONLY)')

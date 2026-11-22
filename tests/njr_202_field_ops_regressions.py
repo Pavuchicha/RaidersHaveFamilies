@@ -12,7 +12,7 @@ interior=(S/'NJRRescueInteriorS41.cs').read_text(); roof=(S/'JobDriver_NJRPodRoo
 politics=(S/'RHFPoliticalReputation.cs').read_text(); hostages=(S/'RHFHostageSystems.cs').read_text()
 reprisals=(S/'RHFReprisals.cs').read_text(); debug=(S/'RHFDebugActions.cs').read_text()
 contracts={
- 'cluster gate and vanilla fallback':[(entry,'GroundEntryClusterSafe(map,edge)'),(entry,'roof.isThickRoof'),(ops,'retrying native spawn-center selection')],
+ 'cluster gate and safe-only fallback':[(entry,'GroundEntryClusterSafe(map,edge)'),(entry,'roof.isThickRoof'),(ops,'refusing a random cave/remote map spawn')],
  'turret encirclement bounding':[(rescue,'TurretStagingCell(soldier,board.Threat,map,allocated)'),(rescue,'return best??nearest;'),(role,'case RHFRoleS41.SuppressTurret:')],
  'physical VIP boarding':[(air,'private void NativeVipMovementS41('),(air,'vip.jobs.TryTakeOrderedJob(board);'),(air,'transport.innerContainer.Contains(vip)')],
  'tiered indoor rescue landing':[(ops,'private IntVec3 RescueDropCenter('),(ops,'tier*100000+risk*20000'),(interior,'DirectDoor(Map map,Room prison,Room other')],
