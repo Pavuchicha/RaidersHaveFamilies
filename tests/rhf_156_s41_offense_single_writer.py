@@ -33,8 +33,9 @@ def verify(off=OFF,board=BOARD,duty=DUTY,charge=CHARGE,ops=OPS,workflow=WORKFLOW
     # Per-pawn breach authority; a shared Breacher pointer would race factions.
     assert 'board.Assign(soldier,RHFRoleS41.Breach,barrier' in off
     assert 'board.Breacher=breacher' not in off
-    assert 'order.Role==(int)RHFRoleS41.Breach' in charge
-    assert 'operation?.OffenseBoardS41' in charge
+    assert 'if(role==RHFRoleS41.Breach)' in off
+    assert 'return Task(JobDefOf.AttackMelee,target,600);' in off
+    assert 'GenExplosion' not in charge and 'DamageInfo' not in charge
     # Player's faction threats only, no omniscient target tracking.
     assert 'op.HuntLastSeenCell=target.Position;' in off
     assert 'GenSight.LineOfSight(observer.Position,target.Position,map)' in off
@@ -63,7 +64,7 @@ changes=[
  (OFF,'GenSight.LineOfSight(observer.Position,target.Position,map)','true'),
  (OFF,'PlanWing(op,op.Squad,map,now,3,replan)','PlanWing(op,op.Squad,map,now,3,false)'),
  (OFF,'LordMaker.MakeNewLord(faction,','LordMaker.MakeNewLord(Faction.OfPlayer,'),
- (CHARGE,'operation?.OffenseBoardS41','operation?.BoardS41'),
+ (OFF,'return Task(JobDefOf.AttackMelee,target,600);','return null;'),
  (OPS,'RHFOffenseDirectorS41.Tick(op,map,now)','RHFTactical.PressureAssault(map,op,now)'),
  (OPS,'Scribe_Deep.Look(ref OffenseBoardS41, "rhfOffenseBoardS41AG")','// state dropped'),
  (DUTY,'RHFOffenseDefenseJobGiverS41','JobGiver_AIFightEnemy'),

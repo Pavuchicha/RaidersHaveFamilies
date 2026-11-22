@@ -31,7 +31,7 @@ assert 'bool viaFamily=r.Importance<5 && family!=null' in dialog
 patch=source['RHFPatches']
 assert 'typeof(BodyPartRecord)' in patch and 'typeof(Bill)' in patch
 ops=source['RHFOperations']
-assert '(barrier.Position-captive.Position).LengthHorizontalSquared > 49' in ops
+assert 'if (!touchesPrison) continue;' in ops and 'IsBreachableStructure(edifice)' in ops
 assert 'rescuer.CanReach(target, PathEndMode.Touch, Danger.Deadly)' in ops
 # Normal raid letter comes from RimWorld; RHF must not add a duplicate centred on empty map.
 assert 'Find.LetterStack.ReceiveLetter("RHF: "' not in ops

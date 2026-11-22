@@ -336,7 +336,11 @@ namespace RaidersHaveFamilies
                 return new RHFRoutePlanV128{Explanation="неверная цель или карта"};
             RHFRouteStoreV128 holder=Cache.GetValue(op,_=>new RHFRouteStoreV128());
             RHFRoutePlanV128 prior=holder.Plan;
-            if(prior!=null && prior.Captive==captive && prior.Leader!=null &&
+            // A corridor with no actual forward progress must expire sooner;
+            // otherwise idle pawns can retain a bad initial approach for 900t.
+            bool stalled=prior!=null && now-prior.Tick>=300 &&
+                now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>600;
+            if(prior!=null && !stalled && prior.Captive==captive && prior.Leader!=null &&
                prior.Leader.Spawned && prior.Leader.Map==map && !prior.Leader.Dead &&
                now-prior.Tick<ReplanTicks &&
                (prior.FirstBarrier==null || !prior.FirstBarrier.Destroyed) &&

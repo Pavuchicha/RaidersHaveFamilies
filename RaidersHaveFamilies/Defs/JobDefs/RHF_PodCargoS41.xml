@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>RHF_UnloadPodCargoS41</defName>
+    <driverClass>RaidersHaveFamilies.JobDriver_RHFPodCargoS41</driverClass>
+    <reportString>unloading mission construction supplies.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
+</Defs>

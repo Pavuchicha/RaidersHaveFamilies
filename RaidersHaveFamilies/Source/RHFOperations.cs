@@ -128,6 +128,9 @@ namespace RaidersHaveFamilies
         public bool PodNativeS311;
         public Faction PodCargoOwnerFactionS311;
         public List<Thing> PodFuelStacksS311 = new List<Thing>();
+        // Physical inventory cargo, persisted as references, never replenished
+        // by a save/load or spawned from a blueprint on an arbitrary tick.
+        public List<Thing> PodCargoStacksS41 = new List<Thing>();
         public int PodStageStartedTickS311;
         public Thing PodSteel;
         public Thing PodSteelExtra;
@@ -209,6 +212,7 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref PodNativeS311, "rhfNativeS311", false);
             Scribe_References.Look(ref PodCargoOwnerFactionS311, "rhfCargoOwnerS311");
             Scribe_Collections.Look(ref PodFuelStacksS311, "rhfFuelStacksS311", LookMode.Reference);
+            Scribe_Collections.Look(ref PodCargoStacksS41, "rhfPodCargoInventoryS41AO", LookMode.Reference);
             Scribe_Values.Look(ref PodStageStartedTickS311, "rhfNativeStageTimeS311", 0);
             Scribe_References.Look(ref PodSteel, "podSteel");
             Scribe_References.Look(ref PodSteelExtra, "rhfPodSteelExtraV130");
@@ -260,6 +264,7 @@ namespace RaidersHaveFamilies
                 if (TacticalMembers == null) TacticalMembers = new List<RHFTacticalMember>();
                 if (CompletedBarricades == null) CompletedBarricades = new List<IntVec3>();
                 if (PodFuelStacksS311 == null) PodFuelStacksS311 = new List<Thing>();
+                if (PodCargoStacksS41 == null) PodCargoStacksS41 = new List<Thing>();
                 // Existing v0.3.x operations were already queued through the storyteller.
                 // Do not create a duplicate raid when upgrading a saved game.
                 if (Parties.Count == 0) Deployed = true;
@@ -400,7 +405,7 @@ namespace RaidersHaveFamilies
                     if (party==null) continue;
                     sb.AppendLine("• " + (party.Faction?.Name ?? "?") + ": " +
                         (RHFStrikeRole)party.Role + ", " + party.Members + " бойцов, " +
-                        party.BreachKits + " комплектов взлома, " + party.Medics +
+                        party.BreachKits + " бойцов с проломным оружием, " + party.Medics +
                         " санитаров, без оружия " + party.UnarmedCount + "; бюджет " +
                         Mathf.RoundToInt(party.SupplySpent) + "/" + Mathf.RoundToInt(party.SupplyBudget));
                 }
@@ -411,7 +416,7 @@ namespace RaidersHaveFamilies
                     if (m?.Pawn == null) continue;
                     sb.AppendLine("  " + m.Pawn.LabelShortCap + " — " +
                         RHFTactical.RoleName(m.Role) + ", оружие=" + (!m.WeaponMissing) +
-                        ", инструмент взлома=" + RHFTactical.HasBreachKit(m.Pawn));
+                        ", топор для пролома=" + RHFTactical.IsBreachAxe(m.Pawn));
                     shown++;
                 }
                 if (op.TacticalMembers.Count > shown) sb.AppendLine("  ...остальные по лимиту интерфейса");
@@ -760,6 +765,11 @@ namespace RaidersHaveFamilies
                         parms.raidArrivalMode = DefDatabase<PawnsArrivalModeDef>.GetNamedSilentFail("EdgeWalkIn");
                         if (parms.raidArrivalMode == null)
                             throw new InvalidOperationException("RHF: EdgeWalkIn not available for rescue");
+                        // A vanilla random edge can insert a rescue wing into
+                        // an obvious turret killzone. Choose a bounded safe
+                        // edge first; EdgeWalkIn honors valid spawnCenter.
+                        IntVec3 safer=RHFRescueGroundEntryS41.Choose(map,op);
+                        if(safer.IsValid)parms.spawnCenter=safer;
                     }
                     if (party.Drop)
                     {
@@ -912,7 +922,7 @@ namespace RaidersHaveFamilies
                         (party.Drop ? ", десантирование" : party.Breach ? ", прорыв" :
                         party.Siege ? ", осада" : ", наземное прибытие") +
                         "; сила около " + Mathf.RoundToInt(party.Points) + " очков." +
-                        " Комплекты взлома: " + party.BreachKits + ", санитары: " + party.Medics +
+                        " Бойцов с проломным оружием: " + party.BreachKits + ", санитары: " + party.Medics +
                         ", без основного оружия: " + party.UnarmedCount + ".");
                 }
                 // RaidEnemy already issued an arrival letter with an actual raid
@@ -1174,11 +1184,10 @@ namespace RaidersHaveFamilies
                     Thing barrier = sharedBarrier;
                     if (barrier != null && !barrier.Destroyed)
                     {
-                        bool planted=TryBreachCharge(op,target,barrier,rescuer,now);
-                        // Do not restart a melee attack job every 90 ticks:
-                        // doing so can indefinitely reset the actual strike.
-                        if (!planted && (rescuer.jobs?.curJob?.def != JobDefOf.AttackMelee ||
-                            rescuer.jobs.curJob.targetA.Thing != barrier))
+                        // Real melee weapon damage only, no remote or timer damage.
+                        // Do not restart each 90 ticks: that resets melee swings.
+                        if (rescuer.jobs?.curJob?.def != JobDefOf.AttackMelee ||
+                            rescuer.jobs.curJob.targetA.Thing != barrier)
                             Order(rescuer,JobDefOf.AttackMelee,barrier);
                         orders++;
                     }
@@ -1299,76 +1308,6 @@ namespace RaidersHaveFamilies
                         OrderGotoIfNeeded(p,link.Escort.Position,9);
                 }
             }
-        }
-
-        private bool TryBreachCharge(RHFOperation op, Pawn captive, Thing barrier,
-            Pawn rescuer, int now)
-        {
-            if (op == null || barrier == null || rescuer == null ||
-                (barrier.Position-captive.Position).LengthHorizontalSquared > 49 ||
-                (rescuer.Position-barrier.Position).LengthHorizontalSquared > 16 ||
-                op.BreachChargesUsed >= 4 ||
-                RHFMod.Settings?.RoleEquipment != true) return false;
-            if (op.BreachChargeTick > 0 &&
-                (op.BreachOwner == null || op.BreachOwner.Dead || op.BreachOwner.Map != map ||
-                 !op.BreachCell.IsValid || op.BreachCell.GetEdifice(map) == null))
-            {
-                op.BreachChargeTick = 0;
-                op.BreachCell = IntVec3.Invalid;
-                op.BreachOwner = null;
-            }
-            RHFTacticalMember member = RHFTactical.Member(op, rescuer);
-            if (member == null || member.Role != (int)RHFCombatRole.Breacher ||
-                !RHFTactical.HasBreachKit(rescuer)) return false;
-            if (op.BreachChargeTick == 0)
-            {
-                op.BreachChargeTick = now;
-                op.BreachCell = barrier.Position;
-                op.BreachOwner = rescuer;
-                Messages.Message("Сапёр RHF устанавливает инструмент прорыва у преграды.",
-                    barrier, MessageTypeDefOf.ThreatSmall, false);
-                return true;
-            }
-            if (op.BreachCell != barrier.Position || op.BreachOwner != rescuer)
-                return false; // Another operator must not consume this pawn's kit.
-            if (now - op.BreachChargeTick < 750) return true;
-            if (!RHFTactical.ConsumeBreachKit(rescuer))
-            {
-                op.BreachChargeTick = 0;
-                op.BreachCell = IntVec3.Invalid;
-                op.BreachOwner = null;
-                return false;
-            }
-            // Primitive factions break the door manually. Industrial explosives are
-            // forbidden right beside the captive to avoid killing the rescue target.
-            bool industrial = rescuer.Faction?.def?.techLevel >= TechLevel.Industrial;
-            bool safelyAway = (barrier.Position - captive.Position).LengthHorizontalSquared >= 7;
-            // Explosive entry is forbidden with the operator OR any friendly
-            // soldier/captive in the 3-tile danger zone. A breaching tool then
-            // strikes the identified barrier directly instead of suiciding.
-            bool clearBlast = industrial && safelyAway &&
-                (rescuer.Position-barrier.Position).LengthHorizontalSquared >= 9;
-            if (clearBlast)
-            {
-                int checkedPawns = 0;
-                foreach (Pawn nearby in map.mapPawns.AllPawnsSpawned)
-                {
-                    if (checkedPawns++ >= 256) { clearBlast=false; break; }
-                    if (nearby == null || nearby.Dead || !nearby.Spawned) continue;
-                    if ((nearby.Position-barrier.Position).LengthHorizontalSquared <= 9)
-                    { clearBlast=false; break; }
-                }
-            }
-            if (clearBlast)
-                GenExplosion.DoExplosion(op.BreachCell, map, 1.15f, DamageDefOf.Bomb, rescuer, 52);
-            else
-                barrier.TakeDamage(new DamageInfo(DamageDefOf.Blunt, 45f, 0f, -1f, rescuer));
-            op.BreachChargesUsed++;
-            op.BreachChargeTick = 0;
-            op.BreachCell = IntVec3.Invalid;
-            op.BreachOwner = null;
-            op.LastProgressTick = now;
-            return true;
         }
 
         private Thing FindBarrier(Pawn captive, Pawn rescuer)
@@ -1974,9 +1913,12 @@ namespace RaidersHaveFamilies
         private bool HasFieldSteel(RHFOperation op,int required)
         {
             int total=0;
-            Thing[] stocks={op.PodSteel,op.PodSteelExtra};
+            IEnumerable<Thing> stocks=op.PodCargoStacksS41!=null &&
+                op.PodCargoStacksS41.Count>0 ? op.PodCargoStacksS41 :
+                (IEnumerable<Thing>)new Thing[]{op.PodSteel,op.PodSteelExtra};
             foreach(Thing stack in stocks)
-                if(stack!=null && !stack.Destroyed && stack.Map==map &&
+                if(stack!=null && stack.def==ThingDefOf.Steel &&
+                   !stack.Destroyed && stack.Map==map &&
                    (stack.Position-op.PodCell).LengthHorizontalSquared<=100)
                     total+=stack.stackCount;
             return total>=required;
@@ -1985,10 +1927,14 @@ namespace RaidersHaveFamilies
         private bool SpendFieldSteel(RHFOperation op,int amount)
         {
             if(!HasFieldSteel(op,amount))return false;
-            foreach(Thing stack in new Thing[]{op.PodSteel,op.PodSteelExtra})
+            IEnumerable<Thing> steelStocks=op.PodCargoStacksS41!=null &&
+                op.PodCargoStacksS41.Count>0 ? op.PodCargoStacksS41 :
+                (IEnumerable<Thing>)new Thing[]{op.PodSteel,op.PodSteelExtra};
+            foreach(Thing stack in steelStocks)
             {
                 if(amount==0)break;
-                if(stack==null || stack.Destroyed || stack.Map!=map)continue;
+                if(stack==null || stack.def!=ThingDefOf.Steel ||
+                   stack.Destroyed || stack.Map!=map)continue;
                 int take=Math.Min(stack.stackCount,amount);
                 UseFieldMaterial(stack,take);
                 amount-=take;

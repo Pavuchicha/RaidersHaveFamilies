@@ -15,7 +15,7 @@ namespace RaidersHaveFamilies
         Escort = 4, FollowEscort = 5, Hold = 6, Withdraw = 7,
         SuppressTurret = 8, Engineer = 9, BoardPod = 10, PodAssembly = 11,
         OffenseStrike = 12, OffenseFlank = 13, OffenseHunt = 14,
-        OffenseCover = 15, OffenseRally = 16
+        OffenseCover = 15, OffenseRally = 16, PodSupply = 17
     }
 
     // Individual assignment is mission-owned and saveable, NOT a second job writer.

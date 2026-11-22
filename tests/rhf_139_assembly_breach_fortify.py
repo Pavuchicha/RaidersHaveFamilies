@@ -41,7 +41,8 @@ def breach_contract(r,c):
     b=method_body(c,'SelectBreachOperator')
     attacker=method_body(c,'BreachAttack')
     infiltrate=method_body(r,'Infiltrate')
-    assert 'HasBreachKit(pawn)' in b
+    assert 'member?.Role==(int)RHFCombatRole.Breacher' in b
+    assert 'bool melee=weapon==null || weapon.IsMeleeWeapon;' in b
     assert 'weapon.IsMeleeWeapon' in b
     assert 'grenade' not in attacker.lower().replace('"grenade"','') or '"Grenade"' in attacker
     assert 'IndexOf("Grenade"' in attacker

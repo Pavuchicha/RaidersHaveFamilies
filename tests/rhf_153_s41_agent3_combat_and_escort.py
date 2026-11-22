@@ -14,15 +14,14 @@ def test(p,g,b,j,w,x):
     # No escort may be selected as sapper; change owner after casualty.
     assert 'escortedDuringAssault.Contains(board.Breacher)' in p
     assert 'obstacle,escortedDuringAssault);' in p
-    # A real job consumes an ACTUAL item after 750 ticks of work.
-    assert 'RHF_PlantBreachChargeS41' in g
-    assert 'Toils_Goto.GotoThing(TargetIndex.A,PathEndMode.Touch)' in j
-    assert 'plant.defaultDuration=750;' in j
-    assert 'RHFTactical.ConsumeBreachKit(pawn)' in j
-    assert 'operation.BreachChargesUsed++' in j
-    assert 'new DamageInfo(DamageDefOf.Bomb,150f' in j
-    assert '<driverClass>RaidersHaveFamilies.JobDriver_RHFPlantBreachChargeS41</driverClass>' in x
-    assert 'RHF_PlantBreachChargeS41' in x
+    # This mechanic was rejected after gameplay: no spawned toolkit,
+    # no custom instant-damage JobDriver. The normal AttackMelee job
+    # applies vanilla/CE weapon damage and swing timing.
+    assert 'RHF_PlantBreachChargeS41' not in g
+    assert 'return Task(strike,obstacle,900);' in g
+    assert 'JobDefOf.AttackMelee' in g
+    assert 'GenExplosion' not in j and 'DamageInfo' not in j
+    assert len(ET.fromstring(x))==0
     # A turret firebreak must reserve a real ranged team, and the breacher
     # may not run past an active firebreak before it is cleared.
     assert 'firebreakBeforeBreach' in p
@@ -54,9 +53,9 @@ test(P,G,B,J,W,X)
 changes=[
  ('p', 'obstacle,escortedDuringAssault);','obstacle,new HashSet<Pawn>());'),
  ('p', 'escortedDuringAssault.Contains(board.Breacher)','false'),
- ('g', 'RHF_PlantBreachChargeS41','missing'),
- ('j', 'plant.defaultDuration=750;','plant.defaultDuration=0;'),
- ('j', 'RHFTactical.ConsumeBreachKit(pawn)','true'),
+ ('g', 'return Task(strike,obstacle,900);','return null;'),
+ ('g', 'JobDefOf.AttackMelee','JobDefOf.Wait'),
+ ('j', 'namespace RaidersHaveFamilies {}','GenExplosion.DoExplosion'),
  ('p', 'obstacle != null && !firebreakBeforeBreach','obstacle != null'),
  ('p', 'board.Threat=FirstRouteTurret(route,map);','board.Threat=null;'),
  ('p', 'RHFRoleS41.SuppressTurret','RHFRoleS41.Screen'),

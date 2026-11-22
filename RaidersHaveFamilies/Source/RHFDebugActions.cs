@@ -264,7 +264,7 @@ namespace RaidersHaveFamilies
             string status = member == null ? "Пешка не состоит в активном специальном отряде RHF." :
                 pawn.LabelShortCap + ": " + RHFTactical.RoleName(member.Role) +
                 "; вооружён=" + (!member.WeaponMissing) +
-                "; инструменты для взлома=" + RHFTactical.HasBreachKit(pawn) +
+                "; проломный топор=" + RHFTactical.IsBreachAxe(pawn) +
                 "; медицинские припасы=" + member.MedicalSupplies +
                 "; штатное оружие/патроны не заменены.";
             Find.WindowStack.Add(new Dialog_MessageBox(status));

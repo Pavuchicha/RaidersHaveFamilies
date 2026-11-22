@@ -57,7 +57,21 @@ namespace RaidersHaveFamilies
             board.Decision="Phase3 native build/load: stage "+op.PodConstructionStage;
             IntVec3 assembly=ChooseAssemblyCell(op,map);
             var occupied=new HashSet<Pawn>();
-            if(engineer!=null && RHFRescuePlannerS41.ActiveForRoleS41(engineer,map) &&
+            // Supplies arrived in soldier inventories, NOT as spawned loot.
+            // Carriers must physically travel to the build site to unpack.
+            if(op.PodConstructionStage>=1 && op.PodConstructionStage<=3 && op.Squad!=null)
+            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            {
+                Pawn carrier=op.Squad[i];
+                if(!RHFRescuePlannerS41.ActiveForRoleS41(carrier,map) ||
+                   !RHFPodSupplyS41.HasCargo(op,carrier))continue;
+                IntVec3 unload=RHFPodSupplyS41.UnloadCell(carrier,op,map);
+                if(!unload.IsValid)continue;
+                board.Assign(carrier,RHFRoleS41.PodSupply,null,unload,now);
+                occupied.Add(carrier);
+            }
+            if(engineer!=null && !occupied.Contains(engineer) &&
+               RHFRescuePlannerS41.ActiveForRoleS41(engineer,map) &&
                op.PodConstructionStage>=1 && op.PodConstructionStage<=3 && work!=null &&
                work.Spawned && work.Map==map)
             {

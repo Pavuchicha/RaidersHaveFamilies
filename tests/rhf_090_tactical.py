@@ -14,9 +14,9 @@ assert 'RoleName(int role)' in tactics
 for name in ['Breacher','Escort','Cover','Medic','Flanker','Assault']:
     assert name in tactics
 assert 'TacticalMembers' in ops and 'tacticalMembersV9' in ops
-assert 'RHF_BreachKit' in tactics and 'TryBreachCharge' in ops
-assert 'HasBreachKit(rescuer)' in ops and 'ConsumeBreachKit(rescuer)' in ops
-assert 'party.SupplySpent + BreachKitCost <= party.SupplyBudget' in tactics
+assert 'MeleeWeapon_BreachAxe' in tactics and 'IssueBreachAxe' in tactics
+assert 'RHF_BreachKit' not in tactics and 'TryBreachCharge(' not in ops
+assert 'ConsumeBreachKit' not in tactics and 'GenExplosion.DoExplosion' not in tactics
 assert 'party.Points - party.SupplyBudget' in ops
 assert 'party.SupplyBudget = RHFMod.Settings?.RoleEquipment == true' in ops
 assert 'Mathf.Min(300f, Mathf.Max(0f, party.Points * 0.12f))' in ops
@@ -41,5 +41,5 @@ assert 'public override void MapComponentTick' not in tactics
 for name in ['RHF_BreachKit.xml', 'RHF_EvacDowned.xml']:
     path=(root/'RaidersHaveFamilies/Defs/ThingDefs/RHF_BreachKit.xml') if name.startswith('RHF_Breach') else (root/'RaidersHaveFamilies/Defs/JobDefs/RHF_EvacDowned.xml')
     ET.parse(path)
-assert (root/'RaidersHaveFamilies/Textures/RaidersHaveFamilies/BreachKit.png').stat().st_size > 100
+assert not list(ET.parse(root/'RaidersHaveFamilies/Defs/ThingDefs/RHF_BreachKit.xml').getroot())
 print('PASS: RHF v0.9 role records, bounded tactical controller, physical equipment, downed evacuation and CI packaging.')

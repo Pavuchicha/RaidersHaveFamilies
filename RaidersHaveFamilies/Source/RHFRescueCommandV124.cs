@@ -645,9 +645,7 @@ namespace RaidersHaveFamilies
                 bool attacking = current?.def == JobDefOf.AttackMelee &&
                     sharedBarrier != null && current.targetA.Thing == sharedBarrier &&
                     !sharedBarrier.Destroyed;
-                bool canPlaceBreach = attacking &&
-                    RHFTactical.Member(op,rescuer)?.Role==(int)RHFCombatRole.Breacher &&
-                    RHFTactical.HasBreachKit(rescuer);
+                bool canPlaceBreach=false; // no demolition charges in RHF
                 if (attacking && !canPlaceBreach && now-moved<1600) continue;
                 // Do not reissue a different waypoint every 90 ticks. The
                 // current waypoint is still on the costed corridor and must

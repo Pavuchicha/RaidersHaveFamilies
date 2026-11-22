@@ -27,6 +27,14 @@ namespace RaidersHaveFamilies
                 if(phase3==null)return null;
                 switch((RHFRoleS41)phase3.Role)
                 {
+                    case RHFRoleS41.PodSupply:
+                    {
+                        JobDef unload=DefDatabase<JobDef>.GetNamedSilentFail(
+                            "RHF_UnloadPodCargoS41");
+                        if(unload==null || !phase3.Cell.IsValid ||
+                           !RHFPodSupplyS41.HasCargo(op,pawn))return null;
+                        return JobMaker.MakeJob(unload,phase3.Cell);
+                    }
                     case RHFRoleS41.Engineer:
                         return RHFPodPlannerS41.WorkJob(pawn,phase3.Objective);
                     case RHFRoleS41.BoardPod:
@@ -92,14 +100,7 @@ namespace RaidersHaveFamilies
                        obstacle.Map!=pawn.Map ||
                        !RHFCombatPlannerV125.IsBreachableStructure(obstacle))return null;
                     JobDef strike=RHFCombatPlannerV125.BreachAttack(pawn);
-                    // Actual construction-like time and physical paid inventory;
-                    // the JobDriver owns the entire planting operation.
-                    RHFTacticalMember specialist=RHFTactical.Member(op,pawn);
-                    JobDef charge=DefDatabase<JobDef>.GetNamedSilentFail("RHF_PlantBreachChargeS41");
-                    if(charge!=null && specialist?.Role==(int)RHFCombatRole.Breacher &&
-                       op.BreachChargesUsed<4 && RHFTactical.HasBreachKit(pawn) &&
-                       pawn.CanReach(obstacle.Position,PathEndMode.Touch,Danger.Some))
-                        return Task(charge,obstacle,0);
+                    // No instant damage/charges: only ordinary weapon attack jobs.
                     if(strike==null)return null;
                     if(strike==JobDefOf.AttackStatic)
                     {

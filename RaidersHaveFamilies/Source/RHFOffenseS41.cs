@@ -487,7 +487,7 @@ namespace RaidersHaveFamilies
                         if(!Active(p,map) ||
                            p.health?.capacities==null ||
                            !p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
-                           (pass==0 && !RHFTactical.HasBreachKit(p)))continue;
+                           (pass==0 && p.equipment?.Primary?.def?.IsMeleeWeapon!=true))continue;
                         if(p.CanReach(barrier.Position,PathEndMode.Touch,Danger.Some))
                         { breacher=p;break; }
                     }
@@ -639,15 +639,15 @@ namespace RaidersHaveFamilies
             {
                 if(target==null || target.Destroyed || target.Map!=map ||
                    !RHFCombatPlannerV125.IsBreachableStructure(target))return null;
-                if(RHFTactical.HasBreachKit(pawn) && op.BreachChargesUsed<4 &&
-                   pawn.CanReach(target.Position,PathEndMode.Touch,Danger.Some))
+                // Real melee/ranged JobDrivers do all structure damage.
+                if(pawn.equipment?.Primary?.def?.IsMeleeWeapon==true || range<=3f)
                 {
-                    JobDef def=DefDatabase<JobDef>.GetNamedSilentFail("RHF_PlantBreachChargeS41");
-                    if(def!=null)return Task(def,target,0);
+                    IntVec3 stand=ReachableBreachStand(pawn,target);
+                    if(!stand.IsValid)return null;
+                    if(pawn.Position!=stand)return Task(JobDefOf.Goto,stand,180);
+                    return Task(JobDefOf.AttackMelee,target,600);
                 }
-                if(shoot)return Task(JobDefOf.AttackStatic,target,150);
-                if(pawn.CanReach(target.Position,PathEndMode.Touch,Danger.Some))
-                    return Task(JobDefOf.AttackMelee,target,150);
+                if(shoot)return Task(JobDefOf.AttackStatic,target,180);
                 return null;
             }
             if(role==RHFRoleS41.OffenseCover || role==RHFRoleS41.OffenseHunt ||

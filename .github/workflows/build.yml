@@ -82,6 +82,8 @@ jobs:
           python3 tests/rhf_161_s41_air_vip_lifetime_and_exit_recovery.py
           python3 tests/rhf_162_s41_fuel_reachable_destination.py
           python3 tests/rhf_163_s41_offense_missing_breacher.py
+          python3 tests/rhf_164_s41_field_breach_pod_entry.py
+          python3 tests/rhf_165_s41_inventory_pod_enemy_faction.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)

@@ -22,10 +22,10 @@ def contract(o,n,d,w):
         'party.Role == (int)RHFStrikeRole.Rescue',
         'pawn.Faction == party.Faction',
         'op.PodSuppliesIssued = true;',
-        'spawned.SetForbidden(true, false)',
+        'carrier.inventory.innerContainer.TryAdd(stack,',
         'EnableAndInitializeIfNotAlreadyInitialized()',
-        'SetPriority(WorkTypeDefOf.Construction, 3)',
-        'SetPriority(WorkTypeDefOf.Hauling, 3)',
+        'SetPriority(WorkTypeDefOf.Construction,3)',
+        'SetPriority(WorkTypeDefOf.Hauling,3)',
         'GenConstruct.PlaceBlueprintForBuild',
         'ConstructDeliverResourcesToBlueprints',
         'ConstructDeliverResourcesToFrames',
@@ -40,14 +40,14 @@ def contract(o,n,d,w):
         'IsCombatEmergencyJob(guard)',
         'NativeVipWorkTimeoutS311',
     ): assert marker in n, marker
-    # The 1.7 reference assembly lacks two direct CompLaunchable accessors.
-    # Inspect the actual linked launcher via runtime reflection and fail closed.
+    # S4.1-A/O uses native CanLaunch; the old runtime-reflection field was
+    # never a dependable RimWorld fueling-port contract.
     assert '.ConnectedToFuelingPort' not in n
     assert '.FuelingPortSourceHasAnyFuel' not in n
-    assert 'NativeConnectedAndFueledS311(launch, op.PodLauncherThing)' in n
-    assert 'GetProperty("FuelingPortSource", flags)' in n
-    assert 'source == expectedLauncher && source.Spawned' in n
-    assert 'source.GetComp<CompRefuelable>()?.HasFuel == true' in n
+    assert 'FuelingPortSource' not in n
+    assert 'NativeLaunchReadyS41(launch,op.PodLauncherThing,owner.Faction)' in n
+    assert 'return launch.CanLaunch();' in n
+    assert 'site.Faction!=owner.Faction || engineer.Faction!=owner.Faction' in n
     assert 'SkyfallerMaker' not in n
     assert 'ThingMaker.MakeThing(requested)' not in n
     assert 'GenSpawn.Spawn(completed' not in n
@@ -58,11 +58,11 @@ def contract(o,n,d,w):
 contract(ops,native,diag,ci)
 mutants = [
     ('owner drop gate', (ops,native.replace('party.Succeeded && party.Drop','party.Succeeded && true',1),diag,ci)),
-    ('connection unchecked', (ops,native.replace('source == expectedLauncher && source.Spawned','source != expectedLauncher && source.Spawned',1),diag,ci)),
+    ('native launch unchecked', (ops,native.replace('return launch.CanLaunch();','return true;',1),diag,ci)),
     ('faction filter', (ops,native.replace('pawn.Faction == party.Faction','pawn.Faction != party.Faction',1),diag,ci)),
     ('budget fuel', (ops.replace('fuel*ThingDefOf.Chemfuel.BaseMarketValue','0f',1),native,diag,ci)),
     ('real blueprint', (ops,native.replace('GenConstruct.PlaceBlueprintForBuild','GenSpawn.Spawn',1),diag,ci)),
-    ('forbid loot', (ops,native.replace('spawned.SetForbidden(true, false)','spawned.SetForbidden(false, false)',1),diag,ci)),
+    ('inventory cargo', (ops,native.replace('carrier.inventory.innerContainer.TryAdd(stack,','GenSpawn.Spawn(stack,',1),diag,ci)),
     ('loading group', (ops,native.replace('comp.groupID = Find.UniqueIDsManager.GetNextTransporterGroupID()','comp.groupID = -1',1),diag,ci)),
     ('rollback', (ops,native.replace('transporter.innerContainer.TryDrop(op.Vip','transporter.innerContainer.TryAdd(op.Vip',1),diag,ci)),
     ('diagnostic', (ops,native,diag.replace('34 — S3.1.1','30 — S3.1.1',1),ci)),

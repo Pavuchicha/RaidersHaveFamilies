@@ -330,6 +330,7 @@ namespace RaidersHaveFamilies
             if(controller==null || op==null || op.Finished)return;
             Map map=MapFor(op);
             if(map==null)return;
+            RHFTactical.EnsureBreachTeam(op,map);
             RHFTacticalBoardS41 board=op.BoardS41 ??= new RHFTacticalBoardS41();
             board.Prune(map);
             if(board.ObservedPhase!=op.Phase)

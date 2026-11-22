@@ -64,7 +64,7 @@ namespace RaidersHaveFamilies
             }
         }
 
-        private const float BreachKitCost = 48f;
+        // Demolition axes are existing RimWorld weapons. No RHF explosive kit.
         private const float MedicalKitCost = 35f;
         private const int MaxAuditedActors = 96;
         private const int MaxCandidatesPerThink = 45;
@@ -87,8 +87,16 @@ namespace RaidersHaveFamilies
             RHFCombatRole role;
             if (rescue)
             {
-                if (capable && party.BreachKits == 0 &&
-                    party.SupplySpent + BreachKitCost <= party.SupplyBudget)
+                // At least one physical axe specialist, then a second once
+                // the actually spawned rescue wing contains six soldiers.
+                // An unrelated faction/wing cannot satisfy this requirement.
+                bool equippedSapper=false;
+                foreach(RHFTacticalMember previous in op.TacticalMembers)
+                    if(previous?.Faction==party.Faction && previous.Pawn!=null &&
+                       previous.Pawn.Spawned && !previous.Pawn.Dead &&
+                       previous.Role==(int)RHFCombatRole.Breacher &&
+                       IsBreachAxe(previous.Pawn)) {equippedSapper=true;break;}
+                if(capable && !equippedSapper)
                     role = RHFCombatRole.Breacher;
                 else if (ordinal % 7 == 1 || ordinal % 7 == 4) role = RHFCombatRole.Escort;
                 else if (ordinal % 7 == 3 && capable) role = RHFCombatRole.Medic;
@@ -163,10 +171,8 @@ namespace RaidersHaveFamilies
 
             if (member.Role == (int)RHFCombatRole.Breacher)
             {
-                ThingDef kit = DefDatabase<ThingDef>.GetNamedSilentFail("RHF_BreachKit");
-                if (party.SupplySpent + BreachKitCost <= party.SupplyBudget && Carry(member, kit, 1))
-                { member.KitIssued = 1; party.SupplySpent += BreachKitCost; party.BreachKits++; }
-                else member.Role = (int)RHFCombatRole.Assault; // no magical free explosives
+                if(!IssueBreachAxe(pawn,party))
+                    member.Role=(int)RHFCombatRole.Assault;
             }
             else if (member.Role == (int)RHFCombatRole.Medic)
             {
@@ -225,25 +231,78 @@ namespace RaidersHaveFamilies
             }
         }
 
-        public static bool HasBreachKit(Pawn pawn)
+        public static bool IsBreachAxe(Pawn pawn)
         {
-            if (pawn?.inventory?.innerContainer == null) return false;
-            foreach (Thing thing in pawn.inventory.innerContainer)
-                if (thing?.def?.defName == "RHF_BreachKit") return true;
-            return false;
+            return pawn?.equipment?.Primary?.def?.defName=="MeleeWeapon_BreachAxe";
         }
 
-        public static bool ConsumeBreachKit(Pawn pawn)
+        private static bool IssueBreachAxe(Pawn pawn,RHFStrikeParty party)
         {
-            if (pawn?.inventory?.innerContainer == null) return false;
-            foreach (Thing thing in pawn.inventory.innerContainer)
-                if (thing?.def?.defName == "RHF_BreachKit")
+            if(pawn?.equipment==null || pawn.Map==null ||
+               pawn.health?.capacities==null ||
+               !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
+               RHFMod.Settings?.RoleEquipment != true)return false;
+            if(IsBreachAxe(pawn))return true;
+            ThingDef weapon=DefDatabase<ThingDef>.GetNamedSilentFail("MeleeWeapon_BreachAxe");
+            if(weapon==null || !weapon.IsMeleeWeapon)return false;
+            ThingWithComps replacement=null;
+            ThingWithComps previous=pawn.equipment.Primary;
+            try
+            {
+                // Replace one normally generated weapon rather than giving
+                // an extra unlimited item. The standard RimWorld / CE melee
+                // verbs and Demolish damage still own every attack.
+                replacement=ThingMaker.MakeThing(weapon,GenStuff.DefaultStuffFor(weapon)) as ThingWithComps;
+                if(replacement==null)return false;
+                if(previous!=null)pawn.equipment.Remove(previous);
+                pawn.equipment.AddEquipment(replacement);
+                if(previous!=null && !previous.Destroyed)previous.Destroy();
+                if(party!=null)party.BreachKits++;
+                return true;
+            }
+            catch(Exception e)
+            {
+                if(replacement!=null && pawn.equipment.Primary==replacement)
+                    pawn.equipment.Remove(replacement);
+                if(replacement!=null && !replacement.Destroyed)replacement.Destroy();
+                if(previous!=null && !previous.Destroyed && pawn.equipment.Primary==null)
+                    pawn.equipment.AddEquipment(previous);
+                Log.Warning("[RHF][MeleeBreach] Couldn't issue vanilla axe: "+e.Message);
+                return false;
+            }
+        }
+
+        public static void EnsureBreachTeam(RHFOperation op,Map map)
+        {
+            if(op?.Squad==null || op.TacticalMembers==null || map==null ||
+               op.Squad.Count<6 || RHFMod.Settings?.RoleEquipment!=true)return;
+            // A second axe for larger rescue wings; once per operation,
+            // never re-equip a dead or withdrawn unit every tactical tick.
+            int axes=0;
+            foreach(Pawn p in op.Squad)
+                if(p!=null && p.Map==map && !p.Dead && IsBreachAxe(p))axes++;
+            if(axes>=2)return;
+            foreach(RHFStrikeParty party in op.Parties)
+            {
+                if(party==null || party.Role!=(int)RHFStrikeRole.Rescue ||
+                   !party.Succeeded)continue;
+                for(int i=0;i<op.Squad.Count && i<96;i++)
                 {
-                    if (thing.stackCount > 1) thing.stackCount--;
-                    else thing.Destroy();
-                    return true;
+                    Pawn candidate=op.Squad[i];
+                    RHFTacticalMember member=Member(op,candidate);
+                    if(candidate==null || candidate.Faction!=party.Faction ||
+                       !candidate.Spawned || candidate.Map!=map ||
+                       candidate.Dead || candidate.Downed ||
+                       member==null || IsBreachAxe(candidate) ||
+                       member.Role==(int)RHFCombatRole.Escort ||
+                       member.Role==(int)RHFCombatRole.Medic)continue;
+                    if(IssueBreachAxe(candidate,party))
+                    {
+                        member.Role=(int)RHFCombatRole.Breacher;
+                        return;
+                    }
                 }
-            return false;
+            }
         }
 
         // At most one suppression order per decision and a bounded enemy shortlist.
