@@ -439,7 +439,7 @@ namespace RaidersHaveFamilies
         }
     }
 
-    [HarmonyPatch]
+    // Legacy hook disabled; mission controller performs bounded post-spawn capture.
     internal static class RHFRescueDeploymentPatchV123
     {
         private static MethodBase TargetMethod()
@@ -458,7 +458,7 @@ namespace RaidersHaveFamilies
         }
     }
 
-    [HarmonyPatch(typeof(RHFOperationController), nameof(RHFOperationController.MapComponentTick))]
+    // Legacy hook disabled; direct mission dispatch owns this tick.
     internal static class RHFRescueTickPatchV123
     {
         private static void Prefix(RHFOperationController __instance)
@@ -467,7 +467,7 @@ namespace RaidersHaveFamilies
         }
     }
 
-    [HarmonyPatch]
+    // Legacy hook disabled; does not intercept the operation's Infiltrate method.
     internal static class RHFRescueInfiltratePatchV123
     {
         private static MethodBase TargetMethod()

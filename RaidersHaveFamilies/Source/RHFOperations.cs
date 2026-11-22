@@ -284,12 +284,21 @@ namespace RaidersHaveFamilies
             for (int i=0;i<operations.Count;i++)
             {
                 RHFOperation op=operations[i];
-                if (op==null || op.Finished || op.Type!=(int)RHFOperationType.Rescue ||
-                    !string.IsNullOrEmpty(op.CaseKeyV10)) continue;
-                if (op.Vip?.ThingID == victimId) return op;
-                if (op.Targets == null) continue;
-                for (int j=0;j<op.Targets.Count && j<MaxTargets;j++)
-                    if (op.Targets[j]?.ThingID == victimId) return op;
+                // A case key labels a rescue history; it does NOT cancel the
+                // escort's authority over that operation or its freed pawns.
+                // Do not identify a targetless missing-person search as a live
+                // prisoner rescue solely because op.Vip still has an identity.
+                if (op==null || op.Finished ||
+                    op.Type!=(int)RHFOperationType.Rescue) continue;
+                bool hasTargets=op.Targets!=null && op.Targets.Count>0;
+                bool hasFreed=op.Freed!=null && op.Freed.Count>0;
+                if(!hasTargets && !hasFreed)continue;
+                if(hasTargets)
+                    for(int j=0;j<op.Targets.Count && j<MaxTargets;j++)
+                        if(op.Targets[j]?.ThingID==victimId)return op;
+                if(hasFreed)
+                    for(int j=0;j<op.Freed.Count && j<MaxTargets;j++)
+                        if(op.Freed[j]?.ThingID==victimId)return op;
             }
             return null;
         }
@@ -504,6 +513,30 @@ namespace RaidersHaveFamilies
             return IntVec3.Invalid;
         }
 
+        // Explicit incident-scoped recovery when a modded arrival mode omits
+        // Pawn.SpawnSetup or spawns pawns before our observer can bind them.
+        // Never steal a pre-existing pawn of the same faction, and never reassign
+        // a soldier from another RHF operation / already captured strike party.
+        private void RecoverFreshRescueMembers(RHFOperation op, RHFStrikeParty party,
+            HashSet<int> existingPawns)
+        {
+            if (op == null || party == null || existingPawns == null ||
+                party.Role != (int)RHFStrikeRole.Rescue ||
+                op.Type != (int)RHFOperationType.Rescue) return;
+            foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
+            {
+                if (op.Squad.Count >= MaxSquad) break;
+                if (pawn == null || !pawn.Spawned || pawn.Dead ||
+                    pawn.Faction != party.Faction ||
+                    pawn.RaceProps == null || !pawn.RaceProps.Humanlike ||
+                    existingPawns.Contains(pawn.thingIDNumber) ||
+                    op.Squad.Contains(pawn) || op.Diversion.Contains(pawn)) continue;
+                op.Squad.Add(pawn);
+                party.Members++;
+                RHFTactical.Register(op, party, pawn);
+            }
+        }
+
         private bool Deploy(RHFOperation op)
         {
             if (op == null || op.Deployed) return op != null && op.SuccessfulParties > 0;
@@ -517,6 +550,17 @@ namespace RaidersHaveFamilies
                 party.Attempted = true;
                 activeOperation = op;
                 activeParty = party;
+                // Snapshot the map just before THIS incident; never identify
+                // an unrelated pre-existing enemy as part of the rescue.
+                HashSet<int> presentBeforeRaid = null;
+                if (op.Type == (int)RHFOperationType.Rescue &&
+                    party.Role == (int)RHFStrikeRole.Rescue)
+                {
+                    presentBeforeRaid = new HashSet<int>();
+                    foreach (Pawn existing in map.mapPawns.AllPawnsSpawned)
+                        if (existing != null)
+                            presentBeforeRaid.Add(existing.thingIDNumber);
+                }
                 bool accepted = false;
                 try
                 {
@@ -556,7 +600,7 @@ namespace RaidersHaveFamilies
                     // infrastructure. Rescue is objective-driven by RHF, never
                     // a generic Breaching raid, including during its first ticks.
                     parms.raidStrategy = op.Type == (int)RHFOperationType.Rescue ?
-                        PickStrategy("ImmediateAttackSmart", "ImmediateAttack") :
+                        PickStrategy("ImmediateAttack") :
                         party.Siege ? PickStrategy("Siege", "ImmediateAttackSmart", "ImmediateAttack") :
                         party.Breach ? PickStrategy("Breaching", "ImmediateAttackSmart", "ImmediateAttack") :
                         PickStrategy("ImmediateAttackSmart", "ImmediateAttack");
@@ -587,7 +631,7 @@ namespace RaidersHaveFamilies
                     }
                     // RaidEnemy.Worker.TryExecute fires *now*. The Harmony SpawnSetup
                     // hook binds each generated pawn to this specific party.
-                    accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms);
+                    accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op);
                     // If a special strategy is invalid for this modded faction,
                     // retry a plain immediate assault only when no pawns spawned.
                     if (!accepted && !party.Drop && party.Members == 0)
@@ -596,7 +640,7 @@ namespace RaidersHaveFamilies
                         // Keep the selected arrival mode and insertion point.
                         parms.raidStrategy = RaidStrategyDefOf.ImmediateAttack;
                         if (!party.Drop && op.Type != (int)RHFOperationType.Rescue) parms.raidArrivalMode = null;
-                        accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms);
+                        accepted = RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op);
                     }
                 }
                 catch (Exception e)
@@ -605,6 +649,7 @@ namespace RaidersHaveFamilies
                         " role " + party.Role + ": " + e);
                 }
                 finally { activeOperation = null; activeParty = null; }
+                RecoverFreshRescueMembers(op, party, presentBeforeRaid);
                 party.Succeeded = accepted || party.Members > 0;
                 if (party.Succeeded) success++;
                 else Log.Warning("[RHF] RaidEnemy declined " + party.Faction.Name +
@@ -646,7 +691,7 @@ namespace RaidersHaveFamilies
                             points=Mathf.Clamp(reserve.Points-reserve.SupplyBudget,650f,15000f),
                             raidStrategy=RaidStrategyDefOf.ImmediateAttack };
                         reserve.Attempted=true;
-                        reserve.Succeeded=RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms);
+                        reserve.Succeeded=RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op);
                     }
                     catch(Exception e)
                     { Log.Warning("[RHF] Reserve raider " + alternate.Name + " failed: " + e.Message); }
@@ -724,7 +769,8 @@ namespace RaidersHaveFamilies
                 // location. A second letter pointing at map.Center looks like a
                 // duplicate or phantom raid. Keep the tactical report in the log.
                 Log.Message("[RHF] " + report.ToString());
-                RHFMissionIntegrityV130.ShowMissionLetter(op,map);
+                // Native RaidEnemy letter is already customized and deduplicated
+                // during incident dispatch. A second custom letter is a bug.
             }
             return success > 0;
         }
@@ -822,13 +868,18 @@ namespace RaidersHaveFamilies
                     SearchMissingVip(op, now);
                 else if (op.Phase == 1)
                 {
-                    if (string.IsNullOrEmpty(op.CaseKeyV10))
-                        RHFRescueCommandV124.Infiltrate(this, op, now);
-                    else Infiltrate(op, now);
+                    // Every rescue with live targets uses the SAME route,
+                    // suppression and obstacle logic, including case-keyed
+                    // searches that found an actual prisoner.
+                    RHFRescueCommandV124.Infiltrate(this, op, now);
                 }
                 else if (op.Phase == 2)
                 {
-                    if (!RHFRescueCommandV124.Extract(this, op, now)) Extract(op, now);
+                    // No legacy fallback: it bypasses MissionExit and may
+                    // deadlock when a squad has one downed captive.
+                    if(!RHFRescueCommandV124.Extract(this, op, now))
+                        Log.ErrorOnce("[RHF][ExtractS1] Rescue extraction has no controller: " +
+                            op.CreatedTick, op.CreatedTick ^ 135220);
                 }
                 else if (op.Phase == 3) BuildAndLaunch(op, now);
                 else if (op.Phase == 5) PostExtractionAssault(op, now);
@@ -932,8 +983,12 @@ namespace RaidersHaveFamilies
                 // ALL rescue members leave vanilla assault command before any
                 // cover/advance order. Otherwise a covering pawn may remain in
                 // an assault lord and attack unrelated power infrastructure.
+                // v0.13.3-S0: never strip a soldier from the RHF mission Lord that
+                // RHFRescueCommandV124.ClaimGroup (OnDeploy, every decision cycle)
+                // just gave him; only a foreign/vanilla Lord is relinquished.
                 Lord oldLord = rescuer.GetLord();
-                if (oldLord != null) oldLord.Notify_PawnLost(rescuer, PawnLostCondition.LeftVoluntarily);
+                if (oldLord != null && !(oldLord.LordJob is RHFRescueLordJobV124))
+                    oldLord.Notify_PawnLost(rescuer, PawnLostCondition.LeftVoluntarily);
                 if (RHFMod.Settings?.TacticalCombat == true && coverOrders < 2 &&
                     RHFTactical.TryCover(map, op, rescuer, target, now))
                 { coverOrders++; orders++; continue; }
@@ -1357,10 +1412,16 @@ namespace RaidersHaveFamilies
             if (now-op.PhaseStartTick>90000) op.Phase=4;
         }
 
-        private bool TryAssignCarrier(RHFOperation op, Pawn captive)
+        internal bool TryAssignCarrier(RHFOperation op, Pawn captive)
         {
             JobDef rescueJob = DefDatabase<JobDef>.GetNamedSilentFail("RHF_CarryDowned");
-            if (rescueJob == null || captive == null || !captive.Spawned) return false;
+            if (rescueJob == null || captive == null || !captive.Spawned ||
+                !op.ExitCell.IsValid || !op.ExitCell.InBounds(map)) return false;
+            // Do not send a second carrier while the first has a live carry job.
+            // This is checked before selecting from otherwise idle rescuers.
+            foreach(Pawn rescuer in op.Squad)
+                if(rescuer?.Map==map && rescuer.jobs?.curJob?.def==rescueJob &&
+                   rescuer.jobs.curJob.targetA.Thing==captive)return false; // already transporting; no new order
             Pawn chosen=null;
             int best=int.MaxValue;
             // No full-map search and no more than 96 assigned rescuers inspected.
@@ -1377,7 +1438,8 @@ namespace RaidersHaveFamilies
                 if(member != null && member.Role == (int)RHFCombatRole.Cover) continue;
                 int distance=(pawn.Position-captive.Position).LengthHorizontalSquared;
                 if(distance>=best || distance>2500) continue;
-                if(!pawn.CanReach(captive,PathEndMode.ClosestTouch,Danger.Deadly))continue;
+                if(!pawn.CanReach(captive,PathEndMode.ClosestTouch,Danger.Deadly) ||
+                   !pawn.CanReach(op.ExitCell,PathEndMode.OnCell,Danger.Deadly))continue;
                 chosen=pawn;best=distance;
             }
             if(chosen == null)return false;

@@ -42,7 +42,7 @@ assert 'generators' in tactics.lower() and 'machinery' in tactics.lower()
 assert 'RHFCombatPlannerV125.IsBreachableStructure(edifice)' in rescue
 assert 'AssignedEscort(op,fighter,map)' in tactics
 assert 'if(extraction && AssignedEscort(op,fighter,map))continue' in tactics
-assert 'RaidersHaveFamilies_v0.13.2_RimWorld_1.7_INSTALL.zip' in workflow
+assert 'RaidersHaveFamilies_v0.13.3_RimWorld_1.7_INSTALL.zip' in workflow
 assert 'tests/rhf_125_combat_planner.py' in workflow
 assert tactics.count('{') == tactics.count('}')
 assert rescue.count('{') == rescue.count('}')

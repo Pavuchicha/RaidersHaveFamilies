@@ -51,10 +51,14 @@ namespace RaidersHaveFamilies
             foreach (Pawn pawn in lord.ownedPawns)
             {
                 if (pawn?.mindState == null || !pawn.Spawned) continue;
-                // Defend the mission objective; never automatically exit or raid
-                // random power infrastructure after a Goto/breach job completes.
-                pawn.mindState.duty = new PawnDuty(DutyDefOf.Defend,
-                    focus.IsValid ? focus : pawn.Position);
+                // A rescue must NEVER inherit vanilla AssaultColony/Defend-point
+                // missions that pursue the prisoner or trash buildings by default.
+                // Explicit RHF Goto, rescue, extraction and fire-support jobs are
+                // the only route movers. This custom idle duty fights immediate
+                // threats only, then waits near the soldier's *current* location.
+                DutyDef missionHold = DefDatabase<DutyDef>.GetNamedSilentFail(
+                    "RHF_HoldForMissionOrders") ?? DutyDefOf.Defend;
+                pawn.mindState.duty = new PawnDuty(missionHold, pawn.Position);
             }
         }
     }
@@ -92,7 +96,6 @@ namespace RaidersHaveFamilies
         private static readonly FieldInfo OperationsField = AccessTools.Field(typeof(RHFOperationController), "operations");
         private static readonly MethodInfo FreeMethod = AccessTools.Method(typeof(RHFOperationController), "FreeTarget");
         private static readonly MethodInfo FindBarrierMethod = AccessTools.Method(typeof(RHFOperationController), "FindBarrier");
-        private static readonly MethodInfo TryAssignCarrierMethod = AccessTools.Method(typeof(RHFOperationController), "TryAssignCarrier");
         private static readonly MethodInfo ChooseExitMethod = AccessTools.Method(typeof(RHFOperationController), "ChooseExit");
         private static readonly ConditionalWeakTable<RHFOperation, RHFRescueCommandStateV124> States =
             new ConditionalWeakTable<RHFOperation, RHFRescueCommandStateV124>();
@@ -100,7 +103,7 @@ namespace RaidersHaveFamilies
         // Ordinary hostile AI cannot use it to abandon an escorted prisoner.
         private static readonly HashSet<int> AuthorizedExits = new HashSet<int>();
 
-        private static void MissionExit(Pawn pawn)
+        internal static void MissionExit(Pawn pawn)
         {
             if (pawn == null || !pawn.Spawned) return;
             int id = pawn.thingIDNumber;
@@ -115,6 +118,30 @@ namespace RaidersHaveFamilies
                     pawn.thingIDNumber ^ 130013);
             }
             finally { AuthorizedExits.Remove(id); }
+        }
+
+        // Called ONLY by the physical JobDriver_RHFCarryDowned after the
+        // carrier reached the edge and put its passenger on the ground.
+        // Both exits use the exact same authorization as conscious captives.
+        internal static void CompleteCarriedExtraction(Pawn carrier, Pawn rescued)
+        {
+            Map map=rescued?.Map;
+            if(map==null || carrier==null || carrier.Map!=map ||
+               !rescued.Spawned || !rescued.Downed)return;
+            int x=carrier.Position.x, z=carrier.Position.z;
+            if(x>2 && z>2 && x<map.Size.x-3 && z<map.Size.z-3)
+            {
+                Log.Warning("[RHF][ExtractS1] Carrier attempted extraction away from map edge.");
+                return;
+            }
+            RHFOperationController controller=map.GetComponent<RHFOperationController>();
+            RHFOperation op=controller?.FindRescueFor(rescued.ThingID);
+            if(!IsRescue(op) || op.Phase!=2 || op.Freed==null ||
+               !op.Freed.Contains(rescued) || !op.Squad.Contains(carrier))return;
+            MissionExit(rescued);
+            if(rescued.MapHeld==map)return; // do not claim a rejected exit
+            MissionExit(carrier);
+            if(carrier.MapHeld!=map)op.EscapedWithEscort++;
         }
 
         private static Map MapFor(RHFOperationController controller)
@@ -261,6 +288,13 @@ namespace RaidersHaveFamilies
         {
             if (!incidentSucceeded || !IsRescue(op)) return;
             ClaimGroup(op, MapFor(controller));
+            // v0.13.3-S0: Refresh() was only reachable through the retired
+            // RefreshOwnership hook, so freed captives were bound once at release
+            // and never again. Re-assert mission ownership each decision cycle.
+            // StabilizeFreed is idempotent and ignores pawns off-map or in a pod.
+            if (op.Freed != null)
+                for (int j = 0; j < op.Freed.Count && j < MaxTargets; j++)
+                    StabilizeFreed(op, op.Freed[j]);
         }
 
         // Replaces the 0.12.3 detach-all-Lords loop. Even a pawn that finishes
@@ -448,7 +482,7 @@ namespace RaidersHaveFamilies
 
         internal static void Infiltrate(RHFOperationController controller, RHFOperation op, int now)
         {
-            if (!IsRescue(op) || !string.IsNullOrEmpty(op.CaseKeyV10)) return;
+            if (!IsRescue(op)) return; // CaseKeyV10 is NOT a routing override.
             Map map = MapFor(controller);
             if (map == null) return;
             ClaimGroup(op, map);
@@ -822,11 +856,8 @@ namespace RaidersHaveFamilies
             Map map = MapFor(controller);
             if (map == null) return false;
             if (op.Freed == null) return false;
-            // The existing physically carried downed-prisoner and VIP pod systems
-            // remain in control when needed; do not accidentally break those.
-            for (int i=0;i<op.Freed.Count && i<MaxTargets;i++)
-                if (op.Freed[i]!=null && op.Freed[i].Downed && op.Freed[i].MapHeld==map)
-                    return false;
+            // Physical carrier jobs and conscious escorts share one mission
+            // state machine. NEVER fall through to RHFOperations.Extract.
             ClaimGroup(op,map);
             var state=States.GetValue(op, _ => new RHFRescueCommandStateV124());
             // Extraction is still a combat operation. A small rear guard may
@@ -857,8 +888,18 @@ namespace RaidersHaveFamilies
                 if(captive==null || captive.Dead || captive.MapHeld!=map ||
                     (op.PodLaunchCompleted && captive==op.Vip)) continue;
                 remaining++;
-                if(!captive.Spawned)continue;
+                if(!captive.Spawned)continue; // already carried: let its JobDriver finish
                 RebindFreed(op,captive);
+                if(captive.Downed)
+                {
+                    // Assign an actual carrier who must walk to the hostage,
+                    // carry them to the map edge and explicitly exit together.
+                    // Never teleport an unconscious pawn or abandon a healthy
+                    // partner because this captive cannot walk.
+                    if(orders<MaxOrders && controller.TryAssignCarrier(op,captive))orders++;
+                    state.LastDecision="перенос лежачего пленника к выходу";
+                    continue;
+                }
                 RHFEscortLink link=Escort(op,captive,map);
                 Pawn escort=link?.Escort;
                 if(!ActivePawn(escort,map))
@@ -1045,7 +1086,7 @@ namespace RaidersHaveFamilies
         }
     }
 
-    [HarmonyPatch(typeof(RHFRescueControlV123), "OnDeployed")]
+    // Retired v0.12.3 pipeline: deployment is handled directly by RHFOperationController.
     internal static class RHFRescueDeploymentV124
     {
         [HarmonyPostfix]
@@ -1054,7 +1095,7 @@ namespace RaidersHaveFamilies
         { RHFRescueCommandV124.OnDeploy(controller,op,incidentSucceeded); }
     }
 
-    [HarmonyPatch(typeof(RHFRescueControlV123), "RefreshOwnership")]
+    // Retired v0.12.3 pipeline: operation controller refreshes mission Lords.
     internal static class RHFRescueOwnershipV124
     {
         [HarmonyPrefix]
@@ -1062,7 +1103,7 @@ namespace RaidersHaveFamilies
         { RHFRescueCommandV124.Refresh(controller); return false; }
     }
 
-    [HarmonyPatch(typeof(RHFRescueControlV123), "Infiltrate")]
+    // Retired v0.12.3 pipeline: mission controller calls Infiltrate directly.
     internal static class RHFRescueInfiltrationV124
     {
         [HarmonyPrefix]
@@ -1070,7 +1111,7 @@ namespace RaidersHaveFamilies
         { RHFRescueCommandV124.Infiltrate(controller,op,now); return false; }
     }
 
-    [HarmonyPatch(typeof(RHFOperationController), "Extract")]
+    // Retired extraction intercept: controller explicitly calls RHF extraction.
     internal static class RHFRescueExtractionV124
     {
         [HarmonyPrefix]

@@ -29,7 +29,8 @@ for marker in (
     assert marker in source, marker
 assert 'EnsureEscortMethod' not in source, 'legacy escort routine detaches a soldier from its rescue Lord'
 assert 'public override void UpdateAllDuties' in source
-assert 'new PawnDuty(DutyDefOf.Defend' in source
+assert 'RHF_HoldForMissionOrders' in source
+assert 'new PawnDuty(missionHold, pawn.Position)' in source
 assert 'LordJob is RHFRescueLordJobV124' in source
 assert 'RHFRescueControlV123' in source, '0.12.3 controller integration missing'
 assert 'private const int MaxOrders = 14' in source
@@ -43,8 +44,8 @@ assert not re.search(r'HarmonyPatch\(typeof\(Pawn_JobTracker\)',source)
 assert 'if(op.PodLaunchCompleted && pawn==op.Vip)return true;' in source
 assert 'RHFRescueMissionDiagnosticsV123' in old, 'v0.12.3 diagnostics retained'
 assert 'tests/rhf_124_rescue_command.py' in workflow
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.2-MISSION-AUTHORITY-TEST' in workflow
-assert 'RaidersHaveFamilies_v0.13.2_RimWorld_1.7_INSTALL.zip' in workflow
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-ONE-LETTER-MISSION-TEST' in workflow
+assert 'RaidersHaveFamilies_v0.13.3_RimWorld_1.7_INSTALL.zip' in workflow
 assert source.count('{') == source.count('}')
 assert source.count('(') == source.count(')')
 print('PASS: v0.12.4 persistent Lord, group extraction, safe escort, job stability, bounded access scans & CI packaging')

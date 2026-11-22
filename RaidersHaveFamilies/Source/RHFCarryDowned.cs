@@ -36,7 +36,7 @@ namespace RaidersHaveFamilies
                 }
                 Pawn rescued = dropped as Pawn;
                 if (rescued != null && rescued.Spawned)
-                    rescued.ExitMap(false, Rot4.Invalid);
+                    RHFRescueCommandV124.CompleteCarriedExtraction(pawn, rescued);
             };
             depart.defaultCompleteMode = ToilCompleteMode.Instant;
             yield return depart;

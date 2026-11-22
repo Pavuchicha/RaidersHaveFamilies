@@ -10,7 +10,7 @@ ui=(S/'RHFRankUI.cs').read_text('utf-8')
 notes=(S/'RHFPreceptNotes.cs').read_text('utf-8')
 assert 'op.SpawnTick = Find.TickManager.TicksGame' in ops
 assert 'controller.ForceDeployNow(op)' in debug
-assert 'RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms)' in ops
+assert 'RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op)' in ops
 assert 'Find.Storyteller.incidentQueue.Add' not in debug
 assert 'Find.Storyteller.incidentQueue.Add' not in natural
 assert 'MaxStrikeParties = 5' in ops

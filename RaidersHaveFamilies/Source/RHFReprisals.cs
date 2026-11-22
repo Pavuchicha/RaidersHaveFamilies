@@ -208,16 +208,13 @@ namespace RaidersHaveFamilies
             }
             if (!controller.Register(operation)) return false;
             c.Stage = search ? 1 : 3;
-            string force = participants.Count > 1 ? "Участвуют " + participants.Count +
-                " ударные группы, включая " + (participants.Count - 1) + " дополнительных." :
-                "Выступает одна группа.";
-            Find.LetterStack.ReceiveLetter(search ? "RHF: поисковый рейд" :
-                catastrophic ? "RHF: карательная коалиция" : "RHF: месть за смерть",
-                search ? "Фракция " + c.Faction.Name + " направила вооружённых людей за «" +
-                    c.VictimName + "». Они ещё не знают о смерти пленника. " + force :
-                    "После сообщения о " + (catastrophic ? "зверствах" : "гибели пленника") +
-                    " фракция " + c.Faction.Name + " организовала ответный удар. " + force,
-                LetterDefOf.ThreatBig, new LookTargets(map.Center, map));
+            // The op is scheduled for a FUTURE spawn tick. No raid letter here:
+            // the single RHF briefing is attached to actual vanilla arrival.
+            // Prematurely issuing a second threat letter incorrectly implied
+            // there were two separate raids.
+            Log.Message("[RHF] Reprisal scheduled: " +
+                (search ? "search" : "vengeance") + ", participants=" +
+                participants.Count + ", spawn tick=" + operation.SpawnTick);
             return true;
         }
 

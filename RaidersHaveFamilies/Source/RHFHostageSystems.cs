@@ -1081,18 +1081,10 @@ namespace RaidersHaveFamilies
                     if (member != null && sponsors.Contains(member.OriginalFaction))
                         member.RetaliationIssued=true;
                 }
-            string doctrine=RHFMissionProfiles.Label(op);
-            string intent=type == RHFOperationType.Rescue ?
-                "начинает подготовку спасательной операции" :
-                "готовит карательный удар по вашей колонии";
-            string allies = sponsors.Count>1 ?
-                " В коалиции участвуют " + sponsors.Count + " фракции с захваченными представителями." : "";
-            string contract = hired!=null ? " Для отвлекающего удара нанята фракция " + hired.Name + "." : "";
-            string split = op.CombinedStrike ?
-                " Возможны одновременные удары по тюрьме и основным оборонительным позициям." : "";
-            Find.LetterStack.ReceiveLetter("Реакция фракций: " + r.OriginalFaction.Name,
-                r.OriginalFaction.Name + " " + intent + ". План: " + doctrine + "." + allies + contract + split,
-                LetterDefOf.ThreatBig, r.Pawn);
+            // The operation is scheduled, not here yet. Sending ThreatBig now
+            // duplicates its native arrival letter and lies about raid timing.
+            // The definitive doctrine/factions are explained at actual Deploy.
+            // No early combat letter (or early raid jump target) is emitted.
         }
 
         private static RaidStrategyDef FindStrategy(params string[] defNames)

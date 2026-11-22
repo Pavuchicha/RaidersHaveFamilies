@@ -9,7 +9,7 @@ assert {'RHFPatches.cs','RHFOperations.cs','RHFRanks.cs','RHFWCERegistry.cs',
 assert 'Danger.Some, false, TraverseMode.ByPawn' not in files['RHFPatches.cs']
 assert 'RHFDialogue.HasCaptives(faction)' in files['RHFPatches.cs']
 for needle in ['RHFStrikeParty','RHFStrikeRole','CombinedStrike','Sponsors','ForceDeployNow',
-  'RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms)','private bool Deploy(',
+  'RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op)','private bool Deploy(',
   'SplitRescueWing(','Scribe_Collections.Look(ref Parties',
   'Infiltrate(', 'FindBarrier(', 'FreeTarget(', 'Extract(', 'BuildAndLaunch(',
   'PawnLostCondition.LeftVoluntarily','LastProgressTick','map.roofGrid.RoofAt(cell)!=null','Steel',

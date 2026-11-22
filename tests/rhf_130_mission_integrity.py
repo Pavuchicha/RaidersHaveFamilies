@@ -12,10 +12,12 @@ debug=(source/'RHFDebugActions.cs').read_text('utf8')
 wf=(root/'.github/workflows/build.yml').read_text('utf8')
 
 # ONE coherent mission letter replaces vanilla RaidEnemy, and no field-kit letter.
-assert 'ExecuteRaidWithoutVanillaLetter(parms)' in ops
+assert 'ExecuteRaidWithoutVanillaLetter(parms, op)' in ops
 assert 'IncidentDefOf.RaidEnemy.Worker.TryExecute(parms)' in integrity
-assert 'RHFMissionIntegrityV130.ShowMissionLetter(op,map)' in ops
-assert 'SuppressVanillaRaidLetters' in integrity
+assert 'RHFMissionIntegrityV130.ShowMissionLetter(op,map)' not in ops
+assert 'GetLetterLabel' in integrity and 'GetLetterText' in integrity
+assert 'AllowOneNativeLetter' in integrity
+assert 'ActiveRaidLetterOperation' in integrity
 assert 'AccessTools.GetDeclaredMethods(typeof(LetterStack))' in integrity
 assert 'MissionBriefing(op)' in integrity and 'RHFMissionProfiles.Label(op)' in integrity
 assert 'Полевой эвакуационный комплекс' not in ops
@@ -91,9 +93,9 @@ assert 'int stageWork=stage==0?3000:1600' in ops
 
 # Release archives must offer the installable DLL ZIP after CI compilation.
 assert 'python3 tests/rhf_130_mission_integrity.py' in wf
-assert 'Build Raiders Have Families 0.13.2' in wf
-assert 'RaidersHaveFamilies_v0.13.2_RimWorld_1.7_INSTALL.zip' in wf
-assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.2-MISSION-AUTHORITY-TEST' in wf
+assert 'Build Raiders Have Families 0.13.3' in wf
+assert 'RaidersHaveFamilies_v0.13.3_RimWorld_1.7_INSTALL.zip' in wf
+assert 'RaidersHaveFamilies-RimWorld-1.7-v0.13.3-ONE-LETTER-MISSION-TEST' in wf
 for f in (root/'RaidersHaveFamilies').rglob('*.xml'):
     ET.parse(f)
 print('PASS: mission letters, vanilla VIP buildings, paid supplies, safe drops, mission friendlies, group exit safeguards, CI metadata')

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <!-- RHF rescue troops idle locally between explicit objective orders.
+       No generic destruction-raid ThinkNodes. -->
+  <DutyDef>
+    <defName>RHF_HoldForMissionOrders</defName>
+    <alwaysShowWeapon>true</alwaysShowWeapon>
+    <thinkNode Class="ThinkNode_Priority">
+      <subNodes>
+        <li Class="JobGiver_AIFightEnemies">
+          <targetAcquireRadius>12</targetAcquireRadius>
+          <targetKeepRadius>15</targetKeepRadius>
+          <needLOSToAcquireNonPawnTargets>true</needLOSToAcquireNonPawnTargets>
+        </li>
+        <li Class="JobGiver_WanderNearDutyLocation">
+          <wanderRadius>1</wanderRadius>
+        </li>
+      </subNodes>
+    </thinkNode>
+  </DutyDef>
+</Defs>

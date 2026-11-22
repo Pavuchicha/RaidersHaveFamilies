@@ -254,3 +254,13 @@ Test-only 1.7 build: vanilla PodLauncher and TransportPod stage construction, mi
 
 ### v0.13.2 — Mission authority and rescue regression guard
 Standard rescue teams no longer donate arbitrary soldiers to vanilla destructive assault. Pure coalition rescue does not automatically become a diversion. Rescue command uses direct MapComponent and RHFRescueCommandV124 calls; delayed drop-pod arrivals are reclaimed on each mission pulse. The first structural target comes only from the objective route. Orders are not counted as objective progress unless the actual pawn has approached or the chosen barrier has lost HP. Rescue searches for missing VIPs also receive persistent mission command. Debug action 33 reports real Lord/job state. This is a safety regression patch; the remaining VIP pod and general combat tactics require live validation.
+
+
+### v0.13.3 — Single native arrival letter and rescue Lord protection
+
+- The provided RAR contained the **installed compiled mod** (About/Defs/Assemblies), not source; patch is built against exact GitHub v0.13.2 source hashes.
+- Removed the *second* synthetic mission letter after `RaidEnemy` generation. During a RHF incident, the native raid letter's label/text is replaced with RHF plan; one native letter is accepted per operation, including coalition waves. No early threat letter for a **scheduled** reprisal. Unrelated raid letters are unchanged.
+- Removed v0.12.3 Harmony dispatchers that could detach soldiers from newly assigned v0.12.4 mission Lords and overwrite direct 0.13.2 orders.
+- Replaced vanilla `Defend`-at-hostage fallback with a custom narrow `RHF_HoldForMissionOrders` duty: RHF issues objective movement explicitly; the Lord does not independently storm the prison or attack unrelated infrastructure. Local immediate defensive reactions remain.
+- Added incident-scoped recovery of all newly spawned rescue soldiers, even with modded immediate spawn modes. Does not recruit unrelated existing hostile pawns into the mission.
+- Static validation **does not** prove actual RimWorld gameplay or compile. Test one normal rescue after successful Actions build; if the mission still deviates, provide the command 33 report and new Player.log.

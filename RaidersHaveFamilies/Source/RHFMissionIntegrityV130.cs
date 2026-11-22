@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using HarmonyLib;
 using LudeonTK;
@@ -18,15 +19,51 @@ namespace RaidersHaveFamilies
         private static readonly FieldInfo OperationsField =
             AccessTools.Field(typeof(RHFOperationController), "operations");
         private const int MaxMissions = 4;
-        private static int suppressedRaidLetterDepth;
+        // The native raid incident must produce exactly ONE letter per RHF
+        // operation. Reuse that actual arrival letter (including its true raid
+        // jump target), instead of creating another letter after deployment.
+        // The dispatch context only exists for this explicit RHF incident; all
+        // unrelated vanilla/storyteller events retain their native messages.
+        private sealed class RHFNativeLetterState { internal bool Sent; }
+        private static readonly ConditionalWeakTable<RHFOperation, RHFNativeLetterState>
+            NativeLetterStates = new ConditionalWeakTable<RHFOperation, RHFNativeLetterState>();
+        [ThreadStatic] private static RHFOperation activeRaidLetterOperation;
+        [ThreadStatic] private static int receiveLetterNesting;
 
-        internal static bool SuppressVanillaRaidLetters => suppressedRaidLetterDepth > 0;
+        internal static RHFOperation ActiveRaidLetterOperation => activeRaidLetterOperation;
 
-        internal static bool ExecuteRaidWithoutVanillaLetter(IncidentParms parms)
+        internal static bool ExecuteRaidWithoutVanillaLetter(IncidentParms parms, RHFOperation op)
         {
-            suppressedRaidLetterDepth++;
+            // Retained method name for compatibility; the NATIVE raid letter
+            // now carries the RHF briefing, instead of being deleted and then
+            // duplicated by a synthetic custom notice.
+            RHFOperation previous = activeRaidLetterOperation;
+            activeRaidLetterOperation = op;
             try { return IncidentDefOf.RaidEnemy.Worker.TryExecute(parms); }
-            finally { suppressedRaidLetterDepth--; }
+            finally { activeRaidLetterOperation = previous; }
+        }
+
+        internal static bool AllowOneNativeLetter(out bool entered)
+        {
+            entered = false;
+            RHFOperation operation = activeRaidLetterOperation;
+            if (operation == null) return true;
+            // ReceiveLetter(string,...) may forward internally to
+            // ReceiveLetter(Letter). Both must be allowed for the FIRST letter.
+            if (receiveLetterNesting > 0)
+            { receiveLetterNesting++; entered = true; return true; }
+            RHFNativeLetterState state = NativeLetterStates.GetValue(
+                operation, _ => new RHFNativeLetterState());
+            if (state.Sent) return false; // second coalition/auxiliary incident
+            state.Sent = true;
+            receiveLetterNesting++;
+            entered = true;
+            return true;
+        }
+
+        internal static void NativeLetterReturned(bool entered)
+        {
+            if (entered && receiveLetterNesting > 0) receiveLetterNesting--;
         }
 
         internal static List<RHFOperation> Operations(Map map)
@@ -146,7 +183,7 @@ namespace RaidersHaveFamilies
                 for(int i=0;i<op.Parties.Count && i<5;i++)
                 {
                     var p=op.Parties[i];
-                    if(p==null || !p.Succeeded)continue;
+                    if(p==null)continue;
                     sb.AppendLine("• " + (p.Faction?.Name ?? "неизвестные") + ": " +
                         (p.Role==(int)RHFStrikeRole.Rescue ? "спасательная группа" :
                         p.Role==(int)RHFStrikeRole.Diversion ? "отвлекающий отряд" :
@@ -156,6 +193,8 @@ namespace RaidersHaveFamilies
             return sb.ToString();
         }
 
+        // Compatibility-only. NEVER call this after RaidEnemy.TryExecute:
+        // the native arrival letter is already rewritten by the hooks below.
         internal static void ShowMissionLetter(RHFOperation op, Map map)
         {
             if (map == null || op == null || op.SuccessfulParties <= 0) return;
@@ -204,16 +243,45 @@ namespace RaidersHaveFamilies
         }
     }
 
+    // Change the actual RaidEnemy arrival letter, not a second letter after
+    // the raid has spawned. All other storyteller and mod incidents are untouched.
+    [HarmonyPatch(typeof(IncidentWorker_RaidEnemy), "GetLetterLabel")]
+    internal static class RHFNativeRaidTitleV133
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ref string __result)
+        {
+            RHFOperation op = RHFMissionIntegrityV130.ActiveRaidLetterOperation;
+            if (op != null) __result = RHFMissionIntegrityV130.MissionTitle(op);
+        }
+    }
+
+    [HarmonyPatch(typeof(IncidentWorker_RaidEnemy), "GetLetterText")]
+    internal static class RHFNativeRaidBriefingV133
+    {
+        [HarmonyPostfix]
+        private static void Postfix(ref string __result)
+        {
+            RHFOperation op = RHFMissionIntegrityV130.ActiveRaidLetterOperation;
+            if (op != null) __result = RHFMissionIntegrityV130.MissionBriefing(op);
+        }
+    }
+
     [HarmonyPatch]
     internal static class RHFOnlyOneRaidLetterV130
     {
-        // RimWorld may use either a Letter object or a string overload.
         private static IEnumerable<MethodBase> TargetMethods()
         {
-            foreach(MethodInfo method in AccessTools.GetDeclaredMethods(typeof(LetterStack)))
-                if(method.Name=="ReceiveLetter") yield return method;
+            foreach (MethodInfo method in AccessTools.GetDeclaredMethods(typeof(LetterStack)))
+                if (method.Name == "ReceiveLetter") yield return method;
         }
-        private static bool Prefix() => !RHFMissionIntegrityV130.SuppressVanillaRaidLetters;
+        [HarmonyPrefix]
+        private static bool Prefix(out bool __state)
+        { return RHFMissionIntegrityV130.AllowOneNativeLetter(out __state); }
+
+        [HarmonyPostfix]
+        private static void Postfix(bool __state)
+        { RHFMissionIntegrityV130.NativeLetterReturned(__state); }
     }
 
     [HarmonyPatch(typeof(GenHostility), nameof(GenHostility.HostileTo),
