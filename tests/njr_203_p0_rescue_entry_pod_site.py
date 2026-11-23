@@ -24,10 +24,21 @@ assert 'vehicle.GetRoom(map)!=candidate' in ops
 assert 'roof!=null && roof.isThickRoof' in ops  # thin roofs can be worked physically
 assert 'c==vip.Position' in clear  # never overlap the VIP's actual tile
 assert 'occupant.GetLord()?.LordJob is RHFRescueLordJobV124' in clear
-# Every fighter receives a mission assignment after a failed route solution.
-assert 'ChooseReachableApproach(lead,captive,map)' in plan
+# R021: route planning uses every eligible assault member as a source, not
+# an elected leader. A fallback, when allowed, is only a physical approach
+# from a sample rescuer and NEVER a guessed independent demolition target.
+assert 'RHFObjectiveRouteV128.ResolveShared(' in plan
+assert 'op,map,op.Squad,escortedDuringAssault,captive,now)' in plan
+assert 'if(sample==null)sample=member;' in plan
+assert 'ChooseReachableApproach(sample,captive,map)' in plan
+assert 'route.Valid || route.BudgetExceeded ?' in plan
+assert 'if(!route.Valid)obstacle=null;' in plan
 assert 'soldier.CanReach(fallback,PathEndMode.OnCell,Danger.Some)' in plan
-assert 'if(cost<leadCost){lead=candidate;leadCost=cost;}' in plan
+assert 'if(way.IsValid)' in plan
+assert 'board.Assign(soldier,RHFRoleS41.Advance,null,way,now);' in plan
+assert 'board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);' in plan
+assert 'ChooseReachableApproach(lead,captive,map)' not in plan
+assert 'leadCost' not in plan
 # Guard/haul assignments remain stable and avoid the native footprint.
 assert 'ValidGuardCell(previous.Cell,op,map,positions)' in pod
 assert 'InFootprint(cell,op.PodCell,' in pod
