@@ -24,7 +24,6 @@ namespace RaidersHaveFamilies
     {
         private static readonly ConditionalWeakTable<RHFOperation,RHFAssemblyStateV139> States=
             new ConditionalWeakTable<RHFOperation,RHFAssemblyStateV139>();
-        private const int MaxActors=36;
         private const int AssemblyDeadline=2400;
 
         // Threat-aware spacing: the pre-contact assembly must be outside the
@@ -82,7 +81,6 @@ namespace RaidersHaveFamilies
                 int checkedPawns=0;
                 foreach(Pawn defender in map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer))
                 {
-                    if(++checkedPawns>100)break;
                     if(defender==null || defender.Dead || defender.Downed ||
                        !defender.Spawned || defender==captive ||
                        (op.Targets!=null && op.Targets.Contains(defender)) ||
@@ -93,10 +91,9 @@ namespace RaidersHaveFamilies
                        !GenSight.LineOfSight(leader.Position,defender.Position,map))continue;
                     contact=defender;best=distance;
                 }
-                int checkedTurrets=0;
                 foreach(Building turret in map.listerBuildings.allBuildingsColonist)
                 {
-                    if(++checkedTurrets>160)break;
+                    // Do not ignore defenses appearing late in the registry.
                     if(!RHFCombatPlannerV125.IsTurret(turret))continue;
                     int distance=(leader.Position-turret.Position).LengthHorizontalSquared;
                     if(distance<196 || distance>3600 || distance>=best ||
@@ -110,7 +107,7 @@ namespace RaidersHaveFamilies
                 float contactRange=ContactRange(contact);
                 int nearest=-1;
                 int distanceToContact=int.MaxValue;
-                int upto=Math.Min(route.Cells.Count-1,65);
+                int upto=route.Cells.Count-1;
                 for(int i=2;i<=upto;i++)
                 {
                     int d=(route.Cells[i]-contact.Position).LengthHorizontalSquared;
@@ -135,7 +132,7 @@ namespace RaidersHaveFamilies
                 IntVec3 side=alongX?IntVec3.North:IntVec3.East;
                 var reserved=new HashSet<IntVec3>();
                 int eligible=0,assigned=0;
-                for(int i=0;i<op.Squad.Count && i<MaxActors;i++)
+                for(int i=0;i<op.Squad.Count;i++)
                 {
                     Pawn soldier=op.Squad[i];
                     if(soldier==null || !soldier.Spawned || soldier.Dead ||

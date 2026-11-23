@@ -18,7 +18,6 @@ namespace RaidersHaveFamilies
     {
         private static readonly FieldInfo OperationsField =
             AccessTools.Field(typeof(RHFOperationController), "operations");
-        private const int MaxMissions = 4;
         // The native raid incident must produce exactly ONE letter per RHF
         // operation. Reuse that actual arrival letter (including its true raid
         // jump target), instead of creating another letter after deployment.
@@ -111,7 +110,7 @@ namespace RaidersHaveFamilies
                 a.MapHeld != map || b.MapHeld != map) return false;
             List<RHFOperation> operations = Operations(map);
             if (operations == null) return false;
-            for (int i=0;i<operations.Count && i<MaxMissions;i++)
+            for (int i=0;i<operations.Count;i++)
             {
                 RHFOperation op = operations[i];
                 if (!LiveRescue(op)) continue;
@@ -131,11 +130,11 @@ namespace RaidersHaveFamilies
                 attackingFaction.IsPlayer) return false;
             List<RHFOperation> operations = Operations(map);
             if (operations == null) return false;
-            for(int i=0;i<operations.Count && i<MaxMissions;i++)
+            for(int i=0;i<operations.Count;i++)
             {
                 RHFOperation op = operations[i];
                 if (!LiveRescue(op) || !ProtectedPerson(op,pawn)) continue;
-                for(int j=0;j<op.Parties.Count && j<5;j++)
+                for(int j=0;j<op.Parties.Count;j++)
                 {
                     RHFStrikeParty party = op.Parties[j];
                     if(party != null && party.Faction==attackingFaction && party.Attempted)
@@ -184,7 +183,7 @@ namespace RaidersHaveFamilies
             else
                 sb.AppendLine("Задача: " + RHFMissionProfiles.Label(op) + ".");
             if (op.Parties != null)
-                for(int i=0;i<op.Parties.Count && i<5;i++)
+                for(int i=0;i<op.Parties.Count;i++)
                 {
                     var p=op.Parties[i];
                     if(p==null)continue;
@@ -221,7 +220,7 @@ namespace RaidersHaveFamilies
             var sb = new StringBuilder("NJR: свой–чужой / VIP / связь\n");
             var operations = Operations(map);
             if (operations == null || operations.Count == 0) return sb.Append("Нет операций.").ToString();
-            for (int i=0;i<operations.Count && i<4;i++)
+            for (int i=0;i<operations.Count;i++)
             {
                 var op=operations[i];
                 if(!LiveRescue(op))continue;
@@ -235,7 +234,7 @@ namespace RaidersHaveFamilies
                     ", начало работы " + op.PodConstructionTick +
                     ", запуск " + op.PodLaunchCompleted + ".");
                 if(op.Freed != null)
-                    for(int j=0;j<op.Freed.Count && j<6;j++)
+                    for(int j=0;j<op.Freed.Count;j++)
                     {Pawn c=op.Freed[j]; if(c==null)continue;
                      sb.AppendLine("  освобождён " + c.LabelShortCap +
                         "; фракция=" + (c.Faction?.Name ?? "нет") +

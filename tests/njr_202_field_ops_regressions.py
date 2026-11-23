@@ -1,4 +1,4 @@
-"""NJR 0.14.0-beta2: integrated field-test regression gates. STATIC ONLY.
+﻿"""NJR 0.15.0-beta1: integrated field-test regression gates. STATIC ONLY.
 These guards are NOT substitutes for compilation or actual RimWorld raid tests.
 """
 from pathlib import Path
@@ -16,8 +16,8 @@ contracts={
  'turret encirclement bounding':[(rescue,'TurretStagingCell(soldier,board.Threat,map,allocated)'),(rescue,'return best??nearest;'),(role,'case RHFRoleS41.SuppressTurret:')],
  'physical VIP boarding':[(air,'private void NativeVipMovementS41('),(air,'vip.jobs.TryTakeOrderedJob(board);'),(air,'transport.innerContainer.Contains(vip)')],
  'tiered indoor rescue landing':[(ops,'private IntVec3 RescueDropCenter('),(ops,'tier*100000+risk*20000'),(interior,'DirectDoor(Map map,Room prison,Room other')],
- 'indoor build and physical safe clear':[(ops,'private bool FindFieldConstructionSite('),(ops,'NJRPodSiteClearS41.Needed('),(air,'NJRPodSiteClearS41.Blocker('),(clears,'map.roofGrid.RoofAt(b.Position)==null')],
- 'native construction and thin roof work':[(air,'GenConstruct.PlaceBlueprintForBuild('),(pods,'NJRPodRoofS41.NeedsWork('),(pods,'private const int MaxGuards=32;'),(pods,'for(int radius=1;radius<=8;radius++)'),(roof,'GotoCell(TargetIndex.A,PathEndMode.Touch)'),(roof,'pawn.Map.roofGrid.SetRoof(cell,null);')],
+ 'indoor build and physical safe clear':[(ops,'private bool FindFieldConstructionSite('),(ops,'NJRPodSiteClearS41.Needed('),(clears,'internal static Thing Blocker('),(clears,'map.roofGrid.RoofAt(b.Position)==null')],
+ 'native construction and thin roof work':[(air,'GenConstruct.PlaceBlueprintForBuild('),(pods,'NJRPodRoofS41.NeedsWork('),(pods,'for(int i=0;i<op.Squad.Count;i++)'),(pods,'for(int radius=1;radius<=Math.Max(map.Size.x,map.Size.z);radius++)'),(roof,'GotoCell(TargetIndex.A,PathEndMode.Touch)'),(roof,'pawn.Map.roofGrid.SetRoof(cell,null);')],
  'each faction independent vanilla budget':[(threat,'StorytellerUtility.DefaultThreatPointsNow(map)'),(threat,'return Mathf.Max(1f,vanilla*modifier*'),(threat,'Mathf.Clamp(RHFPoliticalReputation.Pressure(sponsor),-100,0)'),(hostages,'NJRThreatBudgetS41.PartyPoints(map,member'),(reprisals,'NJRThreatBudgetS41.PartyPoints(map,member'),(debug,'NJRThreatBudgetS41.PartyPoints(map,sponsors[i]')],
  'historical save identities':[(src:=(S/'RaidersHaveFamilies.cs').read_text(),'namespace RaidersHaveFamilies'),(role,'RHFRescueLordJobV124')],
 }
@@ -36,4 +36,4 @@ assert 'NativeLaunchReadyS41(' in air
 assert 'SetFactionDirect(Faction.OfPlayer)' not in air
 assert 'NJR: ' in (R/'RaidersHaveFamilies/Defs/StatDefs/RHF_RankStats.xml').read_text() or 'NJR — Not Just Raiders' in (R/'RaidersHaveFamilies/Defs/StatDefs/RHF_RankStats.xml').read_text()
 assert ET.parse(R/'RaidersHaveFamilies/About/About.xml').getroot().findtext('packageId')=='pavuk.raidshavefamilies'
-print('PASS NJR v0.14.0-beta2:',len(contracts),'integrated subsystems /',count,'static anchors and negative mutations; NOT game runtime')
+print('PASS NJR v0.15.0-beta1:',len(contracts),'integrated subsystems /',count,'static anchors and negative mutations; NOT game runtime')

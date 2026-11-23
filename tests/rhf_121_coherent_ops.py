@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 ops=(root/'RaidersHaveFamilies/Source/RHFOperations.cs').read_text(encoding='utf-8')
 tactical=(root/'RaidersHaveFamilies/Source/RHFTactical.cs').read_text(encoding='utf-8')
@@ -9,7 +9,7 @@ for key in ['HuntLastSeenCell', 'HuntLastSeenTick', 'rhfHuntLastSeenCellV121',
 assert ops.index('if (op.PodLaunchCompleted && captive == op.Vip) continue;') < ops.index('if (captive == null || captive.Dead || captive.MapHeld != map) continue;'), 'VIP skyfaller regression: should check before MapHeld'
 assert ops.count('HuntLastSeenCell') >= 5
 assert 'GenSight.LineOfSight(fighter.Position, possible.Position, map)' in tactical
-assert 'MaxSquad = 96' in ops and 'DecisionInterval = 90' in ops
+assert 'MaxSquad = 96' not in ops and 'DecisionInterval = 90' in ops
 assert 'SafeRansomDrop' in (root/'RaidersHaveFamilies/Source/RHFHostageSystems.cs').read_text('utf-8')
 assert 'arrivalStillPending' in ops and 'EdgeWalkIn' in ops
 assert 'private Thing FindBarrier(' in ops and 'RHFCombatPlannerV125.BreachWorkCost(edifice)' in ops
@@ -17,9 +17,9 @@ for key in ['Scribe_References.Look(ref HuntTarget', 'Scribe_Collections.Look(re
             'PodLaunchCompleted', 'PodBudgetPaid', 'RHFReprisalSystem.OnOperationDeployed']:
     assert key in ops, 'missing persistence/missions: '+key
 wf=(root/'.github/workflows/build.yml').read_text()
-assert 'NJR - Not Just Raiders v0.14.0-beta2' in wf  # current build must be titled correctly
+assert 'NJR - Not Just Raiders v0.15.0-beta1' in wf  # current build must be titled correctly
 assert 'tests/rhf_121_coherent_ops.py' in wf
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta2' in wf
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in wf
 assert 'tests/rhf_123_rescue_control.py' in wf
 assert 'REQUIREMENTS_AUDIT_MASTER_RU.md' in {x.name for x in root.iterdir()}
 print('PASS: v0.12.1 mission persistence retained; v0.12.6 CI packaging contract')

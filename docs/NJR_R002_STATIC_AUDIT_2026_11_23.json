@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-23",
+  "revision": "R002",
+  "total": 65,
+  "pass": 65,
+  "failed": [],
+  "elapsed_s": 17.04,
+  "build": "NOT RUN (no .NET SDK/RimWorld references in runtime)",
+  "game": "NOT TESTED",
+  "notes": "Static Python checks only; some are lexical/source-token checks, not behavioral tests."
+}

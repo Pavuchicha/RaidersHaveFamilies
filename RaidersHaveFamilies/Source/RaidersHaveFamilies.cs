@@ -191,7 +191,37 @@ namespace RaidersHaveFamilies
     {
         // Persistent number of generated off-map pawns. Retains v0.1.x save key.
         public int CreatedWorldPawns;
+        public int NextGroupRansomId = 1;
         public List<RHFHostageRecord> Hostages = new List<RHFHostageRecord>();
+        // Derived, non-Scribed index: pawn exits and medical events can fire for
+        // hundreds of non-hostages. A negative lookup must not scan all captives.
+        // Mutations invalidate the index; PostLoadInit also invalidates it.
+        private Dictionary<Pawn,RHFHostageRecord> hostageByPawn;
+        private int indexedHostageCount = -1;
+
+        public void InvalidateHostageIndex()
+        {
+            indexedHostageCount = -1;
+            // Immediately release references to departed world pawns. Otherwise
+            // the derived cache itself would keep them alive until the next lookup.
+            hostageByPawn?.Clear();
+        }
+
+        private void RebuildHostageIndex()
+        {
+            if(hostageByPawn==null)
+                hostageByPawn=new Dictionary<Pawn,RHFHostageRecord>();
+            else hostageByPawn.Clear();
+            if(Hostages!=null)
+                for(int i=0;i<Hostages.Count;i++)
+                {
+                    RHFHostageRecord record=Hostages[i];
+                    Pawn pawn=record?.Pawn;
+                    if(pawn!=null && !hostageByPawn.ContainsKey(pawn))
+                        hostageByPawn.Add(pawn,record);
+                }
+            indexedHostageCount=Hostages?.Count??0;
+        }
         public List<RHFReprisalCase> ReprisalCases = new List<RHFReprisalCase>();
         public int LastHumanMeatConsumptionTick;
         public List<RHFManagedLink> ManagedLinks = new List<RHFManagedLink>();
@@ -200,11 +230,13 @@ namespace RaidersHaveFamilies
         public List<RHFFactionStanding> FactionStandings = new List<RHFFactionStanding>();
         public int ActiveGeneratedKin => GeneratedKin?.Count ?? 0;
         private int nextHostageCheck;
+        private int nextCaseCheck;
         public RHFGameLedger(Game game) { }
         public override void ExposeData()
         {
             base.ExposeData();
             Scribe_Values.Look(ref CreatedWorldPawns, "rhfWorldPawnsCreated", 0);
+            Scribe_Values.Look(ref NextGroupRansomId, "njrNextGroupRansomIdV15", 1);
             Scribe_Collections.Look(ref Hostages, "rhfHostagesV2", LookMode.Deep);
             Scribe_Collections.Look(ref ReprisalCases, "rhfReprisalCasesV10", LookMode.Deep);
             Scribe_Values.Look(ref LastHumanMeatConsumptionTick,
@@ -216,7 +248,17 @@ namespace RaidersHaveFamilies
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
                 CreatedWorldPawns = Math.Max(0, CreatedWorldPawns);
+                NextGroupRansomId = Math.Max(1, NextGroupRansomId);
                 if (Hostages == null) Hostages = new List<RHFHostageRecord>();
+                // Scribe defaults/older or partially migrated saves can have
+                // active signed groups but an absent/stale NextGroupRansomId.
+                // Never reuse an existing contract ID: that could intermingle
+                // unrelated prisoners and strand both payouts.
+                foreach(RHFHostageRecord saved in Hostages)
+                    if(saved!=null && saved.GroupRansomId>=NextGroupRansomId)
+                        NextGroupRansomId=saved.GroupRansomId==int.MaxValue ?
+                            int.MaxValue : saved.GroupRansomId+1;
+                InvalidateHostageIndex();
                 if (ReprisalCases == null) ReprisalCases = new List<RHFReprisalCase>();
                 if (ManagedLinks == null) ManagedLinks = new List<RHFManagedLink>();
                 if (ProvenanceLinks == null) ProvenanceLinks = new List<RHFProvenanceLink>();
@@ -242,7 +284,7 @@ namespace RaidersHaveFamilies
                 }
                 if (GeneratedKin == null) GeneratedKin = new List<RHFWorldKin>();
                 if (FactionStandings == null) FactionStandings = new List<RHFFactionStanding>();
-                nextHostageCheck = Find.TickManager.TicksGame + 30000;
+                nextHostageCheck = Find.TickManager.TicksGame + 90000;
             }
         }
 
@@ -378,12 +420,42 @@ namespace RaidersHaveFamilies
             }
         }
 
+        // Rare safety net for unusual modded despawns that bypass Pawn.ExitMap.
+        // Ordinary exits are handled immediately by RHFExitEvent. Keep
+        // contracts, death investigations and recruitment/cultural cases.
+        private void CleanupStaleHostagesS42()
+        {
+            if(Hostages==null)return;
+            for(int i=Hostages.Count-1;i>=0;i--)
+            {
+                RHFHostageRecord r=Hostages[i];
+                if(r==null){Hostages.RemoveAt(i);InvalidateHostageIndex();continue;}
+                if(r.GroupRansomId>0 || r.Negotiated || r.Recruited ||
+                   r.IdeologyReported || RHFHostageDiplomacy.IsDeadCase(r))continue;
+                Pawn p=r.Pawn;
+                // No player's colony holds this pawn anymore. Never drop
+                // tracked living prisoners or those aboard a player caravan.
+                if(p==null || (p.MapHeld?.IsPlayerHome!=true &&
+                   !p.IsPrisonerOfColony && !p.IsSlaveOfColony && !p.IsColonist))
+                    { Hostages.RemoveAt(i); InvalidateHostageIndex(); }
+            }
+        }
+
         public RHFHostageRecord FindHostage(Pawn pawn)
         {
-            if (pawn == null) return null;
-            for (int i = 0; i < Hostages.Count; i++)
-                if (Hostages[i].Pawn == pawn) return Hostages[i];
-            return null;
+            if(pawn==null || Hostages==null || Hostages.Count==0)return null;
+            if(hostageByPawn==null || indexedHostageCount!=Hostages.Count)
+                RebuildHostageIndex();
+            if(!hostageByPawn.TryGetValue(pawn,out RHFHostageRecord record))return null;
+            // The public save list can also be edited by another mod or a
+            // dialogue, and a group release deliberately clears record.Pawn.
+            // Never return a detached/removed record from a transient cache.
+            if(record?.Pawn!=pawn || !Hostages.Contains(record))
+            {
+                RebuildHostageIndex();
+                hostageByPawn.TryGetValue(pawn,out record);
+            }
+            return record?.Pawn==pawn ? record : null;
         }
 
         public RHFHostageRecord TrackHostage(Pawn pawn)
@@ -394,6 +466,7 @@ namespace RaidersHaveFamilies
             if (existing != null) return existing;
             var record = new RHFHostageRecord(pawn);
             Hostages.Add(record);
+            InvalidateHostageIndex();
             return record;
         }
 
@@ -401,8 +474,17 @@ namespace RaidersHaveFamilies
         {
             if (RHFMod.Settings == null || !RHFMod.Settings.Enabled) return;
             int tick = Find.TickManager.TicksGame;
+            // Most saves have NO pending faction reprisal at all. Do not poll
+            // its case list on every diplomacy review (or scan any pawns).
+            if(ReprisalCases!=null && ReprisalCases.Count>0 && tick>=nextCaseCheck)
+            {
+                nextCaseCheck=tick+30000;
+                RHFReprisalSystem.Update(this, tick);
+            }
             if (tick < nextHostageCheck) return;
-            nextHostageCheck = tick + 30000;
+            // Offers/refusals are strategic events, not combat logic. A
+            // 1.5-day cadence saves map walks on settled idle colonies.
+            nextHostageCheck = tick + (Hostages.Count>0?90000:150000);
             // This is never a general pawn scan each tick. Only current colony prisoners,
             // once per half-day, are inspected for possible independent ransom offers.
             if (RHFMod.Settings.Negotiations)
@@ -414,10 +496,16 @@ namespace RaidersHaveFamilies
                     var all = m.mapPawns.PrisonersOfColonySpawned;
                     for (int pi = 0; pi < all.Count; pi++) TrackHostage(all[pi]);
                 }
-                RHFHostageDiplomacy.UpdateOffers(this, tick);
             }
-            // Reprisal machinery is independent of ordinary ransom negotiations.
-            RHFReprisalSystem.Update(this, tick);
+            // Group debts, recruitment disclosures, and already queued
+            // retaliation must continue progressing even if the player turns
+            // NEW ransom negotiations off. UpdateOffers guards the dialog
+            // itself; this sparse call has no new per-tick work.
+            if (Hostages.Count > 0)
+                RHFHostageDiplomacy.UpdateOffers(this, tick);
+            // Actual reprisal deadlines are handled by the sparse case clock
+            // above; do not run a second sweep from diplomatic housekeeping.
+            CleanupStaleHostagesS42();
             CleanupDeparted();
             CleanupGeneratedKin();
             PruneProvenance();
@@ -442,6 +530,7 @@ namespace RaidersHaveFamilies
         private int totalFamiliesLinked;
         private int failedBatches;
         private List<Pawn> pending = new List<Pawn>(48);
+        private HashSet<Pawn> pendingSet = new HashSet<Pawn>();
         private List<int> processedPawnIds = new List<int>();
         private HashSet<int> processed = new HashSet<int>();
         private static readonly HashSet<string> warnedFactionDefs = new HashSet<string>();
@@ -466,6 +555,7 @@ namespace RaidersHaveFamilies
                 // does not generate another family for a processed pawn.
                 nextScanTick = 0;
                 pending = new List<Pawn>(48);
+                pendingSet = new HashSet<Pawn>();
                 oneTimeBackfill = true;
             }
         }
@@ -478,7 +568,7 @@ namespace RaidersHaveFamilies
             // Remember only AFTER successful processing, never before. Earlier
             // releases marked incoming pawns as processed even if generation
             // threw or the pawn left during the pending delay.
-            if (pending.Contains(pawn)) return;
+            if (!pendingSet.Add(pawn)) return;
             pending.Add(pawn);
             totalQueued++;
             if (nextScanTick == 0) nextScanTick = Find.TickManager.TicksGame + FirstScanDelay;
@@ -532,6 +622,7 @@ namespace RaidersHaveFamilies
             // Entire group is processed once, shortly after the arrival finishes.
             List<Pawn> batch = pending;
             pending = new List<Pawn>(48);
+            pendingSet.Clear();
             batch.RemoveAll(p => p == null || !p.Spawned || p.Map != map || p.Dead);
             if (batch.Count == 0) return;
             try
@@ -608,7 +699,11 @@ namespace RaidersHaveFamilies
             int generationAttempts = 0; // hard bound even when pawn generation fails
             int links = 0;
             links += LinkGroupFamily(newcomers, ledger);
-            // Reuse our existing retained relatives before generating another world pawn.
+            // World pawns already generated by the game are real candidates too.
+            // Probe a bounded rotating window ONCE per arrival, never per tick.
+            // Importantly this happens before generating any new off-map person.
+            links += ReuseIndependentWorldKin(newcomers, ledger, cfg);
+            // Reuse our own retained relatives before creating another pawn.
             links += ReuseExistingKin(newcomers, ledger, cfg);
             // Mandatory minimum is fulfilled before probabilistic embellishment.
             // This avoids spending the shared generation budget on a single
@@ -883,6 +978,80 @@ namespace RaidersHaveFamilies
                 }
             }
             return links;
+        }
+
+        // Reuse ACTUAL vanilla/modded world pawns, not only those NJR created.
+        // The full global pool is never cloned or scanned on each arrival. We
+        // probe a small rotating segment of its existing indexed List, cap work
+        // per pawn, and only attach biologically plausible, vacant parent links.
+        // No quest pawn, spawned pawns, foreign-faction pawn or existing parent
+        // is overwritten. These candidates must be already alive/free in world.
+        private const int IndependentWorldKinWindow = 256;
+        private const int IndependentKinProbesPerPawn = 48;
+
+        private static int ReuseIndependentWorldKin(List<Pawn> newcomers,
+            RHFGameLedger ledger,RHFSettings cfg)
+        {
+            if(newcomers==null || newcomers.Count==0 || ledger==null || cfg==null ||
+                Find.WorldPawns==null || cfg.FactionRelativeChance<=0f)return 0;
+            // Across RimWorld versions AllPawnsAlive may be IEnumerable<Pawn>
+            // rather than List<Pawn>. Do not index it or materialize the pool.
+            IEnumerable<Pawn> world=Find.WorldPawns.AllPawnsAlive;
+            if(world==null)return 0;
+            // Rotating bounded prefix: at most 256 skips + 256 candidates.
+            int seed=(Find.TickManager.TicksGame/180) ^ newcomers[0].thingIDNumber;
+            int skip=(int)((uint)seed%(uint)IndependentWorldKinWindow);
+            int inspected=0;
+            var byFaction=new Dictionary<Faction,List<Pawn>>();
+            foreach(Pawn kin in world)
+            {
+                if(inspected++<skip)continue;
+                if(inspected>skip+IndependentWorldKinWindow)break;
+                if(kin==null || kin.Dead || kin.Destroyed || kin.Spawned ||
+                    kin.Faction==null || kin.Faction.IsPlayer ||
+                    kin==kin.Faction.leader ||
+                    kin.def!=ThingDefOf.Human || kin.relations==null ||
+                    kin.ageTracker==null || kin.gender==Gender.None ||
+                    Find.WorldPawns.GetSituation(kin)!=WorldPawnSituation.Free)continue;
+                if(!byFaction.TryGetValue(kin.Faction,out List<Pawn> list))
+                {list=new List<Pawn>();byFaction.Add(kin.Faction,list);}
+                list.Add(kin);
+            }
+            int linked=0;
+            var assigned=new HashSet<Pawn>();
+            for(int i=0;i<newcomers.Count && i<MaxBatchSize;i++)
+            {
+                Pawn pawn=newcomers[i];
+                if(!Eligible(pawn) || pawn.def!=ThingDefOf.Human ||
+                    CurrentRelations(pawn)>=cfg.DesiredLinks ||
+                    !HasMissingParent(pawn) || Age(pawn)>=70f ||
+                    !Rand.Chance(cfg.FactionRelativeChance) ||
+                    !byFaction.TryGetValue(pawn.Faction,out List<Pawn> candidates))continue;
+                int examined=0;
+                foreach(Pawn kin in candidates)
+                {
+                    if(++examined>IndependentKinProbesPerPawn)break;
+                    // Do not turn the first sampled adult into a parent of
+                    // dozens of unrelated newcomers across different raids.
+                    if(assigned.Contains(kin) || CurrentRelations(kin)>=6 ||
+                        HaveAnyRelation(pawn,kin))continue;
+                    float ageGap=Age(kin)-Age(pawn);
+                    if(ageGap<19f || ageGap>65f)continue;
+                    if(kin.gender==Gender.Male && pawn.GetFather()==null)
+                    {
+                        pawn.SetFather(kin);
+                        ledger.RegisterProvenance(pawn,kin,"Отец (существующий WorldPawn)");
+                        assigned.Add(kin);linked++;break;
+                    }
+                    if(kin.gender==Gender.Female && pawn.GetMother()==null)
+                    {
+                        pawn.SetMother(kin);
+                        ledger.RegisterProvenance(pawn,kin,"Мать (существующая WorldPawn)");
+                        assigned.Add(kin);linked++;break;
+                    }
+                }
+            }
+            return linked;
         }
 
         // Reuse a bounded selection of stored world kin. This allows kinship between

@@ -1,4 +1,4 @@
-"""Source-level regression checks for v0.12.5.
+﻿"""Source-level regression checks for v0.12.5.
 NOT a substitute for DLL compilation or real gunfire/pathfinding gameplay tests.
 """
 from pathlib import Path
@@ -8,12 +8,10 @@ tactics=(source/'RHFCombatPlannerV125.cs').read_text('utf8')
 rescue=(source/'RHFRescueCommandV124.cs').read_text('utf8')
 workflow=(root/'.github/workflows/build.yml').read_text('utf8')
 for key in (
-    'MaxPawnScan = 160', 'MaxStructureScan = 240', 'MaxThreats = 24',
-    'ThreatRefreshTicks = 180', 'MaxTacticalOrders = 8',
-    'evaluationBudget=Math.Min(32',
+    'ThreatRefreshTicks = 180',
     'IsTurret(building)', 'FreeColonistsSpawned' if False else 'AllPawnsSpawned',
     'RHFCombatPlannerV125', 'JobDefOf.AttackStatic', 'JobDefOf.AttackMelee',
-    'GenSight.LineOfSight', 'TryTakeOrderedJob', 'MaxFlankCandidates',
+    'GenSight.LineOfSight', 'TryTakeOrderedJob',
     'FirstBlockingBuilding(out before, rescuer)',
     'TraverseMode.PassAllDestroyableThings',
     'private static IntVec3 FlankCell(', 'SafeApproach(',
@@ -44,7 +42,7 @@ assert 'generators' in tactics.lower() and 'machinery' in tactics.lower()
 assert 'RHFCombatPlannerV125.IsBreachableStructure(edifice)' in rescue
 assert 'AssignedEscort(op,fighter,map)' in tactics
 assert 'if(extraction && AssignedEscort(op,fighter,map))continue' in tactics
-assert 'NJR_NotJustRaiders_v0.14.0-beta2_RimWorld_1.7_INSTALL.zip' in workflow
+assert 'NJR_NotJustRaiders_v0.15.0-beta1_RimWorld_1.7_INSTALL.zip' in workflow
 assert 'tests/rhf_125_combat_planner.py' in workflow
 assert tactics.count('{') == tactics.count('}')
 assert rescue.count('{') == rescue.count('}')

@@ -1,4 +1,4 @@
-"""v0.12 source-contract checks: useful regressions, NOT proof of C# compile/gameplay."""
+﻿"""v0.12 source-contract checks: useful regressions, NOT proof of C# compile/gameplay."""
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
@@ -69,7 +69,7 @@ for stage in (1,2,3):
         assert name in defs
         assert defs[name].findtext('durationDays')=='5'
 assert '26 — Аудит вербовки' in dbg and '27 — Аудит боевой доктрины' in dbg
-assert '0.14.0-beta2' in (r/'.github/workflows/build.yml').read_text()
+assert '0.15.0-beta1' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: actual conversion/recruitment hooks, mood reporting, slave drop, real pod cargo, phased mission orders and debug diagnostics')
 # A durable trace of all gathered requirements and their distinct tactical cases
 # must survive the next archive transfer, not just appear in prose once.
@@ -91,7 +91,7 @@ assert 'op.AssaultAfterObjective=true' in profiles
 offense=(r/'RaidersHaveFamilies/Source/RHFOffenseS41.cs').read_text('utf8')
 assert 'bool hunt=op.HuntTarget!=null &&' in offense
 assert 'bool raze=op.AssaultAfterObjective ||' in offense
-assert 'Thing building=raze ? VisibleObjective(members,map) : null;' in offense
+assert 'Thing building=raze ?' in offense and 'VisibleObjective(members,map)) : null;' in offense and 'KnownTurrets(board,members[0].Faction,' in offense
 assert 'RHFRoleS41.OffenseHunt' in offense and 'RHFRoleS41.OffenseStrike' in offense
 assert 'LastInfrastructureOrderTick' in ops and 'rhfLastInfrastructureOrderV12' in ops
 assert 'op.Diversion.Count==0 &&' in ops and 'attackers.Count/2' in ops

@@ -1,4 +1,4 @@
-"""RHF 0.12.4 source contracts. Green checks are NOT gameplay verification."""
+﻿"""RHF 0.12.4 source contracts. Green checks are NOT gameplay verification."""
 from pathlib import Path
 import re
 root=Path(__file__).resolve().parents[1]
@@ -21,7 +21,7 @@ for marker in (
     'state.LastDecision',
     'LastCloserAt', 'now-closer<1200',
     'if (captive.MapHeld == map)',
-    'at most 80 path probes per 600 ticks',
+    'may search every physical map obstacle on demand',
     'PathEndMode.Touch, Danger.Deadly',
     'Target(op, map)', 'AccessObstacle(',
     'RHFCombatRole.Escort',
@@ -33,19 +33,19 @@ assert 'RHF_HoldForMissionOrders' in source
 assert 'new PawnDuty(missionHold, pawn.Position)' in source
 assert 'LordJob is RHFRescueLordJobV124' in source
 assert 'RHFRescueControlV123' in source, '0.12.3 controller integration missing'
-assert 'private const int MaxOrders = 14' in source
+assert 'private const int MaxOrders = 14' not in source
 assert 'private const int Step = 90' in source
-assert 'private const int MaxSquad = 96' in source
-assert 'private const int MaxTargets = 24' in source
+assert 'private const int MaxSquad = 96' not in source
+assert 'private const int MaxTargets = 24' not in source
 assert 'now - last < 180' in source, 'job restart throttling'
-assert '80 path probes per 600 ticks' in source
+assert 'at most 80 path probes per 600 ticks' not in source
 assert not re.search(r'HarmonyPatch\(typeof\(TickManager\)',source)
 assert not re.search(r'HarmonyPatch\(typeof\(Pawn_JobTracker\)',source)
 assert 'if(op.PodLaunchCompleted && pawn==op.Vip)return true;' in source
 assert 'RHFRescueMissionDiagnosticsV123' in old, 'v0.12.3 diagnostics retained'
 assert 'tests/rhf_124_rescue_command.py' in workflow
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta2' in workflow
-assert 'NJR_NotJustRaiders_v0.14.0-beta2_RimWorld_1.7_INSTALL.zip' in workflow
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in workflow
+assert 'NJR_NotJustRaiders_v0.15.0-beta1_RimWorld_1.7_INSTALL.zip' in workflow
 assert source.count('{') == source.count('}')
 assert source.count('(') == source.count(')')
 print('PASS: v0.12.4 persistent Lord, group extraction, safe escort, job stability, bounded access scans & CI packaging')

@@ -45,7 +45,7 @@ assert owned({1,2},[{'id':1,'faction':'F','human':False},
     {'id':5,'faction':'F','human':True}], 'F',set()) ==     [{'id':3,'faction':'F','human':False}]
 assert owned(set(),[{'id':10,'faction':'F','human':False}], 'F',{10}) == []
 # LoS enemy probe is bounded and never gives global enemy position.
-assert 'if(++scanned>48)break;' in native
+assert 'if(++scanned>48)break;' not in native
 assert 'enemy.Position.Fogged(map)' in native
 # A second, unrelated raid sharing the same faction outside the sync call
 # MUST NOT be scooped up by an unbounded per-tick map scan.

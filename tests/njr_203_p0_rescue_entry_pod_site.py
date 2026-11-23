@@ -17,7 +17,7 @@ assert 'parms.spawnCenter=plannedRescueEntry;' in ops
 retry=ops[ops.index('if (!accepted && !party.Drop'):ops.index('catch (Exception e)',ops.index('if (!accepted && !party.Drop'))]
 assert 'parms.spawnCenter=IntVec3.Invalid;' in retry  # only non-rescue retry
 assert retry.index('else {parms.raidArrivalMode=null;') < retry.index('parms.spawnCenter=IntVec3.Invalid;')
-assert 't+=7' in entry and 'GroundEntryClusterSafe(map,edge)' in entry
+assert 't++' in entry and 'GroundEntryClusterSafe(map,edge)' in entry
 # Candidate can't choose a destructive launch pad while a free footprint exists.
 assert 'if(clearance!=0 ||' in ops
 assert 'vehicle.GetRoom(map)!=candidate' in ops

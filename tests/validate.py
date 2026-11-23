@@ -1,4 +1,4 @@
-"""Static verification only; actual DLL compilation is done by GitHub Actions."""
+﻿"""Static verification only; actual DLL compilation is done by GitHub Actions."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +28,6 @@ for needle in ['SilverPrice(', 'OnPrisonerExit(', 'UpdateOffers(', 'QueueRetalia
     'ImprovedProsthetics(', 'RankOf(', 'HostageEligible(']:
     assert needle in diplomacy, f'Missing {needle}'
 assert len(list((MOD/'Defs/ThoughtDefs').glob('*.xml'))) > 0
-assert '0.14.0-beta2' in (ROOT/'.github/workflows/build.yml').read_text()
+assert '0.15.0-beta1' in (ROOT/'.github/workflows/build.yml').read_text()
 assert 'dotnet build' in (ROOT/'.github/workflows/build.yml').read_text()
 print('PASS: mod metadata, XML, RimWorld 1.7, Harmony 3, source interfaces, CI contracts.')

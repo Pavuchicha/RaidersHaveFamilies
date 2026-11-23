@@ -54,18 +54,24 @@ namespace RaidersHaveFamilies
         internal const int Animals=2;
         internal const int Building=1;
         internal const int Assault=2;
-        private const int MaxActors=96;
         private const int ReobserveTicks=360;
         private const int ExpireTicks=1200;
 
-        internal static bool IsAnimalLord(Lord lord)
+        internal static bool HasAnimals(Lord lord)
         {
             if(lord?.ownedPawns==null)return false;
-            // Bound the observation even when another mod creates a huge Lord.
-            for(int i=0;i<lord.ownedPawns.Count && i<MaxActors;i++)
-                if(lord.ownedPawns[i]?.RaceProps?.Animal==true)
-                    return true;
+            for(int i=0;i<lord.ownedPawns.Count;i++)
+                if(lord.ownedPawns[i]?.RaceProps?.Animal==true)return true;
             return false;
+        }
+        internal static bool IsAnimalLord(Lord lord)
+        {
+            if(!HasAnimals(lord))return false;
+            // A mixed native assault Lord is not an animal-only Lord: the
+            // regular human fighters must still get NJR tactical assignments.
+            for(int i=0;i<lord.ownedPawns.Count;i++)
+                if(lord.ownedPawns[i]?.RaceProps?.Humanlike==true)return false;
+            return true;
         }
 
         // Identity must be exact: two siege or animal Lords may share a
@@ -123,7 +129,7 @@ namespace RaidersHaveFamilies
             report.AppendLine("NJR native Lord / support audit");
             if(ops==null || ops.Count==0)
                 report.AppendLine("No registered operations on this map.");
-            else for(int i=0;i<ops.Count && i<4;i++)
+            else for(int i=0;i<ops.Count;i++)
             {
                 RHFOperation op=ops[i];
                 if(op==null)continue;
@@ -178,19 +184,18 @@ namespace RaidersHaveFamilies
             List<Pawn> members,HashSet<Lord> seenLords)
         {
             if(members==null)return;
-            for(int i=0;i<members.Count && i<MaxActors;i++)
+            for(int i=0;i<members.Count;i++)
             {
                 Pawn p=members[i];
                 if(p==null || p.Map!=map || p.Faction==null || p.Dead)continue;
                 Lord lord=p.GetLord();
                 if(lord==null || !seenLords.Add(lord))continue;
                 int kind=lord.LordJob is LordJob_Siege ? Siege :
-                    IsAnimalLord(lord) ? Animals : 0;
+                    HasAnimals(lord) ? Animals : 0;
                 if(kind==0)continue;
                 RHFNativeWingS41 state=Find(op,p.Faction,kind,lord);
                 if(state==null)
                 {
-                    if(op.NativeWingsS41.Count>=12)continue;
                     state=new RHFNativeWingS41(p.Faction,lord,kind);
                     op.NativeWingsS41.Add(state);
                 }
@@ -209,7 +214,7 @@ namespace RaidersHaveFamilies
                     state.Rally=siege.FlagLoc;
                 Pawn beastFront=null;
                 int bestDistance=int.MaxValue;
-                for(int j=0;j<lord.ownedPawns.Count && j<MaxActors;j++)
+                for(int j=0;j<lord.ownedPawns.Count;j++)
                 {
                     Pawn member=lord.ownedPawns[j];
                     if(member==null || member.Map!=map || member.Dead)continue;
@@ -228,12 +233,10 @@ namespace RaidersHaveFamilies
                     state.Rally=beastFront.Position;
                     // Only line-of-sight contact by the current animal vanguard
                     // is eligible for a shared tactical threat indicator.
-                    int scanned=0;
                     Pawn closest=null;
                     int closestDist=900;
                     foreach(Pawn enemy in map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer))
                     {
-                        if(++scanned>48)break;
                         if(enemy==null || enemy.Dead || enemy.Downed ||
                            !enemy.Spawned || enemy.Position.Fogged(map))continue;
                         int d=(enemy.Position-beastFront.Position).LengthHorizontalSquared;

@@ -1,4 +1,4 @@
-"""RHF 0.12.7: structure/faction/VIP static contracts.
+﻿"""RHF 0.12.7: structure/faction/VIP static contracts.
 These are source checks and numerical examples, NOT in-game integration tests.
 """
 from pathlib import Path
@@ -9,7 +9,8 @@ planner=(src/'RHFCombatPlannerV125.cs').read_text(encoding='utf8')
 ops=(src/'RHFOperations.cs').read_text(encoding='utf8')
 workflow=(root/'.github/workflows/build.yml').read_text(encoding='utf8')
 for marker in [
-    'private static int nextTestFaction;',
+    'private static Faction lastRandomFaction;',
+    'private static Faction RandomTestFaction(List<Faction> candidates)',
     'private static Faction pinnedTestFaction;',
     'public static void CyclePrisonerFaction()',
     'public static void ResetPrisonerFaction()',
@@ -40,7 +41,7 @@ for marker in [
     'obstacle.def.useHitPoints',
     'obstacle.HitPoints',
     'BreachWorkCost(block)',
-    'int damageWork=BreachWorkCost(block);',
+    'int damageWork=RequiresBreach(block) ? BreachWorkCost(block) : -1;',
     'routeFound=true;',
     'building.def?.building?.turretGunDef != null',
 ]:
@@ -61,5 +62,5 @@ assert break_cost(600) == break_cost(600)
 # Modded materials of arbitrary strength must retain ordering (no 900-HP clamp).
 assert break_cost(3000) > break_cost(1500) > break_cost(500)
 assert 'tests/rhf_127_faction_and_strength.py' in workflow
-assert 'NJR_NotJustRaiders_v0.14.0-beta2_RimWorld_1.7_INSTALL.zip' in workflow
-print('PASS: modded faction PawnKind, rotation/pinning, VIP rank, industrial mercenaries, universal actual-HP path cost')
+assert 'NJR_NotJustRaiders_v0.15.0-beta1_RimWorld_1.7_INSTALL.zip' in workflow
+print('PASS: modded faction PawnKind, random dev selection / explicit pinning, VIP rank, industrial mercenaries, universal actual-HP path cost')

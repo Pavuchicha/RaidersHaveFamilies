@@ -1,4 +1,4 @@
-"""RHF v0.13.2 mission authority and no-arbitrary-destruction regression.
+﻿"""RHF v0.13.2 mission authority and no-arbitrary-destruction regression.
 
 Static contract plus a tiny decision model, not a simulated RimWorld raid.
 """
@@ -44,7 +44,7 @@ assert '33 — Кто командует рейдом и зачем' in mission
 assert 'l?.LordJob?.GetType().Name' in mission
 assert 'pawn.jobs?.curJob?.def?.defName' in mission
 assert 'python3 tests/rhf_132_mission_authority.py' in workflow
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta2' in workflow
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in workflow
 # Notional branching model for the intended invariants, for any map layout.
 def plan_action(rescue, intentional_diversion, objective_route, barrier, progress):
     if not rescue: return 'normal_attack'

@@ -1,4 +1,4 @@
-"""v0.12.6 source contracts and a standalone weighted-route cost-model example.
+﻿"""v0.12.6 source contracts and a standalone weighted-route cost-model example.
 
 This checks structural invariants and intended ordering, NOT a RimWorld gameplay
 run. Real pathfinder/CE shooting are confirmed only by the game playtest.
@@ -20,8 +20,7 @@ for marker in (
     'obstacle.HitPoints) * 2',
     'parent[next]=at',
     'route',
-    'while(queue.Count>0 && visited++<12000)',
-    'if(width*height>24000)return null',
+    'while(queue.Count>0)',
     'if(!IsBreachableStructure(barrier))continue;',
     'Thing weighted = WeightedObjectiveObstacle(rescuer,captive,out planned);',
     'if(planned)',
@@ -34,14 +33,13 @@ for marker in (
     'Mathf.FloorToInt(range>0f?range*0.85f:4f)',
     'AssignedEscort(op,fighter,map)',
     'now-lastFlank>=FlankRefreshTicks',
-    'MaxThreats = 24',
-    'MaxStructureScan = 240',
+    'var turrets=new List<IntVec3>(32)',
 ):
     assert marker in planner, f'missing weighted navigation / persistent fire: {marker}'
 assert 'RHFCombatPlannerV125.FirstObjectiveObstacle(' in command
 assert 'if (clearCorridor)' in command
 assert 'if (covering.Contains(rescuer)) continue;' in command
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta2' in workflow
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in workflow
 assert 'tests/rhf_126_smart_routes_and_cover.py' in workflow
 assert 'HarmonyPatch(typeof(TickManager)' not in planner
 assert 'HarmonyPatch(typeof(Pawn_JobTracker)' not in planner

@@ -1,0 +1,8 @@
+{
+  "date": "2026-11-23",
+  "test_count": 75,
+  "passed": 75,
+  "failures": [],
+  "elapsed_seconds": 21.92,
+  "limitations": "Python source/model checks; no C# compile or gameplay"
+}

@@ -1,0 +1,8 @@
+{
+  "revision": "R015",
+  "tests": 76,
+  "passed": 76,
+  "failed": [],
+  "elapsed_seconds": 22.86,
+  "type": "Python structural and reference model checks only. No dotnet compiler and no RimWorld engine."
+}

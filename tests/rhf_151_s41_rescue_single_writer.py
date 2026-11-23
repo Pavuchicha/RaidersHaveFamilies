@@ -44,7 +44,7 @@ def contract(op,res,patch,board,planner,giver,event,wf):
     assert 'if (InTouch(op,captive,map))' in planner
     assert 'board.Breacher=RHFCombatPlannerV125.SelectBreachOperator' in planner
     assert 'board.Assign(soldier,RHFRoleS41.Breach' in planner
-    assert 'RCellFinder.TryFindBestExitSpot' in planner
+    assert 'NJRRescueExitS41.Choose(map,op,navigator)' in planner
     assert 'RHFRescueCommandV124.MissionExit(rescued)' in planner
     assert 'class RHFRescueRoleJobGiverS41 : ThinkNode_JobGiver' in giver
     assert 'RHFCombatPlannerV125.IsCombatEmergencyJob(pawn)' in giver

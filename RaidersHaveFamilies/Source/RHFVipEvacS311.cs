@@ -40,7 +40,7 @@ namespace RaidersHaveFamilies
             if (party == null || op.Squad == null) return null;
             Pawn best = null;
             int bestDistance = int.MaxValue;
-            for (int i = 0; i < op.Squad.Count && i < 96; i++)
+            for (int i = 0; i < op.Squad.Count; i++)
             {
                 Pawn p = op.Squad[i];
                 if (!NativeAliveS311(p, map) || p.Faction != party.Faction ||
@@ -48,7 +48,10 @@ namespace RaidersHaveFamilies
                     !p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
                     !p.CanReach(cell, PathEndMode.Touch, Danger.Deadly)) continue;
                 if (p.WorkTypeIsDisabled(WorkTypeDefOf.Construction)) continue;
-                int dist = (p.Position - cell).LengthHorizontalSquared;
+                // Preserve one actual builder while supply carriers unload.
+                // A carrier may still build if no free qualified soldier exists.
+                int dist = (p.Position - cell).LengthHorizontalSquared +
+                    (RHFPodSupplyS41.HasCargo(op,p) ? 100000 : 0);
                 if (dist >= bestDistance) continue;
                 bestDistance = dist;
                 best = p;
@@ -92,8 +95,8 @@ namespace RaidersHaveFamilies
                 thing.stackCount = count;
                 destination.Add(thing);
                 total -= count;
-                if (destination.Count > 48)
-                    throw new InvalidOperationException("Unsupported modded supply stack count");
+                // Number of supply stacks is limited by actual issued cargo
+                // and carrier capacity, never by an arbitrary 48-stack cap.
             }
         }
 
@@ -340,6 +343,25 @@ namespace RaidersHaveFamilies
             }
         }
 
+        // Do not seal the LAST route out of the launch room. The VIP may
+        // fly, but guards still need a physically usable retreat if the
+        // pod is damaged or after the VIP takes off.
+        private bool NativeEscapeLaneS41(IntVec3 protectedCell,IntVec3 proposedWall)
+        {
+            int[] ox={1,-1,0,0,1,1,-1,-1};
+            int[] oz={0,0,1,-1,1,-1,1,-1};
+            for(int radius=6;radius<=22;radius+=4)
+            for(int i=0;i<ox.Length;i++)
+            {
+                IntVec3 outside=protectedCell+new IntVec3(
+                    ox[i]*radius,0,oz[i]*radius);
+                if(!outside.InBounds(map) || !outside.Standable(map) ||
+                   outside.Roofed(map) || outside.GetEdifice(map)!=null)continue;
+                if(OpenRouteExcept(protectedCell,outside,proposedWall))return true;
+            }
+            return false;
+        }
+
         // Native S4.1 fortification: enemy-owned BLUEPRINT -> FRAME -> WALL.
         // Exactly the construction pipeline used by LordToil_Siege. Never
         // spawn a completed wall, never spend steel by editing stack counts.
@@ -353,7 +375,7 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 best=IntVec3.Invalid;
                 int bestScore=int.MaxValue;
-                for(int radius=2;radius<=10;radius++)
+                for(int radius=2;radius<=16;radius++)
                 for(int dx=-radius;dx<=radius;dx++)
                 for(int dz=-radius;dz<=radius;dz++)
                 {
@@ -376,8 +398,21 @@ namespace RaidersHaveFamilies
                     bool e=SolidFlankS41(cell+IntVec3.East);
                     bool w=SolidFlankS41(cell+IntVec3.West);
                     if(!(n&&s) && !(e&&w))continue;
-                    // Keep the barricade on a corridor or doorway approach,
-                    // not in an otherwise empty prison floor.
+                    // Wall placement must close the actual door throat on
+                    // the protected-room side, not decorate any close hallway.
+                    Room protectedRoom=op.PodLauncherCell.GetRoom(map);
+                    if(protectedRoom==null || cell.GetRoom(map)!=protectedRoom)continue;
+                    bool adjacentDoor=false;
+                    foreach(IntVec3 side in GenAdj.CardinalDirections)
+                    {
+                        IntVec3 doorCell=cell+side;
+                        if(!doorCell.InBounds(map) ||
+                           !(doorCell.GetEdifice(map) is Building_Door))continue;
+                        IntVec3 across=doorCell+side;
+                        if(across.InBounds(map) && across.GetRoom(map)!=protectedRoom)
+                        {adjacentDoor=true;break;}
+                    }
+                    if(!adjacentDoor)continue;
                     int nearWalls=0;
                     for(int ox=-2;ox<=2;ox++)
                     for(int oz=-2;oz<=2;oz++)
@@ -401,7 +436,8 @@ namespace RaidersHaveFamilies
                     }
                     if(seenDoors==0 ||
                        !OpenRouteExcept(vip.Position,op.PodCell,cell) ||
-                       !OpenRouteExcept(op.PodLauncherCell,op.PodCell,cell))continue;
+                       !OpenRouteExcept(op.PodLauncherCell,op.PodCell,cell) ||
+                       !NativeEscapeLaneS41(op.PodLauncherCell,cell))continue;
                     Pawn worker=NativeEngineerS311(op,cell);
                     if(worker==null ||
                        !worker.CanReach(cell,PathEndMode.Touch,Danger.Some))continue;
@@ -560,9 +596,7 @@ namespace RaidersHaveFamilies
                     op.BoardS41.PodEngineerS41 : NativeEngineerS311(op,siteCell);
             if(RHFRescuePlannerS41.Enabled)
             {
-                Thing currentSite=NJRPodSiteClearS41.Blocker(op,map,
-                    launcherDef,podDef,vip) ??
-                    NativeWorkSiteS311(map,siteCell,owner.Faction) ??
+                Thing currentSite=NativeWorkSiteS311(map,siteCell,owner.Faction) ??
                     (op.PodConstructionStage==3 ? op.PodLauncherThing : null);
                 if(op.PodConstructionStage<=3 && currentSite!=null &&
                    now%360<90 && RHFPodPlannerS41.WorkJob(engineer,currentSite)==null)
@@ -570,10 +604,8 @@ namespace RaidersHaveFamilies
                     // A pawn may be physically reachable yet unable to get
                     // a construction/hauling job. Try another qualified real
                     // soldier instead of waiting 15000 ticks with an idle blueprint.
-                    int checkedPawns=0;
                     foreach(Pawn available in op.Squad)
                     {
-                        if(++checkedPawns>16)break;
                         if(available==null || available==engineer ||
                            available.Faction!=owner.Faction ||
                            !NativeAliveS311(available,map) ||
@@ -589,7 +621,9 @@ namespace RaidersHaveFamilies
             }
             NativeDefendSiteS311(op, engineer, now);
             Thing fortifyWork=null;
-            if(op.PodConstructionStage>=1 && op.PodConstructionStage<=3 &&
+            // Build BOTH physical pod structures before letting an unfinished
+            // wall blueprint commandeer the only qualified engineer.
+            if(op.PodConstructionStage==3 &&
                op.FortifyPrison && op.BarricadesBuilt<2)
             {
                 if(now-op.PodStageStartedTickS311<12000)
@@ -605,7 +639,6 @@ namespace RaidersHaveFamilies
                 RHFPodPlannerS41.Plan(op,map,engineer,
                     fortifyWork ??
                     (op.PodConstructionStage==4 ? op.PodVehicleThing :
-                    NJRPodSiteClearS41.Blocker(op,map,launcherDef,podDef,vip) ??
                     NativeWorkSiteS311(map,siteCell,owner.Faction) ??
                     (op.PodConstructionStage==3 ? op.PodLauncherThing : null)),now);
             // Never convert unfinished fortification into a completed wall:
@@ -636,15 +669,9 @@ namespace RaidersHaveFamilies
                 {
                     if (!FieldFootprintFree(cell, requested, vip))
                     {
-                        // The combat wing must physically demolish a real
-                        // player-owned constructed wall before construction.
-                        // We NEVER delete it instantly or place through it.
-                        if(NJRPodSiteClearS41.Blocker(op,map,launcherDef,podDef,vip)!=null)
-                        {
-                            if(now-op.PodStageStartedTickS311>NativeVipWorkTimeoutS311)
-                                NativeFallBackS311(op,now,"site demolition stalled");
-                            return;
-                        }
+                        // The chosen site must remain clear. Never destroy
+                        // unrelated colony walls/furniture because our
+                        // landing/engineering planner picked a bad footprint.
                         NativeFallBackS311(op, now, "building footprint obstructed");
                         return;
                     }
@@ -672,6 +699,28 @@ namespace RaidersHaveFamilies
                 if (now - op.PodStageStartedTickS311 > NativeVipWorkTimeoutS311)
                 { NativeFallBackS311(op, now, "native construction could not finish"); return; }
                 NativeConstructionOrderS311(engineer, site);
+                if(RHFRescuePlannerS41.Enabled && now%900<90 &&
+                   RHFPodPlannerS41.WorkJob(engineer,site)==null)
+                {
+                    bool stillCarrying=false;
+                    foreach(Pawn soldier in op.Squad)
+                        if(soldier!=null && RHFPodSupplyS41.HasCargo(op,soldier))
+                        {stillCarrying=true;break;}
+                    string job=engineer.jobs?.curJob?.def?.defName ?? "none";
+                    Log.Warning("[NJR][VIP construction] WorkGiver unavailable: stage="+
+                        op.PodConstructionStage+" site="+site.def.defName+
+                        " worker="+engineer.LabelShortCap+" job="+job+
+                        " cargoStillCarried="+stillCarrying);
+                    // Missing construction jobs are not an excuse to trap
+                    // the freed VIP forever. Try normal ground extraction
+                    // after bounded recovery, without pretending the pod flew.
+                    if(!stillCarrying && !job.Contains("Construct") &&
+                       now-op.PodStageStartedTickS311>4500)
+                    {
+                        NativeFallBackS311(op,now,"no physical blueprint/frame job after 4500 ticks");
+                        return;
+                    }
+                }
                 return;
             }
             if (op.PodConstructionStage == 3)

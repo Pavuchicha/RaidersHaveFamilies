@@ -24,7 +24,7 @@ def contract(p,g,b,e,v,o,w):
     # from a physically reachable cell, then use safe melee without CE blast.
     assert 'Job approach=ApproachBarrier(pawn,obstacle);' in g
     assert 'return Task(JobDefOf.AttackMelee,obstacle,900);' in g
-    assert 'pawn.CanReach(site,PathEndMode.OnCell,Danger.Some)' in g
+    assert 'pawn.CanReach(site,PathEndMode.OnCell,Danger.Deadly)' in g
     assert 'RHFRescueFireDisciplineV136.UnsafeLine' in g
     # 3: only a real rescue target and real contact may be adopted; a wall
     # breaking is an event to replan, never license to free someone remotely.

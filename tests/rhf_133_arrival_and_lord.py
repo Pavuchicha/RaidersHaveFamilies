@@ -1,4 +1,4 @@
-"""RHF v0.13.3: guard incident attribution and notifications against old regressions.
+﻿"""RHF v0.13.3: guard incident attribution and notifications against old regressions.
 Source contracts, NOT an in-game behavioral simulation.
 """
 from pathlib import Path
@@ -52,5 +52,5 @@ assert 'pawn.Faction != party.Faction' in ops
 assert 'op.Diversion.Contains(pawn)' in ops
 # Test harness really runs this newer contract and includes new XML in build.
 assert 'python3 tests/rhf_133_arrival_and_lord.py' in wf
-assert 'v0.14.0-beta2' in wf
+assert 'v0.15.0-beta1' in wf
 print('PASS: one RHF native arrival letter, no scheduled duplicate, direct mission Lord, bounded newly-spawned attribution')

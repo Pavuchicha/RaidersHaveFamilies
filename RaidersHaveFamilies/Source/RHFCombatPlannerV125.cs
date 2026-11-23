@@ -1,4 +1,4 @@
-// RHF v0.12.5: objective-aware threat response, bounded flanking and deliberate breaching.
+﻿// RHF v0.12.5: objective-aware threat response, bounded flanking and deliberate breaching.
 // This AI only acts on members of an existing RHF operation. It never patches every pawn tick.
 using System;
 using System.Collections.Generic;
@@ -42,12 +42,7 @@ namespace RaidersHaveFamilies
 
     internal static class RHFCombatPlannerV125
     {
-        private const int MaxSquad = 96;
-        private const int MaxThreats = 24;
-        private const int MaxPawnScan = 160;
-        private const int MaxStructureScan = 240;
-        private const int MaxFlankCandidates = 20;
-        private const int MaxTacticalOrders = 8;
+        // No arbitrary combat search, target, squad or order ceilings.
         private const int ThreatRefreshTicks = 180;
         private const int FlankRefreshTicks = 900;
         private static readonly ConditionalWeakTable<RHFOperation, RHFCombatStateV125> States =
@@ -72,6 +67,15 @@ namespace RaidersHaveFamilies
             if (building is Building_Door) return true;
             return obstacle.def.IsEdifice() &&
                 obstacle.def.passability == Traversability.Impassable;
+        }
+
+        // An opened door has a physical passage now. Never schedule a breach
+        // through an opening just because the edifice still belongs to the player.
+        // The next tactical replan will reconsider a door that closes later.
+        internal static bool RequiresBreach(Thing obstacle)
+        {
+            return IsBreachableStructure(obstacle) &&
+                !(obstacle is Building_Door door && door.Open);
         }
 
         // A single universal HP-based break cost shared by walls and doors.
@@ -134,7 +138,7 @@ namespace RaidersHaveFamilies
             int breachCost=0;
             if (block != null)
             {
-                int damageWork=BreachWorkCost(block);
+                int damageWork=RequiresBreach(block) ? BreachWorkCost(block) : -1;
                 if (damageWork>=0) breachCost=damageWork;
                 else if (block is Building_Door && block.Faction!=Faction.OfPlayer)
                     breachCost=12; // accessible allied/neutral door, not a hostile breach
@@ -160,33 +164,27 @@ namespace RaidersHaveFamilies
             Map map=rescuer.Map;
             IntVec3 origin=rescuer.Position, end=captive.Position;
             if(!origin.InBounds(map)||!end.InBounds(map))return null;
-            // Spatially bound exploration around the actual approach. Long-map
-            // routes fall back to vanilla rather than causing a TPS spike.
-            int minX=Math.Max(0,Math.Min(origin.x,end.x)-20);
-            int maxX=Math.Min(map.Size.x-1,Math.Max(origin.x,end.x)+20);
-            int minZ=Math.Max(0,Math.Min(origin.z,end.z)-20);
-            int maxZ=Math.Min(map.Size.z-1,Math.Max(origin.z,end.z)+20);
+            // Examine the full physical map, not a 20-cell corridor.
+            int minX=0,maxX=map.Size.x-1,minZ=0,maxZ=map.Size.z-1;
             int width=maxX-minX+1,height=maxZ-minZ+1;
-            if(width*height>24000)return null;
             int count=width*height;
             var distance=new int[count];
             var parent=new int[count];
             for(int i=0;i<count;i++){distance[i]=int.MaxValue;parent[i]=-1;}
             int from=(origin.z-minZ)*width+origin.x-minX;
             int goal=(end.z-minZ)*width+end.x-minX;
-            var turrets=new List<IntVec3>(12);
-            int inspected=0;
+            // The fallback structural route must not consider a hostile gun
+            // absent merely because ordinary walls/furniture precede it in
+            // allBuildingsColonist or twelve other turrets were registered first.
+            // This scan runs only when planning an active rescue/breach route.
+            var turrets=new List<IntVec3>(32);
             foreach(Building building in map.listerBuildings.allBuildingsColonist)
-            {
-                if(++inspected>MaxStructureScan || turrets.Count>=12)break;
                 if(IsTurret(building))turrets.Add(building.Position);
-            }
             var queue=new List<RouteFrontier>(64);
             distance[from]=0;
             PushRoute(queue,from,(Math.Abs(origin.x-end.x)+Math.Abs(origin.z-end.z))*10);
-            int visited=0;
             int[] offsets={1,-1,width,-width};
-            while(queue.Count>0 && visited++<12000)
+            while(queue.Count>0)
             {
                 RouteFrontier current=PopRoute(queue);
                 int at=current.Index;
@@ -217,7 +215,7 @@ namespace RaidersHaveFamilies
             // room's door cannot win just by being nearest to the prisoner.
             var chain=new List<int>(96);
             int cursor=goal;
-            while(cursor!=from && cursor>=0 && chain.Count<1200)
+            while(cursor!=from && cursor>=0)
             {chain.Add(cursor);cursor=parent[cursor];}
             if(cursor!=from)return null;
             for(int i=chain.Count-1;i>=0;i--)
@@ -324,7 +322,7 @@ namespace RaidersHaveFamilies
             IntVec3 position = candidate.Position;
             if (captive != null && (position - captive.Position).LengthHorizontalSquared <= 625)
                 return true;
-            int limit = Math.Min(fighters.Count, MaxSquad);
+            int limit = fighters.Count;
             for (int j = 0; j < limit; j++)
             {
                 Pawn fighter = fighters[j];
@@ -345,16 +343,16 @@ namespace RaidersHaveFamilies
             if (map == null || fighters == null) return;
             foreach (Pawn pawn in map.mapPawns.AllPawnsSpawned)
             {
-                if (++state.ScannedPawns > MaxPawnScan) break;
+                state.ScannedPawns++;
                 if (PlayerFighter(pawn, map) && RelevantThreat(pawn, op, map, captive, fighters))
-                { state.Threats.Add(pawn); if (state.Threats.Count >= MaxThreats) return; }
+                { state.Threats.Add(pawn); }
             }
             // Vanilla and CE turret buildings; do not misidentify generators as combat targets.
             foreach (Building building in map.listerBuildings.allBuildingsColonist)
             {
-                if (++state.ScannedBuildings > MaxStructureScan) break;
+                state.ScannedBuildings++;
                 if (IsTurret(building) && RelevantThreat(building, op, map, captive, fighters))
-                { state.Threats.Add(building); if (state.Threats.Count >= MaxThreats) return; }
+                { state.Threats.Add(building); }
             }
         }
 
@@ -368,7 +366,10 @@ namespace RaidersHaveFamilies
                     if (verbs[i] != null && verbs[i].range > range) range=verbs[i].range;
             // CE may substitute different effective verbs at runtime; this is only
             // a conservative tactical placement estimate, not a combat rules override.
-            return Mathf.Clamp(range, 4f, 55f);
+            // A long-range weapon from a faction mod must retain its genuine
+            // declared range. Never turn 80-cell fire support into 55-cell
+            // sight simply to limit the tactical search.
+            return Math.Max(0f,range);
         }
 
         // In CE these jobs are produced by combat/suppression logic, not by our
@@ -449,7 +450,7 @@ namespace RaidersHaveFamilies
             int deltaX=end.x-start.x,deltaZ=end.z-start.z;
             int steps=Math.Max(Math.Abs(deltaX),Math.Abs(deltaZ));
             if(steps<=1)return false;
-            int samples=Math.Min(steps,8);
+            int samples=steps;
             int exposedSamples=0;
             for(int index=1;index<=samples;index++)
             {
@@ -485,19 +486,16 @@ namespace RaidersHaveFamilies
             float range = WeaponRange(fighter);
             // Use the gun's effective distance instead of a fixed 14-cell ring.
             // A 30-cell rifle must not be ordered to hug a turret at 14 cells.
-            int desired=Mathf.Clamp(Mathf.FloorToInt(range>0f?range*0.85f:4f),4,38);
+            int desired=Math.Min(Math.Max(map.Size.x,map.Size.z),
+                Math.Max(4,Mathf.FloorToInt(range>0f?range*0.85f:4f)));
             IntVec3 best = IntVec3.Invalid;
             float bestScore = float.MaxValue;
-            int checks = 0;
-            for (int r = 0; r < 2; r++)
-            for (int side = 0; side < 8 && checks < MaxFlankCandidates; side++)
+            // Exhaustively search feasible firing rings out to weapon range.
+            for(int radius=desired;radius>=3;radius--)
+            for(int dx=-radius;dx<=radius;dx++)
+            for(int dz=-radius;dz<=radius;dz++)
             {
-                checks++;
-                int radius = Math.Max(3,desired-r*4);
-                int dx = side==0 ? radius : side==1 ? -radius :
-                    side==2 || side==3 ? 0 : side==4 || side==5 ? radius : -radius;
-                int dz = side==2 ? radius : side==3 ? -radius :
-                    side==0 || side==1 ? 0 : side==4 || side==6 ? radius : -radius;
+                if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
                 IntVec3 c = new IntVec3(enemy.Position.x+dx,0,enemy.Position.z+dz);
                 if (!c.InBounds(map) || !c.Standable(map) ||
                     !fighter.CanReach(c,PathEndMode.OnCell,Danger.Deadly)) continue;
@@ -548,7 +546,7 @@ namespace RaidersHaveFamilies
         private static int AliveCount(List<Pawn> fighters, Map map)
         {
             int total = 0;
-            for(int i=0;i<fighters.Count && i<MaxSquad;i++)
+            for(int i=0;i<fighters.Count;i++)
                 if(Active(fighters[i],map))total++;
             return total;
         }
@@ -576,7 +574,7 @@ namespace RaidersHaveFamilies
                 fighters == null || fighters.Count == 0) return state.Engaged;
             // Reservation is not limited by the fire-team size: every pawn
             // suppressed by CE keeps the native recovery/cover job.
-            for (int i=0;i<fighters.Count && i<MaxSquad;i++)
+            for (int i=0;i<fighters.Count;i++)
                 if (Active(fighters[i],map) && IsCombatEmergencyJob(fighters[i]))
                     state.Engaged.Add(fighters[i]);
             Scan(op,map,captive,fighters,state,now);
@@ -589,7 +587,6 @@ namespace RaidersHaveFamilies
             // entire breach squad to run through the killing zone.
             if(blockedByTurrets && alive>3)
                 maxSupport=Math.Max(maxSupport,Math.Min(alive-2,(alive*2)/3));
-            maxSupport=Math.Min(maxSupport,MaxTacticalOrders);
             // Existing CE reservations are not counted as available shooters;
             // those pawns aren't in a position to provide reliable cover.
             maxSupport=Math.Min(alive,maxSupport+state.Engaged.Count);
@@ -597,7 +594,7 @@ namespace RaidersHaveFamilies
             // Keep previously assigned shooters on their standoff movement job.
             // Without this persistence the main rescue planner overwrites their
             // movement 90 ticks later and they charge a turret instead.
-            for(int i=0;i<fighters.Count && i<MaxSquad && state.Engaged.Count<maxSupport;i++)
+            for(int i=0;i<fighters.Count && state.Engaged.Count<maxSupport;i++)
             {
                 Pawn pawn=fighters[i];
                 if(!Active(pawn,map))continue;
@@ -635,11 +632,8 @@ namespace RaidersHaveFamilies
                 {state.CoverTarget.Remove(id);state.CoverWaypoint.Remove(id);continue;}
                 assignments[assigned]=assignments.TryGetValue(assigned,out int used)?used+1:1;
             }
-            int evaluated=0;
-            int evaluationBudget=Math.Min(32,Math.Max(12,maxSupport*3));
-            for(int pass=0;pass<2 && state.Engaged.Count<maxSupport && evaluated<evaluationBudget;pass++)
-            for(int i=0;i<fighters.Count && i<MaxSquad &&
-                state.Engaged.Count<maxSupport && evaluated<evaluationBudget;i++)
+            for(int pass=0;pass<2 && state.Engaged.Count<maxSupport;pass++)
+            for(int i=0;i<fighters.Count && state.Engaged.Count<maxSupport;i++)
             {
                 Pawn fighter=fighters[i];
                 if(!Active(fighter,map) || state.Engaged.Contains(fighter))continue;
@@ -648,10 +642,9 @@ namespace RaidersHaveFamilies
                                 member?.Role==(int)RHFCombatRole.Flanker;
                 if((pass==0)!=specialist)continue;
                 if(WeaponRange(fighter)<=0f && pass==0)continue;
-                evaluated++;
                 if(extraction && AssignedEscort(op,fighter,map))continue;
                 Thing best=null;int score=int.MinValue;
-                for(int j=0;j<state.Threats.Count && j<MaxThreats;j++)
+                for(int j=0;j<state.Threats.Count;j++)
                 {
                     Thing threat=state.Threats[j];
                     if(threat==null || !threat.Spawned || threat.Destroyed)continue;
@@ -712,54 +705,69 @@ namespace RaidersHaveFamilies
                 if(state.Threats[j] is Building && state.Threats[j].Spawned)
                 {hasStaticDefense=true;break;}
             if(!hasStaticDefense) return IntVec3.Invalid;
+            // Check each traversed cell instead of six samples that can miss
+            // narrow turret corridors. Candidate staging tiles cover the real
+            // map; performance is intentionally not a tactical cutoff.
+            // Cache exact tile exposure within THIS tactical plan. Exhaustive
+            // evaluation remains unrestricted, but does not redundantly call
+            // LineOfSight for the same tile millions of times.
+            var exposureCache=new int[map.Size.x*map.Size.z];
+            for(int k=0;k<exposureCache.Length;k++)exposureCache[k]=-1;
+            Func<IntVec3,int> exposureAt=cell=>
+            {
+                if(!cell.InBounds(map))return 0;
+                int index=cell.z*map.Size.x+cell.x;
+                if(exposureCache[index]>=0)return exposureCache[index];
+                int exposure=0;
+                foreach(Thing threat in state.Threats)
+                    if(threat is Building gun && gun.Spawned &&
+                       (gun.Position-cell).LengthHorizontalSquared<1225 &&
+                       GenSight.LineOfSight(gun.Position,cell,map))exposure++;
+                exposureCache[index]=exposure;
+                return exposure;
+            };
             int dangerOnDirectApproach=0;
-            for(int segment=1;segment<=6;segment++)
+            int directSteps=Math.Max(Math.Abs(captive.Position.x-leader.Position.x),
+                Math.Abs(captive.Position.z-leader.Position.z));
+            for(int segment=1;segment<=directSteps;segment++)
             {
                 IntVec3 along=new IntVec3(
-                    leader.Position.x+(captive.Position.x-leader.Position.x)*segment/7,
-                    0,leader.Position.z+(captive.Position.z-leader.Position.z)*segment/7);
+                    leader.Position.x+(captive.Position.x-leader.Position.x)*segment/directSteps,
+                    0,leader.Position.z+(captive.Position.z-leader.Position.z)*segment/directSteps);
                 if(!along.InBounds(map))continue;
-                for(int j=0;j<state.Threats.Count;j++)
-                    if(state.Threats[j] is Building guard && guard.Spawned &&
-                       (guard.Position-along).LengthHorizontalSquared<1225 &&
-                       GenSight.LineOfSight(guard.Position,along,map))
-                       dangerOnDirectApproach++;
+                dangerOnDirectApproach+=exposureAt(along);
             }
             IntVec3 best=IntVec3.Invalid;
             int bestDanger=int.MaxValue;
+            int bestRemaining=int.MaxValue;
             int bestTravel=int.MaxValue;
-            for (int side=0;side<12;side++)
+            int initialRemaining=(leader.Position-captive.Position).LengthHorizontalSquared;
+            for(int x=0;x<map.Size.x;x++)
+            for(int z=0;z<map.Size.z;z++)
             {
-                int distance=side<8?12:18;
-                int dx = (side%4==0)?distance:(side%4==1)?-distance:
-                    (side%4==2)?distance/2:-distance/2;
-                int dz = (side%4==2)?distance:(side%4==3)?-distance:
-                    (side%4==0)?distance/2:-distance/2;
-                IntVec3 cell=new IntVec3(captive.Position.x+dx,0,captive.Position.z+dz);
-                if (!cell.InBounds(map) || !cell.Standable(map) ||
-                    !leader.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
-                int exposed=0;
-                for(int j=0;j<state.Threats.Count;j++)
-                    if(state.Threats[j] is Building tower && tower.Spawned &&
-                       (tower.Position-cell).LengthHorizontalSquared<1225 &&
-                       GenSight.LineOfSight(tower.Position,cell,map))exposed++;
+                IntVec3 cell=new IntVec3(x,0,z);
+                int remaining=(cell-captive.Position).LengthHorizontalSquared;
+                // A staging tile must make actual objective progress, not
+                // relocate the squad to an arbitrarily distant safe corner.
+                if(remaining>=initialRemaining || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null ||
+                   !leader.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                int exposed=exposureAt(cell);
                 int travel=(leader.Position-cell).LengthHorizontalSquared;
-                // Sample the approach corridor, not just the destination. It is
-                // better to flank around a turret than to walk through its fire
-                // to reach an otherwise safe cell behind the building.
-                for(int segment=1;segment<=5;segment++)
+                int steps=Math.Max(Math.Abs(cell.x-leader.Position.x),
+                    Math.Abs(cell.z-leader.Position.z));
+                for(int segment=1;segment<=steps;segment++)
                 {
                     IntVec3 along=new IntVec3(
-                        leader.Position.x+(cell.x-leader.Position.x)*segment/6,
-                        0,leader.Position.z+(cell.z-leader.Position.z)*segment/6);
+                        leader.Position.x+(cell.x-leader.Position.x)*segment/steps,
+                        0,leader.Position.z+(cell.z-leader.Position.z)*segment/steps);
                     if(!along.InBounds(map))continue;
-                    for(int j=0;j<state.Threats.Count;j++)
-                        if(state.Threats[j] is Building guard && guard.Spawned &&
-                           (guard.Position-along).LengthHorizontalSquared<1225 &&
-                           GenSight.LineOfSight(guard.Position,along,map))exposed++;
+                    exposed+=exposureAt(along);
                 }
-                if(exposed<bestDanger || (exposed==bestDanger && travel<bestTravel))
-                {bestDanger=exposed;bestTravel=travel;best=cell;}
+                if(exposed<bestDanger ||
+                   (exposed==bestDanger && (remaining<bestRemaining ||
+                    (remaining==bestRemaining && travel<bestTravel))))
+                {bestDanger=exposed;bestRemaining=remaining;bestTravel=travel;best=cell;}
             }
             // Do not wait for the enemy turret to start shooting: compare the
             // projected kill corridor with an alternate approach in advance.
@@ -773,18 +781,25 @@ namespace RaidersHaveFamilies
         internal static IntVec3 FormationCell(IntVec3 center,Pawn fighter,Map map)
         {
             if(!center.IsValid || fighter==null || map==null)return center;
-            int slot=Math.Abs(fighter.thingIDNumber%8);
-            for(int pass=0;pass<8;pass++)
+            // Stable pawn-specific ring preference, but every physical staging
+            // cell remains eligible; there are no eight global formation slots.
+            int radiusLimit=Math.Max(map.Size.x,map.Size.z);
+            int wantedRing=1+Math.Abs(fighter.thingIDNumber%7);
+            for(int phase=0;phase<2;phase++)
+            for(int radius=phase==0?wantedRing:0;
+                radius<=radiusLimit;radius++)
             {
-                int i=(slot+pass)%8;
-                int dx=i==0?0:i==1?2:i==2?-2:i==3?0:
-                    i==4?2:i==5?-2:i==6?2:-2;
-                int dz=i==0?0:i==1?0:i==2?0:i==3?2:
-                    i==4?2:i==5?2:i==6?-2:-2;
-                IntVec3 chosen=new IntVec3(center.x+dx,0,center.z+dz);
-                if(chosen.InBounds(map) && chosen.Standable(map) &&
-                   fighter.CanReach(chosen,PathEndMode.OnCell,Danger.Deadly))
-                   return chosen;
+                if(phase==1 && radius>=wantedRing)break;
+                for(int dx=-radius;dx<=radius;dx++)
+                for(int dz=-radius;dz<=radius;dz++)
+                {
+                    if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
+                    IntVec3 cell=center+new IntVec3(dx,0,dz);
+                    if(cell.InBounds(map) && cell.Standable(map) &&
+                       cell.GetEdifice(map)==null &&
+                       fighter.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))
+                        return cell;
+                }
             }
             return center;
         }
@@ -796,11 +811,12 @@ namespace RaidersHaveFamilies
         {
             if(op?.Squad==null || map==null || !IsBreachableStructure(barrier))return null;
             Pawn best=null;int bestScore=int.MinValue;
-            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            for(int i=0;i<op.Squad.Count;i++)
             {
                 Pawn pawn=op.Squad[i];
                 if(!Active(pawn,map) || covering?.Contains(pawn)==true ||
                    IsCombatEmergencyJob(pawn) ||
+                   pawn.WorkTagIsDisabled(WorkTags.Violent) ||
                    pawn.health?.capacities==null ||
                    !pawn.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) ||
                    !pawn.CanReach(barrier.Position,PathEndMode.Touch,Danger.Deadly))continue;
@@ -826,7 +842,8 @@ namespace RaidersHaveFamilies
 
         internal static JobDef BreachAttack(Pawn pawn)
         {
-            ThingDef weapon=pawn?.equipment?.Primary?.def;
+            if(pawn==null || pawn.WorkTagIsDisabled(WorkTags.Violent))return null;
+            ThingDef weapon=pawn.equipment?.Primary?.def;
             if(weapon==null || weapon.IsMeleeWeapon)return JobDefOf.AttackMelee;
             if(weapon.IsRangedWeapon &&
                 weapon.defName.IndexOf("Grenade",StringComparison.OrdinalIgnoreCase)<0 &&

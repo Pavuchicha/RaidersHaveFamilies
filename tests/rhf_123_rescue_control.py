@@ -9,9 +9,7 @@ for marker in (
     'RHFRescueInfiltratePatchV123', 'RHFRescueExitPatchV123',
     'RHFRescueMissionDiagnosticsV123',
     'private const int DecisionInterval = 90',
-    'private const int MaxSquad = 96',
-    'private const int MaxTargets = 24',
-    'private const int MaxOrdersPerDecision = 14',
+    'for (int i = 0; i < op.Squad.Count; i++)',
 ):
     assert marker in src, marker
 assert 'previous.Contains(p.thingIDNumber)' in src, 'unrelated raid pawn hijack protection'

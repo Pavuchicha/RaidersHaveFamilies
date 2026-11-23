@@ -1,0 +1,1 @@
+NJR R014 cumulative full source overlay for GitHub Desktop. Extract CONTENTS to repository root and overwrite. Commit summary: NJR R014 - Faction-scoped threat memory and honest target tracking. Install the resulting build artifact only after successful GitHub Actions; NOT an installable mod ZIP.

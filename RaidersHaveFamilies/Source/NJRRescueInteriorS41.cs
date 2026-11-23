@@ -29,10 +29,12 @@ namespace RaidersHaveFamilies
         }
         internal static int Exposure(Map map,IntVec3 cell)
         {
-            int risk=0,seen=0;
+            int risk=0;
+            // Evaluate EVERY real turret. The old 240-building limit counted
+            // ordinary walls/furniture as well, so large bases hid turrets
+            // farther down the building registry from door-room planning.
             foreach(Building defense in map.listerBuildings.allBuildingsColonist)
             {
-                if(++seen>240)break;
                 if(!RHFCombatPlannerV125.IsTurret(defense))continue;
                 if((defense.Position-cell).LengthHorizontalSquared<1600 &&
                    GenSight.LineOfSight(defense.Position,cell,map))risk+=1;

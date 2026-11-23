@@ -13,7 +13,7 @@ assert 'controller.ForceDeployNow(op)' in debug
 assert 'RHFMissionIntegrityV130.ExecuteRaidWithoutVanillaLetter(parms, op)' in ops
 assert 'Find.Storyteller.incidentQueue.Add' not in debug
 assert 'Find.Storyteller.incidentQueue.Add' not in natural
-assert 'MaxStrikeParties = 5' in ops
+assert 'MaxStrikeParties = 5' not in ops
 assert 'sponsors.Count<4' in natural
 assert 'candidate.Importance<5' in natural
 assert 'op.Parties.Add(new RHFStrikeParty' in natural

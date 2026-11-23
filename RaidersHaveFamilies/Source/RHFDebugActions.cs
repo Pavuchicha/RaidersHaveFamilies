@@ -39,15 +39,27 @@ namespace RaidersHaveFamilies
         private const int MaxDebugTargets = 24;
         // Direct developer actions execute incidents synchronously (no wait queue).
         private const int MaxCoalitionParties = 5;
-        // Developer-only faction selector: opt-in pinning, otherwise round-robin.
-        // Neither world state nor ordinary raids depend on this cursor.
-        private static int nextTestFaction;
+        // Developer tools only: RNG never polls in regular gameplay.
+        // An explicit pin is possible for reproducible tests; by default EVERY
+        // spawn samples a random eligible faction, avoiding the previous draw
+        // when there are two or more candidates. Reset on new game/world.
+        private static Game factionSelectionGame;
+        private static Faction lastRandomFaction;
         private static Faction pinnedTestFaction;
 
-        [DebugAction(PrisonersCategory, "Фракция пленников: выбрать следующую", actionType = DebugActionType.Action,
+        private static void EnsureFactionSelectionGame()
+        {
+            if (ReferenceEquals(factionSelectionGame, Current.Game)) return;
+            factionSelectionGame = Current.Game;
+            lastRandomFaction = null;
+            pinnedTestFaction = null;
+        }
+
+        [DebugAction(PrisonersCategory, "Фракция пленников: ЗАКРЕПИТЬ следующую (не случайно)", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void CyclePrisonerFaction()
         {
+            EnsureFactionSelectionGame();
             List<Faction> factions = EligibleTestFactions(false);
             if (factions.Count == 0)
             { Notify(Find.CurrentMap, "Нет доступных враждебных фракций с человекоподобными членами."); return; }
@@ -57,12 +69,13 @@ namespace RaidersHaveFamilies
                 "». Новые пленники любого ранга будут принадлежать ей до сброса выбора.");
         }
 
-        [DebugAction(PrisonersCategory, "Фракция пленников: автоматическое чередование", actionType = DebugActionType.Action,
+        [DebugAction(PrisonersCategory, "Фракция пленников: СЛУЧАЙНАЯ (снять закрепление)", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void ResetPrisonerFaction()
         {
+            EnsureFactionSelectionGame();
             pinnedTestFaction = null;
-            Notify(Find.CurrentMap, "NJR: фракции пленников снова автоматически чередуются.");
+            Notify(Find.CurrentMap, "NJR: каждый новый пленник получит случайную подходящую фракцию; повтор подряд исключается, если доступно несколько.");
         }
 
         [DebugAction(PrisonersCategory, "Создать пленника: ранг 6 (индустриальная фракция)", actionType = DebugActionType.ToolMap,
@@ -131,7 +144,7 @@ namespace RaidersHaveFamilies
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void Vengeance() { Start(RHFDebugScenario.Vengeance); }
 
-        [DebugAction(Category, "08 — Месть: племя с боевыми животными", actionType = DebugActionType.Action,
+        [DebugAction(Category, "08 — Месть: низкотехнологичная фракция (вариативные силы)", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void TribalVengeance() { Start(RHFDebugScenario.TribalVengeance); }
 
@@ -409,6 +422,14 @@ namespace RaidersHaveFamilies
             Find.WindowStack.Add(new Dialog_MessageBox(sb.ToString()));
         }
 
+        [DebugAction(ChecksCategory, "28 — NJR: групповые выкупы и доставка",
+            actionType=DebugActionType.Action,
+            allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void AuditGroupRansom()
+        {
+            Find.WindowStack.Add(new Dialog_MessageBox(NJRGroupRansomV15.DebugStatus()));
+        }
+
         [DebugAction(ChecksCategory, "27 — Аудит боевой доктрины / охоты / капсул", actionType=DebugActionType.Action,
             allowedGameStates=AllowedGameStates.PlayingOnMap)]
         public static void AuditMissionComposition()
@@ -504,9 +525,14 @@ namespace RaidersHaveFamilies
                     record.OfficeName = RHFRankResolver.AssignTestOffice(test, rank);
                     record.DebugOffice = true;
                 }
-                Notify(map, "Создан пленник RHF " + rank + "/8: " + test.LabelShortCap +
+                string choiceMode = nextFaction ? "другая ещё не представленная фракция" :
+                    pinnedTestFaction == faction ? "ЗАКРЕПЛЕНА вручную: снимите закрепление в NJR — пленники" :
+                    "случайная фракция; следующий выбор не повторит эту, если кандидатов несколько";
+                int eligibleCount = nextFaction ? -1 : EligibleTestFactions(industrialOnly).Count;
+                Notify(map, "Создан пленник NJR " + rank + "/8: " + test.LabelShortCap +
                     "; фракция: «" + faction.Name + "» (" + faction.def.techLevel +
-                    "). Следующую фракцию можно выбрать в разделе NJR — пленники.");
+                    "). Выбор: " + choiceMode +
+                    (eligibleCount == 1 ? ". В этом мире для команды подходит только одна фракция." : ""));
             }
             catch (Exception e)
             {
@@ -785,9 +811,19 @@ namespace RaidersHaveFamilies
             if (faction?.def == null) return null;
             PawnKindDef basic = faction.def.basicMemberKind;
             if (basic?.race?.race?.Humanlike == true) return basic;
-            // Some modded factions omit basicMemberKind but define faction-specific
-            // humanlike PawnKinds. Use their registered Defs rather than a hardcoded
-            // vanilla Colonist. This lookup runs only in developer tools.
+            // Modded factions often declare only pawnGroupMakers.options, with
+            // no basicMemberKind and no PawnKind.defaultFactionDef. Read the
+            // faction's real group entries before using the global fallback.
+            if (faction.def.pawnGroupMakers != null)
+                foreach (PawnGroupMaker maker in faction.def.pawnGroupMakers)
+                    if (maker?.options != null)
+                        foreach (PawnGenOption option in maker.options)
+                        {
+                            PawnKindDef kind = option?.kind;
+                            if (kind?.race?.race?.Humanlike == true) return kind;
+                        }
+            // Last resort: older faction mods declare defaultFactionDef only.
+            // This lookup runs exclusively on developer clicks.
             foreach (PawnKindDef candidate in DefDatabase<PawnKindDef>.AllDefsListForReading)
                 if (candidate != null && candidate.defaultFactionDef == faction.def &&
                     candidate.race?.race?.Humanlike == true)
@@ -811,22 +847,42 @@ namespace RaidersHaveFamilies
             return result;
         }
 
+        // True RNG on each debug invocation. Exclude only the immediately
+        // preceding draw (not a deterministic round-robin or shuffle cycle).
+        // Uniform over remaining eligible candidates, no allocations per tick.
+        private static Faction RandomTestFaction(List<Faction> candidates)
+        {
+            EnsureFactionSelectionGame();
+            if (candidates == null || candidates.Count == 0) return null;
+            var choices = new List<Faction>(candidates.Count);
+            if (candidates.Count > 1)
+                foreach (Faction candidate in candidates)
+                    if (candidate != lastRandomFaction) choices.Add(candidate);
+            if (choices.Count == 0) choices.AddRange(candidates);
+            Faction chosen = choices[Rand.Range(0, choices.Count)];
+            lastRandomFaction = chosen;
+            return chosen;
+        }
+
         private static Faction ChooseTestFaction(bool industrialOnly)
         {
+            EnsureFactionSelectionGame();
             List<Faction> candidates = EligibleTestFactions(industrialOnly);
             if (candidates.Count == 0) return null;
             if (EligibleTestFaction(pinnedTestFaction, industrialOnly) &&
                 candidates.Contains(pinnedTestFaction)) return pinnedTestFaction;
-            int cursor = nextTestFaction++;
-            return candidates[(cursor & int.MaxValue) % candidates.Count];
+            return RandomTestFaction(candidates);
         }
 
         private static Faction FindUnusedEnemyCandidate(Faction skip, HashSet<Faction> used)
         {
+            var candidates = new List<Faction>();
             foreach (Faction faction in Find.FactionManager.AllFactionsListForReading)
                 if (faction != skip && !used.Contains(faction) &&
-                    EligibleTestFaction(faction, false)) return faction;
-            return null;
+                    EligibleTestFaction(faction, false)) candidates.Add(faction);
+            // The special "another faction" tools still require an UNUSED
+            // sponsor, but choose randomly among all currently unused ones.
+            return RandomTestFaction(candidates);
         }
 
         private static Faction FirstUnusedEnemy(Map map)

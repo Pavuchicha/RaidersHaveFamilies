@@ -1,4 +1,4 @@
-"""v0.11 release-specific source contracts. No C# compile or in-game TPS claims."""
+﻿"""v0.11 release-specific source contracts. No C# compile or in-game TPS claims."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
 root=Path(__file__).resolve().parents[1]
@@ -34,7 +34,7 @@ for marker in ('class RHFEscortLink', 'Escorts = new List<RHFEscortLink>',
                'Scribe_Collections.Look(ref Escorts', 'EnsureEscort(op,captive)',
                'separation > 144', 'EscapedWithEscort++',
                'if (allFree)', 'NJRRescueInteriorS41.DirectDoor',
-               'DropCellFinder.IsGoodDropSpot(c,map,true,true)'):
+               'SafeRescueDropPad(map,c)'):
     assert marker in ops, marker
 assert ops.index('captive.ExitMap(false,Rot4.Invalid)') < ops.index('if (escort.Spawned) escort.ExitMap(false,Rot4.Invalid)')
 assert 'parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;' in ops
@@ -70,5 +70,5 @@ assert float(node.findtext('./stages/li/baseMoodEffect'))<0
 # Diagnostics available in Russian, 2 new tests.
 assert '24 — Аудит автоматических семей' in debug
 assert '25 — Аудит эвакуации' in debug
-assert '0.14.0-beta2' in (root/'.github/workflows/build.yml').read_text()
+assert '0.15.0-beta1' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: v0.11 family persistence/load backfill, escort extraction, medical, rank, ideology and dialogue contracts.')

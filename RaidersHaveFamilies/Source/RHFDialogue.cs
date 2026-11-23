@@ -15,6 +15,7 @@ namespace RaidersHaveFamilies
             if (faction == null || Current.Game == null) return false;
             var ledger = Current.Game.GetComponent<RHFGameLedger>();
             if (ledger?.Hostages == null) return false;
+            if(NJRGroupRansomV15.HasPendingDelivery(faction))return true;
             foreach (RHFHostageRecord r in ledger.Hostages)
                 if (r?.OriginalFaction == faction && !r.Paid &&
                     (RHFHostageDiplomacy.HostageEligible(r.Pawn) ||
@@ -102,9 +103,173 @@ namespace RaidersHaveFamilies
                     { linkLateBind = () => Person(negotiator, selected) });
                     if (++count >= 24) break;
                 }
-            if (count == 0) node.text="«По нашим сведениям, сейчас у вас нет людей, которых можно обсуждать по этому каналу».";
+            if (count == 0)
+                node.text=NJRGroupRansomV15.UncertainDeliveryIds(faction).Count>0 ?
+                    "«Есть спорный платёж: капсулы могли быть созданы частично. " +
+                    "Повторная выдача без проверки невозможна. Сведения ниже»." :
+                    NJRGroupRansomV15.HasPendingDelivery(faction) ?
+                    "«Все участники групповой сделки уже вышли. Средства ожидают " +
+                    "доступной площадки. Мы можем повторить запрос без новой сделки»." :
+                    "«По нашим сведениям, сейчас у вас нет людей, которых можно обсуждать по этому каналу».";
+            foreach(int id in NJRGroupRansomV15.UncertainDeliveryIds(faction))
+            {
+                int badId=id;
+                node.options.Add(new DiaOption("Спорный платёж по договору №"+badId+
+                    " (только сведения, не повторная выплата)")
+                {linkLateBind=()=>UncertainGroupDelivery(negotiator,faction,badId)});
+            }
+            foreach(int id in NJRGroupRansomV15.PendingDeliveryIds(faction))
+            {
+                int pendingId=id;
+                node.options.Add(new DiaOption("Запросить доставку по групповому договору №"+pendingId)
+                {linkLateBind=()=>GroupDelivery(negotiator,faction,pendingId)});
+            }
+            // One grouped agreement across the same real prisoner colony.
+            Map groupMap=null;
+            if(ledger!=null)
+                foreach(RHFHostageRecord candidate in ledger.Hostages)
+                {
+                    if(candidate?.OriginalFaction!=faction || candidate.Negotiated ||
+                        !RHFHostageDiplomacy.HostageEligible(candidate.Pawn) ||
+                        candidate.Pawn.Map==null)continue;
+                    Map site=candidate.Pawn.Map;
+                    if(NJRGroupRansomV15.Candidates(faction,site).Count>=2)
+                    {groupMap=site;break;}
+                }
+            if(groupMap!=null)
+            {
+                Map selectedMap=groupMap;
+                node.options.Add(new DiaOption("Обсудить общий выкуп нескольких пленников")
+                {linkLateBind=()=>GroupTerms(negotiator,faction,selectedMap)});
+            }
             node.options.Add(new DiaOption("Вернуться к обычным переговорам")
             { linkLateBind = () => FactionDialogMaker.FactionDialogFor(negotiator,faction) });
+            return node;
+        }
+
+        // Choose real members of the agreement. No global mutable selection:
+        // each DiaNode captures a private, immutable-on-click list; the quote
+        // and faction are revalidated at Sign() after any changes in the world.
+        private static DiaNode GroupTerms(Pawn negotiator,Faction faction,Map map)
+        {
+            var people=NJRGroupRansomV15.Candidates(faction,map);
+            var selected=new System.Collections.Generic.List<Pawn>();
+            for(int i=0;i<people.Count && i<12;i++)
+                if(people[i]?.Pawn!=null)selected.Add(people[i].Pawn);
+            return SelectGroup(negotiator,faction,map,selected,0);
+        }
+
+        private static DiaNode SelectGroup(Pawn negotiator,Faction faction,Map map,
+            System.Collections.Generic.List<Pawn> selection,int page)
+        {
+            var available=NJRGroupRansomV15.Candidates(faction,map);
+            var chosen=new System.Collections.Generic.List<RHFHostageRecord>();
+            int silver=0;
+            bool quoteValid=true;
+            var details=new System.Text.StringBuilder();
+            foreach(RHFHostageRecord person in available)
+            {
+                if(person?.Pawn==null || !selection.Contains(person.Pawn))continue;
+                int price=RHFHostageDiplomacy.NegotiatedPrice(person,negotiator);
+                if(price<1 || price>int.MaxValue-silver)
+                {quoteValid=false;break;}
+                chosen.Add(person);
+                silver+=price;
+                details.Append("\n— ").Append(person.Pawn.LabelShortCap)
+                    .Append(": ").Append(price).Append(" серебра");
+            }
+            var node=new DiaNode("Оператор фракции «"+faction.Name+"» сверяет имена.\n\n"+
+                "«Укажите, кого возвращаете по общему договору. Пока не вернутся " +
+                "все указанные, перевод серебра не состоится»."+
+                Info("Выбрано: "+chosen.Count+" (допустимо 2–12). " +
+                    "Итоговая сумма: "+(quoteValid?silver.ToString():"недоступна")+" серебра."+
+                    details+"\nНажимайте на имя, чтобы включать/исключать. " +
+                    "Гибель, продажа или вербовка участника аннулируют договор."));
+            if(available.Count<2)
+            {
+                node.options.Add(new DiaOption("Вернуться к списку")
+                {linkLateBind=()=>Captives(negotiator,faction)});
+                return node;
+            }
+            const int perPage=8;
+            int lastPage=Math.Max(0,(available.Count-1)/perPage);
+            page=Mathf.Clamp(page,0,lastPage);
+            int start=page*perPage;
+            for(int i=start;i<available.Count && i<start+perPage;i++)
+            {
+                Pawn candidate=available[i].Pawn;
+                bool active=selection.Contains(candidate);
+                Pawn selectedPawn=candidate;
+                bool currentlySelected=active;
+                var opt=new DiaOption((active?"[x] ":"[ ] ") +
+                    candidate.LabelShortCap);
+                if(!active && chosen.Count>=12)
+                    opt.Disable("Один групповой договор охватывает не более 12 человек");
+                else opt.linkLateBind=()=>
+                {
+                    var next=new System.Collections.Generic.List<Pawn>(selection);
+                    if(currentlySelected)next.Remove(selectedPawn);
+                    else if(next.Count<12)next.Add(selectedPawn);
+                    return SelectGroup(negotiator,faction,map,next,page);
+                };
+                node.options.Add(opt);
+            }
+            if(page>0)
+            {
+                int previousPage=page-1;
+                node.options.Add(new DiaOption("Предыдущие пленники")
+                {linkLateBind=()=>SelectGroup(negotiator,faction,map,selection,previousPage)});
+            }
+            if(page<lastPage)
+            {
+                int nextPage=page+1;
+                node.options.Add(new DiaOption("Следующие пленники")
+                {linkLateBind=()=>SelectGroup(negotiator,faction,map,selection,nextPage)});
+            }
+            if(quoteValid && chosen.Count>=2 && chosen.Count<=12)
+            {
+                int quote=silver;
+                var sealedGroup=new System.Collections.Generic.List<RHFHostageRecord>(chosen);
+                node.options.Add(new DiaOption("Заключить договор: "+quote+" серебра за "+chosen.Count)
+                {linkLateBind=()=>SignGroup(negotiator,faction,sealedGroup,quote)});
+            }
+            node.options.Add(new DiaOption("Отмена — к списку пленников")
+            {linkLateBind=()=>Captives(negotiator,faction)});
+            return node;
+        }
+
+        private static DiaNode UncertainGroupDelivery(Pawn negotiator,Faction faction,int id)
+        {
+            var node=new DiaNode("Договор №"+id+": фракция подтверждает выход пленников. " +
+                "Однако при создании капсул произошла ошибка или частичная отправка. " +
+                "Выплата НЕ запускается повторно, иначе возможны дубликаты серебра. " +
+                "Проверьте Player.log и уже прибывшие капсулы.");
+            node.options.Add(new DiaOption("Вернуться к списку")
+            {linkLateBind=()=>Captives(negotiator,faction)});
+            return node;
+        }
+
+        private static DiaNode GroupDelivery(Pawn negotiator,Faction faction,int id)
+        {
+            string result=NJRGroupRansomV15.RequestDelivery(faction,negotiator?.Map,id);
+            var node=new DiaNode("Представитель фракции подтверждает состояние договора №"+id+
+                ".\n\n"+result);
+            node.options.Add(new DiaOption("Вернуться к списку")
+            {linkLateBind=()=>Captives(negotiator,faction)});
+            return node;
+        }
+
+        private static DiaNode SignGroup(Pawn negotiator,Faction faction,
+            System.Collections.Generic.List<RHFHostageRecord> people,int quotedSilver)
+        {
+            bool accepted=NJRGroupRansomV15.Sign(faction,people,negotiator,
+                quotedSilver,out int total);
+            var node=new DiaNode(accepted ?
+                "«Договор заключён. "+total+" серебра будет отправлено " +
+                "после возвращения всех "+people.Count+" человек»." :
+                "«Сведения изменились. Условия пока не согласованы; проверьте состав группы ещё раз»." );
+            node.options.Add(new DiaOption("Вернуться к списку")
+            {linkLateBind=()=>Captives(negotiator,faction)});
             return node;
         }
 
@@ -243,6 +408,12 @@ namespace RaidersHaveFamilies
 
         private static DiaNode Terms(Pawn negotiator,RHFHostageRecord r)
         {
+            if (r.GroupRansomId>0)
+                return ReturnNode("«Этот пленник включён в групповой договор №"+
+                    r.GroupRansomId+". Сумма "+r.GroupRansomSilver+
+                    " серебра перечисляется только после освобождения всех "+
+                    r.GroupRansomMembers+" участников. Отдельной выплаты нет».",
+                    negotiator,r);
             if (r.Negotiated)
                 return ReturnNode("«Договорённость действует. Сначала он пересекает границу вашей территории живым; затем вы получаете деньги».",negotiator,r);
             int basePrice=RHFHostageDiplomacy.NegotiatedPrice(r,negotiator);

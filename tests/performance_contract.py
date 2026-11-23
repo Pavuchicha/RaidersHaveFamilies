@@ -6,16 +6,17 @@ operation=(ROOT/'RaidersHaveFamilies/Source/RHFOperations.cs').read_text(encodin
 patch=(ROOT/'RaidersHaveFamilies/Source/RHFPatches.cs').read_text(encoding='utf-8')
 for key in ['MaxBatchSize = 192','MaxPairProbes = 64','MaxRememberedIds = 8192',
             'HardMaxPerCycle = 48','HardMaxPerSave = 1024','CleanupGeneratedKin()',
-            'ReuseExistingKin(', 'nextHostageCheck = tick + 30000']:
+            'ReuseExistingKin(', 'nextHostageCheck = tick + (Hostages.Count>0?90000:150000)']:
     assert key in source, key
+assert 'ReprisalCases.Count>0 && tick>=nextCaseCheck' in source
+assert 'nextCaseCheck=tick+30000' in source
 # A one-time old-save backfill is explicitly allowed, but repeated scans are not.
 scan=source[source.index('public override void MapComponentTick()',source.index('class RHFMapComponent')):
             source.index('private void Remember(int id)',source.index('class RHFMapComponent'))]
 assert scan.count('AllPawnsSpawned') == 1
 assert 'if (oneTimeBackfill && now > 120)' in scan and 'oneTimeBackfill = false' in scan
 assert 'visited < MaxBatchSize' in scan
-for key in ['DecisionInterval = 90','MaxOperationsPerMap = 4','MaxSquad = 96',
-            'MaxOrdersPerDecision = 14','MaxTargets = 24','MaxOperationDuration = 180000',
+for key in ['DecisionInterval = 90','RHFRescueCommandV124.Infiltrate', 'RHFRescueCommandV124.Extract','MaxOperationDuration = 180000',
             'operations.Count == 0', 'FindBarrier(', 'BuildAndLaunch(', 'ChooseExit(']:
     assert key in operation, key
 for term in ['.Patch(typeof(TickManager)','Patch(typeof(Map)','WorldPawnGC']:

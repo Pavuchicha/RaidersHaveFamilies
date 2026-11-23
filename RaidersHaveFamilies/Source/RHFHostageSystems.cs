@@ -51,6 +51,15 @@ namespace RaidersHaveFamilies
         public int LastReportedMissing;
         public int InitialMissing;
         public int PendingSilver;
+        // Physical group ransom: payout after all named captives leave safely.
+        public int GroupRansomId;
+        public int GroupRansomMembers;
+        public int GroupRansomSilver;
+        public bool GroupReleaseConfirmed;
+        // V16: identity of the colony that negotiated the group contract and
+        // a durable exactly-once dispatch barrier (see NJRGroupRansomV15).
+        public string GroupOriginMapId = "";
+        public bool GroupPaymentAttempted;
         public bool PendingGoodwill;
         public bool Negotiated;
         public bool Paid;
@@ -134,6 +143,12 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref LastReportedMissing, "lastReportedMissing", 0);
             Scribe_Values.Look(ref InitialMissing, "initialMissing", 0);
             Scribe_Values.Look(ref PendingSilver, "pendingSilver", 0);
+            Scribe_Values.Look(ref GroupRansomId, "njrGroupRansomIdV15", 0);
+            Scribe_Values.Look(ref GroupRansomMembers, "njrGroupRansomMembersV15", 0);
+            Scribe_Values.Look(ref GroupRansomSilver, "njrGroupRansomSilverV15", 0);
+            Scribe_Values.Look(ref GroupReleaseConfirmed, "njrGroupReleaseConfirmedV15", false);
+            Scribe_Values.Look(ref GroupOriginMapId, "njrGroupOriginMapIdV16", "");
+            Scribe_Values.Look(ref GroupPaymentAttempted, "njrGroupPaymentAttemptedV16", false);
             Scribe_Values.Look(ref PendingGoodwill, "pendingGoodwill", false);
             Scribe_Values.Look(ref Negotiated, "negotiated", false);
             Scribe_Values.Look(ref Paid, "paid", false);
@@ -188,6 +203,9 @@ namespace RaidersHaveFamilies
         {
             RHFHostageRecord r=Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(pawn);
             if (r==null || r.Recruited || r.OriginalFaction==null || r.Pawn!=pawn) return;
+            if(r.GroupRansomId>0)
+                NJRGroupRansomV15.Abort(Current.Game?.GetComponent<RHFGameLedger>(),
+                    r.GroupRansomId,"recruitment instead of release");
             r.Recruited=true;
             r.RecruitmentTick=Find.TickManager.TicksGame;
             r.RecruiterName=recruiter?.LabelShortCap ?? "не установлен";
@@ -228,11 +246,9 @@ namespace RaidersHaveFamilies
             r.IdeologyConverted=(r.OriginalIdeo != after);
             r.IdeologyReported=false;
             r.IdeologyChangeTick=Find.TickManager.TicksGame;
-            if (r.IdeologyConverted && r.Importance>=6 && r.NextRetaliationTick==0 &&
-                RHFMod.Settings?.Retaliation == true &&
-                r.OriginalFaction!=null && r.OriginalFaction.HostileTo(Faction.OfPlayer) &&
-                Rand.Chance(r.Importance>=8 ? .5f : .22f))
-                QueueRetaliation(r,true);
+            // Local conversion is not itself intelligence for the former
+            // faction. Political reprisal only becomes eligible on DISCLOSURE;
+            // no secret omniscient retaliation here.
         }
 
         public static string ReportConversion(RHFHostageRecord r)
@@ -275,6 +291,10 @@ namespace RaidersHaveFamilies
                 }
             }
             RHFPoliticalReputation.Change(r.OriginalFaction,-Mathf.Clamp(2+r.Importance*2,2,20));
+            if(r.Importance>=6 && RHFMod.Settings?.Retaliation==true &&
+                r.OriginalFaction!=null && r.OriginalFaction.HostileTo(Faction.OfPlayer) &&
+                !r.RetaliationIssued && Rand.Chance(r.Importance>=8 ? .5f : .22f))
+                QueueRetaliation(r,true);
             return "Отчёт об обращении передан. Новая идеология: «"+r.ConvertedIdeo.name+
                 "», прежняя: «"+r.OriginalIdeo.name+"». Приверженцев новой идеологии с воспоминанием: "+
                 gained+"; прежней — "+lost+". Все эффекты длятся пять дней.";
@@ -687,7 +707,7 @@ namespace RaidersHaveFamilies
             bool cannibalism = answer == 2;
             if (cannibalism && !CanConfessCannibalism(r))
                 return "Нельзя подтвердить каннибализм: нет записи о разделке или поедании тела пленника.";
-            ledger.Hostages.Remove(r);
+            ledger.Hostages.Remove(r); ledger.InvalidateHostageIndex();
             r.DeathReportMade = answer != 0;
             r.OfferDeadlineTick = 0;
             r.NextRetaliationTick = 0;
@@ -826,9 +846,17 @@ namespace RaidersHaveFamilies
 
         public static void UpdateOffers(RHFGameLedger ledger, int tick)
         {
+            NJRGroupRansomV15.Audit(ledger);
             for (int i = ledger.Hostages.Count - 1; i >= 0; i--)
             {
                 RHFHostageRecord r = ledger.Hostages[i];
+                // A signed group debt deliberately drops its Pawn reference
+                // on physical exit, but MUST remain in the ledger until the
+                // whole group is paid or explicitly cancelled. Otherwise the
+                // next diplomatic sweep silently loses a released member and
+                // the remaining captives can never satisfy Ready().
+                if (r != null && r.GroupRansomId > 0 && r.GroupReleaseConfirmed)
+                    continue;
                 if (r == null || (r.Pawn == null && !IsDeadCase(r)) || r.Paid ||
                     (r.Pawn != null && !r.Pawn.IsPrisonerOfColony && !r.Pawn.IsSlaveOfColony &&
                      !r.Negotiated && !r.Pawn.Dead &&
@@ -838,7 +866,7 @@ namespace RaidersHaveFamilies
                         (!r.IdeologyConverted || r.IdeologyReported)))))
                 {
                     // Discard stale tracking; never alter relationships belonging to other mods.
-                    ledger.Hostages.RemoveAt(i);
+                    ledger.Hostages.RemoveAt(i); ledger.InvalidateHostageIndex();
                     continue;
                 }
                 if (IsDeadCase(r)) continue; // deceased cases remain for an actual radio decision
@@ -881,7 +909,11 @@ namespace RaidersHaveFamilies
                 }
                 if (!r.Pawn.Dead && r.NextRetaliationTick > 0 && tick >= r.NextRetaliationTick && !r.RetaliationIssued)
                     StartRetaliation(r);
-                if (r.InitialOfferMade || r.Negotiated || r.Importance < 3 ||
+                // The Negotiations toggle suppresses NEW offers; it must not
+                // freeze the non-negotiation responsibilities above (recruited
+                // pawn disclosure, preexisting reprisal and group contract).
+                if (RHFMod.Settings?.Negotiations != true ||
+                    r.InitialOfferMade || r.Negotiated || r.Importance < 3 ||
                     !HostageEligible(r.Pawn) || tick - r.CaptureTick < 60000 ||
                     Rand.Value > (r.Importance >= 7 ? .95f : r.Importance >= 5 ? .85f : .45f)) continue;
                 r.InitialOfferMade = true;
@@ -1109,7 +1141,8 @@ namespace RaidersHaveFamilies
             foreach (Faction f in Find.FactionManager.AllFactionsListForReading)
             {
                 if (f==null || f==sponsor || f.IsPlayer || !f.HostileTo(Faction.OfPlayer) ||
-                    f.def.techLevel< TechLevel.Industrial || f.leader==null) continue;
+                    f.def.techLevel< TechLevel.Industrial || f.leader==null ||
+                    f.HostileTo(sponsor) || sponsor.HostileTo(f)) continue;
                 if (selected==null || f.def.techLevel>selected.def.techLevel) selected=f;
             }
             return selected??sponsor;
@@ -1117,16 +1150,39 @@ namespace RaidersHaveFamilies
 
         public static void OnPrisonerExit(Pawn pawn, Map previousMap, bool wasReleased, IntVec3 exitCell)
         {
-            if (!wasReleased || previousMap == null || pawn == null || pawn.Dead) return;
+            if(previousMap==null || pawn==null)return;
             var ledger = Current.Game?.GetComponent<RHFGameLedger>();
             RHFHostageRecord r = ledger?.FindHostage(pawn);
-            if (r == null || r.Paid || r.OriginalFaction == null) return;
+            if(NJRGroupRansomV15.OnPrisonerExit(ledger,r,previousMap,wasReleased,pawn))
+            {
+                // Only the compact signed debt remains until the LAST member
+                // gets out; the returned world pawn is never pinned by ledger.
+                if(r!=null && r.GroupReleaseConfirmed && ledger?.Hostages.Contains(r)==true)
+                {
+                    r.Pawn=null;
+                    ledger.InvalidateHostageIndex();
+                }
+                return;
+            }
+            if(r==null)return;
+            if(!wasReleased || pawn.Dead || r.Paid || r.OriginalFaction==null)
+            {
+                // Non-release exits are not ongoing colony captivity. Preserve
+                // actual death/recruitment cases only where future diplomacy
+                // still needs them; all ordinary prisoners are immediately gone.
+                if(!r.Recruited && !IsDeadCase(r) && ledger!=null)
+                {
+                    ledger.Hostages.Remove(r);
+                    ledger.InvalidateHostageIndex();
+                }
+                return;
+            }
             // A standard, unnegotiated prisoner release is also a genuine humane
             // release. Never grant the RHF ransom payment or goodwill twice.
             if (!r.Negotiated)
             {
                 RHFMercy.TryAward(r, ordinarySale: false);
-                ledger.Hostages.Remove(r);
+                ledger.Hostages.Remove(r); ledger.InvalidateHostageIndex();
                 return;
             }
             r.Paid = true;
@@ -1190,32 +1246,39 @@ namespace RaidersHaveFamilies
                             item.ParentHolder == null) item.Destroy(DestroyMode.Vanish);
                 }
             }
-            ledger.Hostages.Remove(r);
+            ledger.Hostages.Remove(r); ledger.InvalidateHostageIndex();
         }
 
-        private static IntVec3 SafeRansomDrop(Map map)
+        internal static IntVec3 SafeRansomDrop(Map map)
         {
             if(map==null)return IntVec3.Invalid;
             IntVec3 preferred=DropCellFinder.TradeDropSpot(map);
             if(!preferred.IsValid || !preferred.InBounds(map))preferred=map.Center;
-            // A centered vanilla trade drop can still target a roofed room.
-            // Choose the closest unroofed zone with a 13x13 clear footprint
-            // for a multi-pod reward. Only evaluated when a ransom is paid.
+            // A 13x13 empty field is ideal for a large batch of capsules,
+            // but many mountain / cramped maps can never provide one. Retry
+            // a smaller fully-open staging zone instead of losing all ransom.
+            // Native DropThingsNear still decides each actual landing cell.
+            // This scan occurs ONLY on physical release / explicit radio retry.
             int maxRadius=Math.Max(map.Size.x,map.Size.z);
+            int[] clearRadii={6,3,1};
+            foreach(int width in clearRadii)
             for(int radius=0;radius<maxRadius;radius++)
             for(int dx=-radius;dx<=radius;dx++)
             for(int dz=-radius;dz<=radius;dz++)
             {
                 if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
                 IntVec3 cell=new IntVec3(preferred.x+dx,0,preferred.z+dz);
-                if(!cell.InBounds(map) || !cell.Standable(map))continue;
+                if(!cell.InBounds(map) || !cell.Standable(map) ||
+                   map.roofGrid.RoofAt(cell)!=null ||
+                   cell.GetFirstBuilding(map)!=null)continue;
                 bool clear=true;
-                for(int x=-6;x<=6 && clear;x++)
-                for(int z=-6;z<=6;z++)
+                for(int x=-width;x<=width && clear;x++)
+                for(int z=-width;z<=width;z++)
                 {
                     IntVec3 around=new IntVec3(cell.x+x,0,cell.z+z);
                     if(!around.InBounds(map) || !around.Standable(map) ||
-                        map.roofGrid.RoofAt(around)!=null || around.GetEdifice(map)!=null)
+                        map.roofGrid.RoofAt(around)!=null ||
+                        around.GetFirstBuilding(map)!=null)
                     {clear=false;break;}
                 }
                 if(clear)return cell;
@@ -1229,6 +1292,10 @@ namespace RaidersHaveFamilies
             RHFHostageRecord r = ledger?.FindHostage(victim);
             if (r == null || r.OriginalFaction == null || r.Paid) return;
             if (r.DeathTick > 0) return; // one event, even with nested death hooks
+            // Once a captive physically exited the colony, subsequent death
+            // elsewhere cannot retroactively invalidate a completed handover.
+            if(r.GroupRansomId>0 && !r.GroupReleaseConfirmed)
+                NJRGroupRansomV15.Abort(ledger,r.GroupRansomId,"contract member died before release");
             r.DeathTick=Find.TickManager.TicksGame;
             r.Executed=execution;
             r.PlayerCausedDeath = causedByPlayer || execution ||

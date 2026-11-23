@@ -195,9 +195,14 @@ namespace RaidersHaveFamilies
         [HarmonyPostfix]
         public static void Postfix(Pawn __instance, RHFExitState __state)
         {
-            if (RHFMod.Settings?.Enabled != true || !__state.Released ||
-                __instance == null || __instance.Map != null) return;
-            RHFHostageDiplomacy.OnPrisonerExit(__instance, __state.Map, true, __state.ExitCell);
+            if (RHFMod.Settings?.Enabled != true ||
+                __instance == null || __instance.Map != null || __state.Map==null)return;
+            // Event-based cleanup for ALL tracked departures, including escape,
+            // sale and caravan exits. No hourly map scan needed for cleanup.
+            RHFGameLedger ledger=Current.Game?.GetComponent<RHFGameLedger>();
+            if(ledger?.FindHostage(__instance)!=null)
+                RHFHostageDiplomacy.OnPrisonerExit(__instance,__state.Map,
+                    __state.Released,__state.ExitCell);
         }
     }
 

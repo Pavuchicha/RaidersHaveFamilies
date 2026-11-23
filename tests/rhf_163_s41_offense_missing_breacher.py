@@ -1,4 +1,4 @@
-"""P0 crash regression: no reachable engineer while breach wall exists.
+﻿"""P0 crash regression: no reachable engineer while breach wall exists.
 This is Python static source-contract + independent mission outcome model.
 It DOES NOT compile or run RimWorld C# or claim in-game PASS.
 """
@@ -9,9 +9,9 @@ src=(Path(__file__).resolve().parents[1]/
 checks={
     'failure branch': 'if(breacher==null)',
     'physical target': 'board.Assign(soldier,RHFRoleS41.OffenseStrike,\n                            barrier,post,now);',
-    'safe support': 'IntVec3 cover=Formation(soldier,breacher.Position,map,i,occupied);',
+    'safe support': 'IntVec3 cover=Formation(soldier,breacher.Position,map,i,occupied,knownTurrets);',
     'fallback post': 'if(!post.IsValid)post=soldier.Position;',
-    'support post': 'if(!cover.IsValid)cover=soldier.Position;',
+    'support post': 'if(!cover.IsValid)cover=breacher.Position;',
     'failure trace': '"no sapper / physical attacks"',
     'melee position search': 'private static IntVec3 ReachableBreachStand(Pawn pawn,Thing barrier)',
     'real adjacent cell': 'IntVec3 cell=barrier.Position+deltas[i];',
@@ -26,10 +26,10 @@ start=src.index('                if(barrier!=null)\n                {\n',src.ind
 end=src.index('                IntVec3 lane=Formation(',start)
 block=src[start:end]
 assert block.count('if(breacher==null)')==1
-assert block.count('breacher.Position')==1
+assert block.count('breacher.Position')==2
 assert block.index('breacher.Position')>block.index('                    else\n                    {')
 assert block.index('RHFRoleS41.OffenseStrike')<block.index('                    else\n                    {')
-assert src.count('breacher.Position')==1
+assert src.count('breacher.Position')==2
 # Any removal of contract pieces must be independently caught.
 for marker in checks.values():
     changed=src.replace(marker, '/* mutation */',1)

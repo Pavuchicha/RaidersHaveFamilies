@@ -29,6 +29,10 @@ namespace RaidersHaveFamilies
         public bool MedicalSupplies;
         public int KitIssued;
         public int LastTacticalOrder;
+        public int PresetS42;
+        public float GearCostS42;
+        public Thing OrbitalTargeterS42;
+        public bool OrbitalUsedS42;
         public RHFTacticalMember() { }
         public RHFTacticalMember(Pawn pawn, RHFCombatRole role)
         {
@@ -46,6 +50,10 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref MedicalSupplies, "medicalSupplies", false);
             Scribe_Values.Look(ref KitIssued, "kitIssued", 0);
             Scribe_Values.Look(ref LastTacticalOrder, "lastTacticalOrder", 0);
+            Scribe_Values.Look(ref PresetS42,"njrWeaponPresetS42",0);
+            Scribe_Values.Look(ref GearCostS42,"njrWeaponCostS42",0f);
+            Scribe_References.Look(ref OrbitalTargeterS42,"njrOrbitalItemS42");
+            Scribe_Values.Look(ref OrbitalUsedS42,"njrOrbitalUsedS42",false);
         }
     }
 
@@ -66,16 +74,14 @@ namespace RaidersHaveFamilies
 
         // Demolition axes are existing RimWorld weapons. No RHF explosive kit.
         private const float MedicalKitCost = 35f;
-        private const int MaxAuditedActors = 96;
-        private const int MaxCandidatesPerThink = 45;
+        // No arbitrarily capped set of mission participants or visible defenders.
         private static readonly Dictionary<string, ThingDef> meleeFallbackCache =
             new Dictionary<string, ThingDef>();
 
         public static void Register(RHFOperation op, RHFStrikeParty party, Pawn pawn)
         {
             if (op == null || party == null || pawn == null || pawn.RaceProps == null ||
-                !pawn.RaceProps.Humanlike || op.TacticalMembers == null ||
-                op.TacticalMembers.Count >= MaxAuditedActors) return;
+                !pawn.RaceProps.Humanlike || op.TacticalMembers == null) return;
             for (int i = 0; i < op.TacticalMembers.Count; i++)
                 if (op.TacticalMembers[i]?.Pawn == pawn) return;
 
@@ -185,6 +191,7 @@ namespace RaidersHaveFamilies
             }
             if (member.Role == (int)RHFCombatRole.Cover && member.WeaponMissing)
                 member.Role = (int)RHFCombatRole.Assault;
+            NJRAdaptiveLoadoutsS42.Equip(op,party,member);
         }
 
         // This fallback is faction/tag/tech constrained. It does not invent guns or
@@ -286,7 +293,7 @@ namespace RaidersHaveFamilies
             {
                 if(party==null || party.Role!=(int)RHFStrikeRole.Rescue ||
                    !party.Succeeded)continue;
-                for(int i=0;i<op.Squad.Count && i<96;i++)
+                for(int i=0;i<op.Squad.Count;i++)
                 {
                     Pawn candidate=op.Squad[i];
                     RHFTacticalMember member=Member(op,candidate);
@@ -316,10 +323,8 @@ namespace RaidersHaveFamilies
                 return false;
             Pawn enemy = null;
             float nearest = 900f;
-            int reviewed = 0;
             foreach (Pawn possible in map.mapPawns.FreeColonistsSpawned)
             {
-                if (reviewed++ >= MaxCandidatesPerThink) break;
                 if (possible == null || possible.Dead || possible.Downed || possible.Map != map) continue;
                 float d = (possible.Position-fighter.Position).LengthHorizontalSquared;
                 if (d > 625f || d >= nearest) continue;
@@ -344,7 +349,7 @@ namespace RaidersHaveFamilies
         {
             if (op?.TacticalMembers == null || now % 1200 > 300) return;
             int issued = 0;
-            for (int i=0;i<op.TacticalMembers.Count && issued<2;i++)
+            for (int i=0;i<op.TacticalMembers.Count;i++)
             {
                 RHFTacticalMember member=op.TacticalMembers[i];
                 Pawn pawn=member?.Pawn;
@@ -368,10 +373,8 @@ namespace RaidersHaveFamilies
                 now - member.LastTacticalOrder < 1200) return false;
             Pawn enemy = null;
             float nearest = 900f;
-            int reviewed = 0;
             foreach (Pawn candidate in map.mapPawns.FreeColonistsSpawned)
             {
-                if (reviewed++ >= MaxCandidatesPerThink) break;
                 if (candidate == null || candidate.Downed || candidate.Dead) continue;
                 float dist = (candidate.Position-scout.Position).LengthHorizontalSquared;
                 if (dist >= nearest || dist < 49f) continue;

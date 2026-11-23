@@ -186,10 +186,8 @@ namespace RaidersHaveFamilies
                 Faction owner=priority==0 ? sponsor : operatorFaction;
                 if(owner==null || owner.IsPlayer ||
                    (priority==1 && owner==sponsor))continue;
-                int inspected=0;
                 foreach(Settlement site in sites)
                 {
-                    if(++inspected>4096)break;
                     if(site==null || site.Faction!=owner || !site.Tile.Valid ||
                        site.Tile==map.Tile || site.Tile.Layer!=map.Tile.Layer)continue;
                     float distance=Find.WorldGrid.ApproxDistanceInTiles(map.Tile,site.Tile);
@@ -297,7 +295,7 @@ namespace RaidersHaveFamilies
             }
             List<RHFOperation> operations=RHFMissionIntegrityV130.Operations(origin);
             if(operations==null)return;
-            for(int i=0;i<operations.Count && i<8;i++)
+            for(int i=0;i<operations.Count;i++)
             {
                 RHFOperation op=operations[i];
                 if(op==null || op.CreatedTick!=action.OperationCreatedTick ||

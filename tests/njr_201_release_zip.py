@@ -8,7 +8,7 @@ with zipfile.ZipFile(path) as z:
     bad=z.testzip()
     assert bad is None,bad
     names=z.namelist()
-    prefix='RaidersHaveFamilies/'
+    prefix='NJR-NotJustRaiders/'
     required=[
         prefix+'Assemblies/RaidersHaveFamilies.dll',
         prefix+'About/About.xml',

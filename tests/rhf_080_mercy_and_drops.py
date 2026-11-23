@@ -1,4 +1,4 @@
-"""RHF 0.8.0 new feature regression guard. Not a compile or in-game test."""
+﻿"""RHF 0.8.0 new feature regression guard. Not a compile or in-game test."""
 from pathlib import Path
 import xml.etree.ElementTree as ET
 r=Path(__file__).resolve().parents[1]
@@ -28,9 +28,9 @@ assert 'RHF_MercyTrade' in m and 'RHF_MercyFreedom' in m
 assert 'charity_' in m and 'mercy_' in m
 assert 'name.StartsWith("Charity_"' in notes
 assert 'parms.spawnCenter = nearPrison' in ops and 'RescueDropCenter' in ops
-assert 'DropCellFinder.IsGoodDropSpot(c,map,true,true)' in ops and 'NJRRescueInteriorS41.DirectDoor' in ops
+assert 'SafeRescueDropPad(map,c)' in ops and 'NJRRescueInteriorS41.DirectDoor' in ops
 assert 'squared<16 || (roof!=null && squared<25)' in ops
 assert 'Рейд отменён' in ops or 'рейд отменён' in ops
 assert '19 — Проверить бонусы идеологии и милосердия' in dbg
-assert '0.14.0-beta2' in (r/'.github/workflows/build.yml').read_text()
+assert '0.15.0-beta1' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: 0.8 mercy/charity, sale vs ransom, physical ransom pods, prison-side rescue drop, diagnostics.')

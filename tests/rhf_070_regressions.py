@@ -1,4 +1,4 @@
-"""RHF 0.7+ static source regressions, updated for 0.12.2 dialog and nonduplicated raid letters.
+﻿"""RHF 0.7+ static source regressions, updated for 0.12.2 dialog and nonduplicated raid letters.
 Not a substitute for a C# compile or in-game test.
 """
 from pathlib import Path
@@ -39,5 +39,5 @@ assert 'ЦЕЛЬ ОПЕРАЦИИ' in ops and 'new LookTargets(map.Center, map)'
 assert '01 — Спасение' in source['RHFDebugActions']
 assert '09 — Месть' in source['RHFDebugActions']
 assert 'RHFPreceptMoodEntry : PreceptComp_SelfTookMemoryThought' in source['RHFPreceptNotes']
-assert '0.14.0-beta2' in (root/'.github/workflows/build.yml').read_text()
+assert '0.15.0-beta1' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: rank, family, medical, WCE2, single raid notification, and updated dialogs')

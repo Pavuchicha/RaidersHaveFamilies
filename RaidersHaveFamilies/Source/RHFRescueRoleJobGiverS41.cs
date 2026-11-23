@@ -1,4 +1,4 @@
-// RHF S4.1-B: the ONLY routine rescue job issuer.
+﻿// RHF S4.1-B: the ONLY routine rescue job issuer.
 // It is executed by the pawn's mission ThinkTree, not by MapComponentTick.
 using System;
 using RimWorld;
@@ -25,14 +25,52 @@ namespace RaidersHaveFamilies
             {
                 RHFOrderS41 phase3=op.BoardS41.For(pawn,false);
                 if(phase3==null)return null;
-                switch((RHFRoleS41)phase3.Role)
+                RHFRoleS41 phase3Role=(RHFRoleS41)phase3.Role;
+                // The assigned engineer must finish the REAL pod, even under
+                // pressure. Everyone else who is not transporting cargo or
+                // boarding may stop to fight a physical approach to the site.
+                if(phase3Role==RHFRoleS41.Screen ||
+                   phase3Role==RHFRoleS41.Hold ||
+                   phase3Role==RHFRoleS41.Breach)
+                {
+                    IntVec3 site=op.PodCell.IsValid?op.PodCell:op.PodLauncherCell;
+                    Job contact=NJRCombatContactS44.Respond(pawn,op,site,true,22);
+                    if(contact!=null)return contact;
+                }
+                else if(phase3Role==RHFRoleS41.PodSupply)
+                {
+                    // A visible turret is NOT permission to abandon every
+                    // cargo delivery forever. Screen guards handle ordinary
+                    // contact while carriers physically supply the blueprint.
+                    // A carrier alone or facing a direct adjacent threat may
+                    // defend itself before continuing its real native unload.
+                    IntVec3 site=op.PodCell.IsValid?op.PodCell:op.PodLauncherCell;
+                    if(!HasActivePodGuard(op,pawn) || AdjacentObservedThreat(op,pawn))
+                    {
+                        Job contact=NJRCombatContactS44.Respond(pawn,op,site,false,12);
+                        if(contact!=null)return contact;
+                    }
+                }
+                else if(phase3Role==RHFRoleS41.Engineer)
+                {
+                    // With a combat-capable guard, keep ONE real engineer
+                    // building. If every other defender is dead/downed, the
+                    // last builder must be allowed to protect their own life.
+                    if(!HasActivePodGuard(op,pawn))
+                    {
+                        IntVec3 site=op.PodCell.IsValid?op.PodCell:op.PodLauncherCell;
+                        Job contact=NJRCombatContactS44.Respond(pawn,op,site,false,10);
+                        if(contact!=null)return contact;
+                    }
+                }
+                switch(phase3Role)
                 {
                     case RHFRoleS41.Breach:
                     {
                         Thing wall=phase3.Objective;
                         if(wall==null || wall.Destroyed || !wall.Spawned ||
-                           wall.Map!=pawn.Map || wall.def!=ThingDefOf.Wall ||
-                           wall.Faction!=Faction.OfPlayer)return null;
+                           wall.Map!=pawn.Map ||
+                           !RHFCombatPlannerV125.RequiresBreach(wall))return null;
                         Job approach=ApproachBarrier(pawn,wall);
                         if((pawn.Position-wall.Position).LengthHorizontalSquared>5 &&
                            approach!=null)return approach;
@@ -87,7 +125,8 @@ namespace RaidersHaveFamilies
                     }
                     case RHFRoleS41.Screen:
                         if(phase3.Cell.IsValid && phase3.Cell.InBounds(pawn.Map) &&
-                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>9)
+                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>9 &&
+                           pawn.CanReach(phase3.Cell,PathEndMode.OnCell,Danger.Deadly))
                             return Task(JobDefOf.Goto,phase3.Cell,90);
                         return null;
                     case RHFRoleS41.Hold:
@@ -100,18 +139,29 @@ namespace RaidersHaveFamilies
             if(op.Phase!=1 && op.Phase!=2)return null;
             RHFOrderS41 order=op.BoardS41.For(pawn,false);
             if(order==null)return null;
-            // Immediate physical contact takes priority over distant mission
-            // targets. Protected former prisoners still never enter this rule.
-            if((op.Freed==null || !op.Freed.Contains(pawn)) &&
-               ImmediateThreat(op,pawn))return null;
-            switch((RHFRoleS41)order.Role)
+            // Fire on actual observed pursuers, defenders and turret threats
+            // BEFORE following Goto waypoints. Escorts defend locally without
+            // abandoning their VIP; convoy guards manoeuvre only if needed.
+            RHFRoleS41 role=(RHFRoleS41)order.Role;
+            if(op.Freed==null || !op.Freed.Contains(pawn))
+            {
+                bool maneuver=op.Phase==1 || role==RHFRoleS41.Screen;
+                IntVec3 anchor=op.Phase==2 && role==RHFRoleS41.Screen &&
+                    order.Objective is Pawn pursuer && pursuer.Spawned ?
+                    pursuer.Position : order.Cell.IsValid?order.Cell:
+                    order.Objective!=null?order.Objective.Position:op.ExitCell;
+                Job contact=NJRCombatContactS44.Respond(pawn,op,anchor,maneuver,
+                    op.Phase==2?15:26);
+                if(contact!=null)return contact;
+            }
+            switch(role)
             {
                 case RHFRoleS41.Breach:
                 {
                     Thing obstacle=order.Objective;
                     if(obstacle==null || obstacle.Destroyed || !obstacle.Spawned ||
                        obstacle.Map!=pawn.Map ||
-                       !RHFCombatPlannerV125.IsBreachableStructure(obstacle))return null;
+                       !RHFCombatPlannerV125.RequiresBreach(obstacle))return null;
                     JobDef strike=RHFCombatPlannerV125.BreachAttack(pawn);
                     // No instant damage/charges: only ordinary weapon attack jobs.
                     if(strike==null)return null;
@@ -156,26 +206,49 @@ namespace RaidersHaveFamilies
                     if(canShoot)return Task(JobDefOf.AttackStatic,turret,180);
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
                        (pawn.Position-order.Cell).LengthHorizontalSquared>2 &&
-                       pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Some))
+                       pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
                         return Task(JobDefOf.Goto,order.Cell,90);
-                    return null; // no imaginary shots through sealed perimeter
+                    // If no firing line is open, breach the real obstruction
+                    // instead of waiting in the open under turret fire.
+                    Job breach=NJRCombatContactS44.BreachToward(pawn,op,turret.Position);
+                    if(breach!=null)return breach;
+                    return null; // a turret behind indestructible rock is inaccessible
                 }
                 case RHFRoleS41.Advance:
                 {
+                    if(op.Phase==1 && op.BoardS41?.Barrier==null &&
+                       !order.Cell.IsValid && op.BoardS41?.RescueTarget!=null)
+                    {
+                        Job breach=NJRCombatContactS44.BreachToward(pawn,op,
+                            op.BoardS41.RescueTarget.Position);
+                        if(breach!=null)return breach;
+                    }
                     if(order.Objective!=null && order.Objective.Spawned &&
                        order.Objective.Map==pawn.Map)
                         return Task(JobDefOf.Goto,order.Objective,90);
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
                        (pawn.Position-order.Cell).LengthHorizontalSquared>2)
-                        return Task(JobDefOf.Goto,order.Cell,90);
+                    {
+                        if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
+                            return Task(JobDefOf.Goto,order.Cell,90);
+                        Job breach=NJRCombatContactS44.BreachToward(pawn,op,order.Cell);
+                        if(breach!=null)return breach;
+                    }
                     return null; // local mission defence may engage enemies
                 }
                 case RHFRoleS41.Screen:
                 {
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
                        (pawn.Position-order.Cell).LengthHorizontalSquared>9)
-                        return Task(JobDefOf.Goto,order.Cell,90);
-                    return null; // firing lanes handled by scoped defence giver
+                    {
+                        if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
+                            return Task(JobDefOf.Goto,order.Cell,90);
+                        // Real rearguards do not hang on a forbidden tile.
+                        // Fight a reachable blocking structure instead.
+                        Job breach=NJRCombatContactS44.BreachToward(pawn,op,order.Cell);
+                        if(breach!=null)return breach;
+                    }
+                    return null; // mission-scoped defence remains active
                 }
                 case RHFRoleS41.Escort:
                 {
@@ -189,8 +262,8 @@ namespace RaidersHaveFamilies
                            !order.Cell.InBounds(pawn.Map) ||
                            pawn.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
                            pawn.carryTracker?.CarriedThing!=null ||
-                           !pawn.CanReach(escorted,PathEndMode.ClosestTouch,Danger.Some) ||
-                           !pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Some))
+                           !pawn.CanReach(escorted,PathEndMode.ClosestTouch,Danger.Deadly) ||
+                           !pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
                             return null;
                         JobDef carry=DefDatabase<JobDef>.GetNamedSilentFail("RHF_CarryDowned");
                         if(carry==null)return null;
@@ -207,10 +280,10 @@ namespace RaidersHaveFamilies
                        (pawn.Position-order.Cell).LengthHorizontalSquared>10 &&
                        separation<=9)
                     {
-                        IntVec3 step=EscortStep(escorted.Position,order.Cell,pawn.Map);
+                        IntVec3 step=EscortStep(pawn,escorted,order.Cell);
                         if(step.IsValid &&
                            (pawn.Position-step).LengthHorizontalSquared>2 &&
-                           pawn.CanReach(step,PathEndMode.OnCell,Danger.Some))
+                           pawn.CanReach(step,PathEndMode.OnCell,Danger.Deadly))
                             return Task(JobDefOf.Goto,step,90);
                     }
                     return null; // local defence may protect the nearby VIP
@@ -222,9 +295,11 @@ namespace RaidersHaveFamilies
                         return Task(JobDefOf.Wait,pawn.Position,150);
                     if((pawn.Position-escort.Position).LengthHorizontalSquared>25)
                         return Task(JobDefOf.Goto,escort,90);
-                    if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
-                       (pawn.Position-order.Cell).LengthHorizontalSquared>10)
-                        return Task(JobDefOf.Goto,order.Cell,90);
+                    // Never independently sprint to ExitCell: the escort
+                    // will follow, turn back for the VIP, and both will loop.
+                    // Keep within a short leash of the real moving escort.
+                    if((pawn.Position-escort.Position).LengthHorizontalSquared>4)
+                        return Task(JobDefOf.Goto,escort,120);
                     return Task(JobDefOf.Wait,pawn.Position,90);
                 }
                 case RHFRoleS41.Withdraw:
@@ -249,10 +324,8 @@ namespace RaidersHaveFamilies
         {
             Map map=soldier?.Map;
             if(map==null)return false;
-            int scanned=0;
             foreach(Pawn enemy in map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer))
             {
-                if(++scanned>80)break;
                 if(enemy==null || enemy.Dead || enemy.Downed || !enemy.Spawned ||
                    enemy.Map!=map || (op.Targets!=null && op.Targets.Contains(enemy)) ||
                    (op.Freed!=null && op.Freed.Contains(enemy)) ||
@@ -263,12 +336,68 @@ namespace RaidersHaveFamilies
             return false;
         }
 
-        private static IntVec3 EscortStep(IntVec3 vip,IntVec3 exit,Map map)
+        // The mere existence of a live pawn somewhere in the squad does not
+        // protect the engineer. A guard must be near the pod, free of a
+        // critical work/escort duty, and physically able to fight.
+        private static bool HasActivePodGuard(RHFOperation op,Pawn worker)
         {
-            int x=exit.x==vip.x?0:exit.x>vip.x?1:-1;
-            int z=exit.z==vip.z?0:exit.z>vip.z?1:-1;
-            IntVec3 next=vip+new IntVec3(x*2,0,z*2);
-            return next.InBounds(map) && next.Standable(map) ? next : IntVec3.Invalid;
+            if(op?.Squad==null || worker?.Map==null)return false;
+            IntVec3 site=op.PodCell.IsValid ? op.PodCell :
+                op.PodLauncherCell.IsValid ? op.PodLauncherCell : worker.Position;
+            foreach(Pawn guard in op.Squad)
+            {
+                if(guard==null || guard==worker || !guard.Spawned ||
+                   guard.Map!=worker.Map || guard.Dead || guard.Downed ||
+                   guard.InMentalState || guard.GetLord()!=worker.GetLord() ||
+                   guard.WorkTagIsDisabled(WorkTags.Violent) ||
+                   (guard.Position-site).LengthHorizontalSquared>900)continue;
+                RHFOrderS41 role=op.BoardS41?.For(guard,false);
+                if(role==null)continue;
+                RHFRoleS41 duty=(RHFRoleS41)role.Role;
+                if(duty==RHFRoleS41.Screen || duty==RHFRoleS41.Hold ||
+                   duty==RHFRoleS41.Breach)return true;
+            }
+            return false;
+        }
+
+        private static bool AdjacentObservedThreat(RHFOperation op,Pawn worker)
+        {
+            Thing threat=NJRCombatContactS44.VisibleContact(worker,op,
+                worker.Position,3);
+            return threat!=null &&
+                (worker.Position-threat.Position).LengthHorizontalSquared<=9;
+        }
+
+        private static IntVec3 EscortStep(Pawn escort,Pawn vip,IntVec3 exit)
+        {
+            Map map=escort?.Map;
+            if(map==null || vip==null || vip.Map!=map || !exit.IsValid)
+                return IntVec3.Invalid;
+            IntVec3 origin=vip.Position;
+            IntVec3 best=IntVec3.Invalid;
+            int score=int.MaxValue;
+            bool progressing=false;
+            int original=(origin-exit).LengthHorizontalSquared;
+            // The previous two-cell diagonal got stuck at corners and doors.
+            // Select an actual reachable short waypoint for BOTH members;
+            // allow a side-step when the direct diagonal is blocked.
+            for(int dx=-5;dx<=5;dx++)for(int dz=-5;dz<=5;dz++)
+            {
+                IntVec3 cell=origin+new IntVec3(dx,0,dz);
+                if(!cell.InBounds(map) || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null || (dx==0 && dz==0) ||
+                   !vip.CanReach(cell,PathEndMode.OnCell,Danger.Deadly) ||
+                   !escort.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                int progress=(cell-exit).LengthHorizontalSquared;
+                bool improves=progress<original;
+                if(progressing && !improves)continue;
+                int move=(cell-origin).LengthHorizontalSquared;
+                int nextScore=progress*8+move+
+                    (cell-escort.Position).LengthHorizontalSquared;
+                if((improves && !progressing) || nextScore<score)
+                {best=cell;score=nextScore;progressing=improves;}
+            }
+            return best;
         }
 
         private static Job ApproachBarrier(Pawn pawn,Thing barrier)
@@ -287,7 +416,7 @@ namespace RaidersHaveFamilies
                 IntVec3 site=origin+offset;
                 if(!site.InBounds(map) || !site.Standable(map) ||
                    site.GetEdifice(map)!=null ||
-                   !pawn.CanReach(site,PathEndMode.OnCell,Danger.Some))continue;
+                   !pawn.CanReach(site,PathEndMode.OnCell,Danger.Deadly))continue;
                 int distance=(pawn.Position-site).LengthHorizontalSquared;
                 if(distance<score){best=site;score=distance;}
             }

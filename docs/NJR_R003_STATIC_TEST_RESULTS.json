@@ -1,0 +1,11 @@
+{
+  "version": "R003",
+  "date": "2026-11-23",
+  "source_checks": 66,
+  "pass": 66,
+  "failed": [],
+  "excluded": "njr_201_release_zip.py (post-build install artifact required)",
+  "dll_compiled": false,
+  "gameplay_tested": false,
+  "scope": "Python static structural tests and independent models, no real RimWorld execution"
+}

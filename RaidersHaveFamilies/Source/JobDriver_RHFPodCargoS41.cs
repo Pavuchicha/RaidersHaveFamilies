@@ -15,7 +15,7 @@ namespace RaidersHaveFamilies
         {
             if(op?.PodCargoStacksS41==null || pawn?.inventory?.innerContainer==null)
                 return false;
-            for(int i=0;i<op.PodCargoStacksS41.Count && i<48;i++)
+            for(int i=0;i<op.PodCargoStacksS41.Count;i++)
             {
                 Thing item=op.PodCargoStacksS41[i];
                 if(item!=null && !item.Destroyed &&
@@ -63,7 +63,7 @@ namespace RaidersHaveFamilies
                carrier.Faction!=op.PodCargoOwnerFactionS311 ||
                carrier.Faction==Faction.OfPlayer)return;
             ThingOwner inventory=carrier.inventory.innerContainer;
-            for(int i=0;i<op.PodCargoStacksS41.Count && i<48;i++)
+            for(int i=0;i<op.PodCargoStacksS41.Count;i++)
             {
                 Thing item=op.PodCargoStacksS41[i];
                 if(item==null || item.Destroyed || !inventory.Contains(item))continue;

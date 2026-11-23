@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/mnt/data/njr_r005_work/tests/njr_213_global_forensic_regressions.py", line 43, in <module>
+    assert retain in update, 'EXPIRED GROUP PAYMENT: released member is discarded'
+           ^^^^^^^^^^^^^^^^
+AssertionError: EXPIRED GROUP PAYMENT: released member is discarded

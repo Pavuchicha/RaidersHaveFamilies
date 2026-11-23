@@ -1,4 +1,4 @@
-"""RHF v0.13.1 source/API contracts and deterministic mission bookkeeping.
+﻿"""RHF v0.13.1 source/API contracts and deterministic mission bookkeeping.
 These are NOT real RimWorld gameplay tests; GitHub Actions must compile the DLL.
 """
 from pathlib import Path
@@ -53,7 +53,7 @@ assert 'radius=2;radius<=28' in ops
 assert 'NJRRescueInteriorS41.DirectDoor' in ops
 assert 'squared<16 || (roof!=null && squared<25)' in ops
 assert 'roof!=null && roof.isThickRoof' in ops
-assert 'DropCellFinder.IsGoodDropSpot(c,map,true,true)' in ops
+assert 'SafeRescueDropPad(map,c)' in ops
 
 # No global diplomacy rewrites. Thing hostility is overridden only for named
 # members of the same live rescue; player combat against them is still hostile.
@@ -93,9 +93,9 @@ assert 'int stageWork=stage==0?3000:1600' in ops
 
 # Release archives must offer the installable DLL ZIP after CI compilation.
 assert 'python3 tests/rhf_130_mission_integrity.py' in wf
-assert 'NJR - Not Just Raiders v0.14.0-beta2' in wf
-assert 'NJR_NotJustRaiders_v0.14.0-beta2_RimWorld_1.7_INSTALL.zip' in wf
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta2' in wf
+assert 'NJR - Not Just Raiders v0.15.0-beta1' in wf
+assert 'NJR_NotJustRaiders_v0.15.0-beta1_RimWorld_1.7_INSTALL.zip' in wf
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in wf
 for f in (root/'RaidersHaveFamilies').rglob('*.xml'):
     ET.parse(f)
 print('PASS: mission letters, vanilla VIP buildings, paid supplies, safe drops, mission friendlies, group exit safeguards, CI metadata')

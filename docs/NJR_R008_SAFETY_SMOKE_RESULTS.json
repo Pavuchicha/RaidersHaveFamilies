@@ -1,0 +1,12 @@
+{
+  "purpose": "Compatibility smoke only, NOT semantic review or game pass",
+  "total": 71,
+  "passed": 70,
+  "failed": [
+    {
+      "file": "njr_201_release_zip.py",
+      "return": 1,
+      "tail": "Traceback (most recent call last):\n  File \"/mnt/data/njr_r008_work/tests/njr_201_release_zip.py\", line 4, in <module>\n    assert len(sys.argv)==2,'Usage: python3 tests/njr_201_release_zip.py <zip>'\n           ^^^^^^^^^^^^^^^^\nAssertionError: Usage: python3 tests/njr_201_release_zip.py <zip>\n"
+    }
+  ]
+}

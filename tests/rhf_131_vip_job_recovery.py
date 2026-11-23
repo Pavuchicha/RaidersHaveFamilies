@@ -1,4 +1,4 @@
-"""Regression contract for 2026-11-22 live FieldPod/VIP reports.
+﻿"""Regression contract for 2026-11-22 live FieldPod/VIP reports.
 Static checks are not in-game mission simulations or successful C# compilation.
 """
 from pathlib import Path
@@ -41,7 +41,7 @@ assert 'Pawn __0, Pawn __2' in medical
 assert 'Pawn pawn=__0, billDoer=__2;' in medical
 assert 'Pawn pawn, Pawn billDoer' not in medical
 assert 'python3 tests/rhf_131_vip_job_recovery.py' in workflow
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.14.0-beta2' in workflow
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in workflow
 # Deterministic state-machine sanity: independent walk-away must not terminate
 # an active scripted pod mission.  The physical escort/pod completes it.
 def allowed_independent_exit(is_freed,live,pod_finished,authorized):

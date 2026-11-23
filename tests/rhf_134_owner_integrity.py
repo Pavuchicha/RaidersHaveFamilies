@@ -54,7 +54,7 @@ assert attribute_patched_classes(cmd)==['RHFRescueExitV124'],attribute_patched_c
 # OnDeploy order and MapComponentTick caller. All text comments stripped.
 a=strip_comments(cmd);start=a.index('internal static void OnDeploy(');end=a.index('internal static void Refresh(',start);od=a[start:end]
 assert od.index('ClaimGroup(op, MapFor(controller));')<od.index('StabilizeFreed(op, op.Freed[j]);')
-assert 'j < MaxTargets' in od
+assert 'j < MaxTargets' not in od and 'j < op.Freed.Count' in od
 b=strip_comments(ops);start=b.index('public override void MapComponentTick()');end=b.index('private void DeployVengeanceSupport(',start)
 assert 'RHFRescueCommandV124.OnDeploy(this, op, true);' in b[start:end]
 # Negative test: deletion of a guard CANNOT be masked by a comment mentioning the class.

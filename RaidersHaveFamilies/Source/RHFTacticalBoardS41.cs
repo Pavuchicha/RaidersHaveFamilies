@@ -1,4 +1,4 @@
-// RHF S4.1-A — persistent mission blackboard. This does NOT issue Pawn jobs.
+﻿// RHF S4.1-A — persistent mission blackboard. This does NOT issue Pawn jobs.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -38,6 +38,26 @@ namespace RaidersHaveFamilies
         }
     }
 
+    // Persisted sightings are scoped to the observing faction. A coalition's
+    // second faction does not receive omniscient map knowledge just because
+    // both wings share this mission blackboard. Buildings are stationary;
+    // a destroyed, captured, or despawned turret is pruned on active pulses.
+    public sealed class RHFObservedTurretS46 : IExposable
+    {
+        public string FactionKey = "";
+        public Thing Turret;
+        public int LastSeenTick;
+        public RHFObservedTurretS46() { }
+        internal RHFObservedTurretS46(string factionKey, Thing turret, int tick)
+        { FactionKey=factionKey; Turret=turret; LastSeenTick=tick; }
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref FactionKey,"factionKey","");
+            Scribe_References.Look(ref Turret,"turret");
+            Scribe_Values.Look(ref LastSeenTick,"lastSeenTick",0);
+        }
+    }
+
     public sealed class RHFTacticalBoardS41 : IExposable
     {
         public int Version = 1;
@@ -61,6 +81,8 @@ namespace RaidersHaveFamilies
         public IntVec3 WithdrawalCell = IntVec3.Invalid;
         public string Decision = "not planned";
         public List<RHFOrderS41> Orders = new List<RHFOrderS41>();
+        public List<RHFObservedTurretS46> ObservedTurretsS46 =
+            new List<RHFObservedTurretS46>();
 
         public RHFTacticalBoardS41() { }
 
@@ -71,7 +93,6 @@ namespace RaidersHaveFamilies
             for (int i = 0; i < Orders.Count; i++)
                 if (Orders[i]?.Member == pawn) return Orders[i];
             if (!create) return null;
-            if (Orders.Count >= 128) return null; // hard cap for malicious/modded raids
             var order = new RHFOrderS41(pawn);
             Orders.Add(order);
             return order;
@@ -92,7 +113,19 @@ namespace RaidersHaveFamilies
 
         internal void Prune(Map map)
         {
-            if (Orders == null) { Orders = new List<RHFOrderS41>(); return; }
+            if (Orders == null) Orders = new List<RHFOrderS41>();
+            if (ObservedTurretsS46 == null)
+                ObservedTurretsS46 = new List<RHFObservedTurretS46>();
+            for (int i=ObservedTurretsS46.Count-1;i>=0;i--)
+            {
+                RHFObservedTurretS46 sighting=ObservedTurretsS46[i];
+                if(sighting==null || sighting.Turret==null ||
+                   sighting.Turret.Destroyed || !sighting.Turret.Spawned ||
+                   sighting.Turret.Map!=map ||
+                   !(sighting.Turret is Building turret) ||
+                   !RHFCombatPlannerV125.IsTurret(turret))
+                    ObservedTurretsS46.RemoveAt(i);
+            }
             for (int i = Orders.Count - 1; i >= 0; i--)
                 if (Orders[i]?.Member == null || Orders[i].Member.Dead ||
                     Orders[i].Member.MapHeld != map)
@@ -140,8 +173,14 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref WithdrawalCell, "withdrawalCell", IntVec3.Invalid);
             Scribe_Values.Look(ref Decision, "decision", "not planned");
             Scribe_Collections.Look(ref Orders, "orders", LookMode.Deep);
-            if (Scribe.mode == LoadSaveMode.PostLoadInit && Orders == null)
-                Orders = new List<RHFOrderS41>();
+            Scribe_Collections.Look(ref ObservedTurretsS46,
+                "observedTurretsS46", LookMode.Deep);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if(Orders==null)Orders=new List<RHFOrderS41>();
+                if(ObservedTurretsS46==null)
+                    ObservedTurretsS46=new List<RHFObservedTurretS46>();
+            }
         }
     }
 
@@ -159,7 +198,7 @@ namespace RaidersHaveFamilies
             var sb=new StringBuilder(2400);
             sb.AppendLine("RHF S4.1-A/B review: strategy vs actual pawn job");
             if(ops==null || ops.Count==0)sb.AppendLine("No active RHF operations");
-            else for(int i=0;i<ops.Count && i<4;i++)
+            else for(int i=0;i<ops.Count;i++)
             {
                 RHFOperation op=ops[i];
                 if(op==null)continue;

@@ -29,9 +29,6 @@ namespace RaidersHaveFamilies
     // only while at least one RHF mission exists. No map-wide scanning when idle.
     internal static class RHFRescueControlV123
     {
-        private const int MaxSquad = 96;
-        private const int MaxTargets = 24;
-        private const int MaxOrdersPerDecision = 14;
         private const int DecisionInterval = 90;
         private static readonly FieldInfo MapField = AccessTools.Field(typeof(MapComponent), "map");
         private static readonly FieldInfo OperationsField = AccessTools.Field(typeof(RHFOperationController), "operations");
@@ -62,7 +59,7 @@ namespace RaidersHaveFamilies
         {
             Pawn v = op.Vip;
             if (EligibleCaptive(op, v, map)) return v;
-            for (int i = 0; i < op.Targets.Count && i < MaxTargets; i++)
+            for (int i = 0; i < op.Targets.Count; i++)
             {
                 Pawn p = op.Targets[i];
                 if (EligibleCaptive(op, p, map)) return p;
@@ -108,14 +105,13 @@ namespace RaidersHaveFamilies
             if (previous != null && (op.Squad.Count == 0 ||
                 (op.Parties.Count == 1 && op.Parties[0].Role == (int)RHFStrikeRole.Rescue)))
             {
-                for (int i = 0; i < op.Parties.Count && op.Squad.Count < MaxSquad; i++)
+                for (int i = 0; i < op.Parties.Count; i++)
                 {
                     RHFStrikeParty party = op.Parties[i];
                     if (party == null || !party.Succeeded ||
                         party.Role != (int)RHFStrikeRole.Rescue) continue;
                     foreach (Pawn p in map.mapPawns.AllPawnsSpawned)
                     {
-                        if (op.Squad.Count >= MaxSquad) break;
                         if (p == null || !p.Spawned || p.Faction != party.Faction ||
                             previous.Contains(p.thingIDNumber) || !p.RaceProps.Humanlike ||
                             op.Squad.Contains(p) || op.Diversion.Contains(p)) continue;
@@ -133,12 +129,12 @@ namespace RaidersHaveFamilies
                 return;
             }
             int taken = 0;
-            for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+            for (int i = 0; i < op.Squad.Count; i++)
             {
                 Pawn rescuer = op.Squad[i];
                 if (!HealthyRescuer(rescuer, map)) continue;
                 TakeMissionOwnership(rescuer);
-                if (taken < 8 && rescuer.CanReach(target, PathEndMode.Touch, Danger.Deadly))
+                if (rescuer.CanReach(target, PathEndMode.Touch, Danger.Deadly))
                 {
                     GiveOrder(rescuer, JobDefOf.Goto, target);
                     taken++;
@@ -166,11 +162,11 @@ namespace RaidersHaveFamilies
             if (ops == null || ops.Count == 0) return;
             Map map = MapFor(controller);
             if (map == null) return;
-            for (int k = 0; k < ops.Count && k < 4; k++)
+            for (int k = 0; k < ops.Count; k++)
             {
                 RHFOperation op = ops[k];
                 if (!Rescuing(op)) continue;
-                for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+                for (int i = 0; i < op.Squad.Count; i++)
                     if (HealthyRescuer(op.Squad[i], map)) TakeMissionOwnership(op.Squad[i]);
             }
         }
@@ -207,7 +203,7 @@ namespace RaidersHaveFamilies
             int orders = 0;
             // Controlled workers retain their current orders if still correct.
             // Restarting a melee job every 90 ticks prevents ever hitting a door.
-            for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+            for (int i = 0; i < op.Squad.Count; i++)
             {
                 Pawn rescuer = op.Squad[i];
                 if (!HealthyRescuer(rescuer, map)) continue;
@@ -241,7 +237,6 @@ namespace RaidersHaveFamilies
                     state.LastProblem = "не найден метод освобождения пленника";
                     break;
                 }
-                if (orders >= MaxOrdersPerDecision) continue;
                 Job current = rescuer.jobs.curJob;
                 // A reachability result is only a planning estimate. If a Goto
                 // job has made no measurable progress for 900 ticks, stop trusting
@@ -345,7 +340,7 @@ namespace RaidersHaveFamilies
             var ctrl = map.GetComponent<RHFOperationController>();
             var ops = ctrl != null ? Operations(ctrl) : null;
             if (ops == null || ops.Count == 0) return true;
-            for (int k = 0; k < ops.Count && k < 4; k++)
+            for (int k = 0; k < ops.Count; k++)
             {
                 RHFOperation op = ops[k];
                 if (!Rescuing(op) || !op.Squad.Contains(pawn)) continue;
@@ -400,16 +395,14 @@ namespace RaidersHaveFamilies
             if (ops == null || ops.Count == 0) return "Нет активных операций RHF.";
             var sb = new StringBuilder();
             sb.AppendLine("NJR: живое состояние спасательных миссий");
-            int printed = 0;
             foreach (RHFOperation op in ops)
             {
                 if (op == null || op.Type != (int)RHFOperationType.Rescue) continue;
-                if (++printed > 4) break;
                 var state = LiveStates.GetValue(op, _ => new RHFRescueLiveState());
                 Pawn target = ActiveCaptive(op, map);
                 int onMap = 0;
                 int lordAttached = 0;
-                for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+                for (int i = 0; i < op.Squad.Count; i++)
                 {
                     Pawn fighter = op.Squad[i];
                     if (!HealthyRescuer(fighter, map)) continue;

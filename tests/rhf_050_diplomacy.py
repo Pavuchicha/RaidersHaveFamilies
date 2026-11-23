@@ -12,7 +12,7 @@ assert 'серебра' in dlg and 'CounterOfferChancePercent' in dlg
 assert 'AgreeRelease' in host and 'ReportCondition' in host
 assert 'LastConfirmedOperation' in host and 'Scribe_Values.Look(ref LastConfirmedOperation' in host
 assert 'DropPodUtility.DropThingsNear' in host and 'new LookTargets(dropCenter, previousMap)' in host
-assert 'ExitCell' in patch and 'OnPrisonerExit(__instance, __state.Map, true, __state.ExitCell)' in patch
+assert 'ExitCell' in patch and 'OnPrisonerExit(__instance,__state.Map,' in patch and '__state.Released,__state.ExitCell' in patch
 assert 'SeverityOf(RecipeDef recipe)' in patch and 'recipe.isViolation' in patch
 assert 'RHFWCERegistry.SeverityOf(recipe.defName)' in patch
 assert 'NJR - ТЕСТЫ | РЕЙДЫ' in debug and 'NJR - ТЕСТЫ | ПЛЕННИКИ' in debug

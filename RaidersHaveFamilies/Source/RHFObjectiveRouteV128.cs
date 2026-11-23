@@ -1,4 +1,4 @@
-// RHF 0.12.8: one actual costed, threat-aware corridor for walking AND breaching.
+﻿// RHF 0.12.8: one actual costed, threat-aware corridor for walking AND breaching.
 // Unlike the legacy route estimator, the resulting chain is followed by troops.
 // Calculated at most once per 900 ticks per rescue operation (or when invalidated).
 using System;
@@ -16,6 +16,9 @@ namespace RaidersHaveFamilies
     internal sealed class RHFRoutePlanV128
     {
         internal bool Valid;
+        // True only when a full-map safe-first search failed and the second
+        // search had to accept a physically unavoidable gun corridor.
+        internal bool RiskFallback;
         internal int Tick;
         internal Pawn Leader;
         internal Pawn Captive;
@@ -40,6 +43,10 @@ namespace RaidersHaveFamilies
     internal sealed class RHFRouteStoreV128
     {
         internal RHFRoutePlanV128 Plan;
+        // Ephemeral per-operation layout guard, never serialized to a save.
+        internal Map LayoutMap;
+        internal int TurretLayoutSignature;
+        internal int NextLayoutCheckTick;
     }
 
     [StaticConstructorOnStartup]
@@ -50,14 +57,14 @@ namespace RaidersHaveFamilies
             Log.Message("[RHF] v0.12.8 route mission controller loaded (HP + threat corridor).");
         }
         private const int ReplanTicks = 900;
-        private const int MaxCells = 100000;
-        private const int MaxExpanded = 85000;
-        private const int MaxThreatEmitters = 40;
-        private const int ScanStructures = 2600;
+        // No artificial cell, expansion, turret or mobile-shooter limits.
+        // The actual finite map bounds terminate the A* search.
         // Only real emitted attacks affect danger, not an arbitrary 35-tile ring.
         // A few steps under concentrated direct fire must cost more than
         // breaching several ordinary walls; never trade soldiers for trivial distance.
-        private const int ExposedCost = 4000;
+        private const int ExposedCost = 12000;
+        // Safe-first objective: a path through 3 walls is preferable to 2 doors
+        // followed by a turret corridor. Risky routes are a LAST RESORT.
         private static readonly ConditionalWeakTable<RHFOperation, RHFRouteStoreV128> Cache =
             new ConditionalWeakTable<RHFOperation, RHFRouteStoreV128>();
 
@@ -121,12 +128,8 @@ namespace RaidersHaveFamilies
         }
         private static void AddEmitter(List<Emitter> threats,Emitter incoming)
         {
-            if(threats.Count<MaxThreatEmitters){threats.Add(incoming);return;}
-            int worst=0;
-            for(int i=1;i<threats.Count;i++)
-                if(threats[i].CorridorDistance>threats[worst].CorridorDistance)worst=i;
-            if(incoming.CorridorDistance<threats[worst].CorridorDistance)
-                threats[worst]=incoming;
+            // Every real mobile threat contributes. No nearest-N eviction.
+            threats.Add(incoming);
         }
 
         private static float WeaponRange(ThingDef weapon, float fallback)
@@ -135,7 +138,7 @@ namespace RaidersHaveFamilies
             float range=0f;
             foreach(VerbProperties verb in weapon.Verbs)
                 if(verb!=null && verb.range>range)range=verb.range;
-            return range>0f ? Mathf.Clamp(range,5f,75f) : fallback;
+            return range>0f ? range : fallback;
         }
         private static bool IsTurret(Building b)
         {
@@ -146,30 +149,31 @@ namespace RaidersHaveFamilies
         }
         private static List<Emitter> Threats(Map map,IntVec3 a,IntVec3 b)
         {
-            var threat=new List<Emitter>(MaxThreatEmitters);
-            int checkedBuildings=0;
+            // A tactical decision may be expensive; unlike idle diplomatic
+            // housekeeping, it must NOT hide the 41st turret. Include every
+            // actual player-owned turret, irrespective of list order or the
+            // direct-line corridor. The fallback route also needs to know
+            // turrets guarding a seemingly attractive far detour.
+            var threat=new List<Emitter>(96);
             foreach(Building building in map.listerBuildings.allBuildingsColonist)
             {
-                if(++checkedBuildings>ScanStructures)break;
                 if(!IsTurret(building))continue;
                 ThingDef gun=building.def?.building?.turretGunDef;
                 float range=WeaponRange(gun,30f);
-                // A turret midway along a long route matters even when far
-                // from BOTH endpoints; never discard it by endpoint distance.
-                AddEmitter(threat,new Emitter(building.Position,range,2,
+                threat.Add(new Emitter(building.Position,range,2,
                     DistanceToCorridor(building.Position,a,b)));
             }
-            // An armed defender can also create a hostile firing corridor.
-            int checkedPawns=0;
+            // Dynamic shooters are counted in full, just like static turrets.
+            var shooters=new List<Emitter>();
             foreach(Pawn pawn in map.mapPawns.FreeColonistsSpawned)
             {
-                if(++checkedPawns>100)break;
                 if(pawn==null || pawn.Dead || pawn.Downed || !pawn.Spawned ||
                    pawn.equipment?.Primary?.def?.IsRangedWeapon!=true)continue;
                 float range=WeaponRange(pawn.equipment.Primary.def,24f);
-                AddEmitter(threat,new Emitter(pawn.Position,range,1,
+                AddEmitter(shooters,new Emitter(pawn.Position,range,1,
                     DistanceToCorridor(pawn.Position,a,b)));
             }
+            threat.AddRange(shooters);
             return threat;
         }
         private static int Exposure(Map map,IntVec3 cell,List<Emitter> threats)
@@ -180,7 +184,12 @@ namespace RaidersHaveFamilies
                 Emitter t=threats[i];
                 int dist=(cell-t.Origin).LengthHorizontalSquared;
                 if(dist>t.RangeSquared || dist<=1)continue;
-                if(!GenSight.LineOfSight(t.Origin,cell,map))continue;
+                // A closed door can conceal a turret until the first soldier
+                // breaks it. Its adjacent ROOM is still a dangerous corridor.
+                bool sameGunRoom=t.Importance>=2 &&
+                    t.Origin.GetRoom(map)==cell.GetRoom(map) &&
+                    cell.GetRoom(map)!=null;
+                if(!sameGunRoom && !GenSight.LineOfSight(t.Origin,cell,map))continue;
                 cost+=ExposedCost*t.Importance;
                 if(dist<t.RangeSquared*0.32f)cost+=180*t.Importance;
                 if(cost>=60000)return 60000;
@@ -198,6 +207,8 @@ namespace RaidersHaveFamilies
                 if(source.Importance<2)continue;
                 int distance=(cell-source.Origin).LengthHorizontalSquared;
                 if(distance>source.RangeSquared || distance<=1)continue;
+                Room turretRoom=source.Origin.GetRoom(map);
+                if(turretRoom!=null && turretRoom==cell.GetRoom(map))return true;
                 if(GenSight.LineOfSight(source.Origin,cell,map))return true;
             }
             return false;
@@ -208,10 +219,15 @@ namespace RaidersHaveFamilies
             Building building=cell.GetEdifice(map);
             if(building!=null && !building.Destroyed)
             {
-                if(RHFCombatPlannerV125.IsBreachableStructure(building))
+                if(RHFCombatPlannerV125.RequiresBreach(building))
                 {
                     obstacle=building;
-                    return 10+RHFCombatPlannerV125.BreachWorkCost(building);
+                    int work=RHFCombatPlannerV125.BreachWorkCost(building);
+                    // A door is the intended access point. Penalize ripping
+                    // down a sound wall much more heavily than opening it via
+                    // a controlled melee breach, even if that door is farther.
+                    return 10+(building is Building_Door ? work :
+                        Math.Max(1000,work*6));
                 }
                 if(building.def?.passability==Traversability.Impassable)return -1;
             }
@@ -219,7 +235,7 @@ namespace RaidersHaveFamilies
             return 10;
         }
         private static bool PlanBounded(Map map,Pawn leader,Pawn captive,
-            RHFRoutePlanV128 plan,int margin)
+            RHFRoutePlanV128 plan,int margin,bool forbidTurretExposure)
         {
             IntVec3 start=leader.Position,goal=captive.Position;
             int minX=Math.Max(0,Math.Min(start.x,goal.x)-margin);
@@ -228,7 +244,7 @@ namespace RaidersHaveFamilies
             int maxZ=Math.Min(map.Size.z-1,Math.Max(start.z,goal.z)+margin);
             int width=maxX-minX+1,height=maxZ-minZ+1;
             int count=width*height;
-            if(count<=0 || count>MaxCells)return false;
+            if(count<=0)return false;
             int from=(start.z-minZ)*width+start.x-minX;
             int finish=(goal.z-minZ)*width+goal.x-minX;
             var costs=new int[count];
@@ -241,7 +257,7 @@ namespace RaidersHaveFamilies
             Push(heap,from,Heuristic(start.x,start.z,goal));
             int expanded=0;
             bool reached=false;
-            while(heap.Count>0 && expanded<MaxExpanded)
+            while(heap.Count>0)
             {
                 HeapItem current=Pop(heap);
                 int at=current.Id;
@@ -259,6 +275,9 @@ namespace RaidersHaveFamilies
                     Thing obstacle;
                     int step=Step(map,cell,out obstacle);
                     if(step<0)continue;
+                    // No chosen door is automatically safe: look at its NEXT
+                    // room's real firing lanes. A safe wall breach may win.
+                    if(forbidTurretExposure && ExposedToTurret(map,cell,threats))continue;
                     // Out-of-sight soft-cover and shooter arcs enter the ACTUAL
                     // cost of every route segment, not a straight-line estimate.
                     if(hazard[next]<0)hazard[next]=Exposure(map,cell,threats);
@@ -274,9 +293,7 @@ namespace RaidersHaveFamilies
             plan.Expanded+=expanded;
             if(!reached)
             {
-                plan.Explanation=expanded>=MaxExpanded ?
-                    "исчерпан лимит обхода; не выбираем случайную стену" :
-                    "нет достижимого маршрута в текущей области";
+                plan.Explanation="вся достижимая область проверена: маршрута нет";
                 return false;
             }
             var reverse=new List<IntVec3>(256);
@@ -320,12 +337,34 @@ namespace RaidersHaveFamilies
                 }
             }
             plan.Valid=true;
-            plan.Explanation="маршрут построен: "+plan.Cells.Count+" клеток; " +
+            plan.RiskFallback=!forbidTurretExposure;
+            plan.Explanation=(forbidTurretExposure ? "SAFE-FIRST" : "RISK-MINIMIZED")+
+                " маршрут: "+plan.Cells.Count+" клеток; " +
                 "дверей="+plan.Doors+", стен="+plan.Walls+
                 (plan.FirstTurretExposureIndex>=0 ?
                     "; обнаружен сектор огня турели — требуется прикрытие" :
                     "; сектор огня турелей не пересекается");
             return true;
+        }
+
+        // Inspired by map-scoped avoidance-grid invalidation in community
+        // combat AI: a built/destroyed player turret invalidates any old
+        // corridor. The fingerprint is sampled only once every 120 game ticks
+        // per active rescue operation, never in passive colony housekeeping.
+        private static int TurretLayout(Map map)
+        {
+            unchecked
+            {
+                int signature=17,count=0;
+                foreach(Building turret in map.listerBuildings.allBuildingsColonist)
+                {
+                    if(!IsTurret(turret))continue;
+                    count++;
+                    signature=signature*31 + turret.Position.GetHashCode();
+                    signature=signature*31 + turret.GetHashCode();
+                }
+                return signature*31+count;
+            }
         }
 
         internal static RHFRoutePlanV128 Resolve(RHFOperation op,Map map,
@@ -335,12 +374,26 @@ namespace RaidersHaveFamilies
                !leader.Spawned || !captive.Spawned || leader.Map!=map || captive.Map!=map)
                 return new RHFRoutePlanV128{Explanation="неверная цель или карта"};
             RHFRouteStoreV128 holder=Cache.GetValue(op,_=>new RHFRouteStoreV128());
+            bool layoutChanged=false;
+            if(holder.LayoutMap!=map || now>=holder.NextLayoutCheckTick)
+            {
+                int layout=TurretLayout(map);
+                layoutChanged=holder.Plan!=null &&
+                    (holder.LayoutMap!=map || holder.TurretLayoutSignature!=layout);
+                holder.LayoutMap=map;
+                holder.TurretLayoutSignature=layout;
+                holder.NextLayoutCheckTick=now+120;
+            }
             RHFRoutePlanV128 prior=holder.Plan;
             // A corridor with no actual forward progress must expire sooner;
             // otherwise idle pawns can retain a bad initial approach for 900t.
             bool stalled=prior!=null && now-prior.Tick>=300 &&
                 now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>600;
-            if(prior!=null && !stalled && prior.Captive==captive && prior.Leader!=null &&
+            if(prior!=null && !stalled && !layoutChanged && prior.Captive==captive &&
+               // The plan and its cells belong to THIS origin and target.
+               // A rescue commander may be replaced mid-assault; borrowing
+               // the previous leader's path made other soldiers idle or loop.
+               prior.Leader==leader && prior.To==captive.Position &&
                prior.Leader.Spawned && prior.Leader.Map==map && !prior.Leader.Dead &&
                now-prior.Tick<ReplanTicks &&
                (prior.FirstBarrier==null || !prior.FirstBarrier.Destroyed) &&
@@ -349,13 +402,44 @@ namespace RaidersHaveFamilies
                 return prior;
             var fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
                 From=leader.Position,To=captive.Position};
-            if(!PlanBounded(map,leader,captive,fresh,44))
-                PlanBounded(map,leader,captive,fresh,Math.Max(map.Size.x,map.Size.z));
+            // Pass 1: prefer EVERY possible fully unexposed route, even if
+            // it requires more demolition. Pass 2: when all routes face guns,
+            // minimize exposed firing lanes with the highest actual penalty.
+            bool safe=PlanBounded(map,leader,captive,fresh,
+                Math.Max(map.Size.x,map.Size.z),true);
+            if(!safe)
+            {
+                fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
+                    From=leader.Position,To=captive.Position};
+                PlanBounded(map,leader,captive,fresh,
+                    Math.Max(map.Size.x,map.Size.z),false);
+            }
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
                     " source="+leader.Position+" target="+captive.Position);
             holder.Plan=fresh;
             return fresh;
+        }
+        // A soldier appearing away from the commander's corridor must not
+        // inherit a route whose starting region is physically inaccessible.
+        // Run the same safe-first search from that SOLDIER, without replacing
+        // the operation's cached commander route or its current breacher.
+        internal static RHFRoutePlanV128 PlanIndividual(Map map,Pawn member,
+            Pawn captive,int now)
+        {
+            var plan=new RHFRoutePlanV128{Tick=now,Leader=member,
+                Captive=captive,From=member?.Position??IntVec3.Invalid,
+                To=captive?.Position??IntVec3.Invalid};
+            if(map==null || member==null || captive==null ||
+               !member.Spawned || !captive.Spawned ||
+               member.Map!=map || captive.Map!=map)return plan;
+            if(PlanBounded(map,member,captive,plan,
+                Math.Max(map.Size.x,map.Size.z),true))return plan;
+            plan=new RHFRoutePlanV128{Tick=now,Leader=member,
+                Captive=captive,From=member.Position,To=captive.Position};
+            PlanBounded(map,member,captive,plan,
+                Math.Max(map.Size.x,map.Size.z),false);
+            return plan;
         }
         private static bool NearPath(RHFRoutePlanV128 plan,IntVec3 point,int tolerance)
         {
@@ -393,7 +477,11 @@ namespace RaidersHaveFamilies
             int end=route.Cells.Count-1;
             if(route.FirstBarrierIndex>=0)
                 end=Math.Min(end,route.FirstBarrierIndex-1);
-            if(route.FirstTurretExposureIndex>=0)
+            // In a genuinely SAFE route the exposure guard is a hard stop.
+            // In a RISK-FALLBACK route every safe possibility has already been
+            // exhausted. Keep the physical barrier stop, but allow fighters to
+            // traverse the selected LEAST-EXPOSED corridor while they engage guns.
+            if(route.FirstTurretExposureIndex>=0 && !route.RiskFallback)
                 end=Math.Min(end,route.FirstTurretExposureIndex-1);
             return end;
         }
@@ -523,7 +611,9 @@ namespace RaidersHaveFamilies
         private static bool CrossesKnownFire(RHFRoutePlanV128 route,IntVec3 from,
             IntVec3 to,Map map)
         {
-            if(route.FirstTurretExposureIndex<0)return false;
+            // Check joining legs even if the chosen *corridor* is safe:
+            // vanilla Goto otherwise cuts a turret-exposed corner.
+            if(!route.RiskFallback && LateralExposed(map,from,to))return true;
             // A joining move is allowed only when its intermediate grid cells
             // occur on the safe prefix of the pre-calculated corridor.
             int dx=to.x-from.x,dz=to.z-from.z;

@@ -19,7 +19,7 @@ namespace RaidersHaveFamilies
             var ops = RHFMissionIntegrityV130.Operations(map);
             var sb = new StringBuilder("RHF S3.1.1 — physical cargo / native work / boarding\n");
             if (ops == null || ops.Count == 0) sb.AppendLine("No active RHF operations");
-            else for (int i = 0; i < ops.Count && i < 4; i++)
+            else for (int i = 0; i < ops.Count; i++)
             {
                 RHFOperation op = ops[i];
                 if (op == null) continue;

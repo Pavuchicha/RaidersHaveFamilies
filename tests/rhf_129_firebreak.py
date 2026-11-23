@@ -1,4 +1,4 @@
-"""v0.12.9 contract + deterministic scenario tests; not a RimWorld runtime test."""
+﻿"""v0.12.9 contract + deterministic scenario tests; not a RimWorld runtime test."""
 from pathlib import Path
 from heapq import heappush, heappop
 root=Path(__file__).resolve().parents[1]
@@ -9,7 +9,7 @@ workflow=(root/'.github/workflows/build.yml').read_text('utf8')
 
 for token in (
     'FirstTurretExposureIndex', 'ExposedTurretCells', 'SafeAdvanceLimit(',
-    'ExposedToTurret(', 'private const int ExposedCost = 4000;',
+    'ExposedToTurret(', 'private const int ExposedCost = 12000;',
     'internal static bool IsAllowedWaypoint(',
     'if(nextStep!=step)break;', 'CrossesKnownFire(',
     'route.FirstTurretExposureIndex-1',
@@ -26,6 +26,7 @@ for token in (
     'needsFireSuppression ? 15000 : 27000',
 ):
     assert token in mission, f'unsafe mission override: {token}'
+assert 'bool forbidTurretExposure' in route and 'safe=PlanBounded' in route
 assert mission.index('RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now)') < mission.index('now,false,needsFireSuppression')
 assert 'RHFObjectiveRouteV128.IsOnCorridor(route,current.targetA.Cell)' not in mission
 for token in (
@@ -39,7 +40,7 @@ for token in (
 ):
     assert token in combat, f'cover team lost fire discipline: {token}'
 assert 'tests/rhf_129_firebreak.py' in workflow
-assert 'v0.14.0-beta2' in workflow
+assert 'v0.15.0-beta1' in workflow
 
 # Exact-cost reference implementation: a small deterministic grid, for checking
 # relative path choice under HP and weapon exposure. Does NOT execute Verse pathfinder.

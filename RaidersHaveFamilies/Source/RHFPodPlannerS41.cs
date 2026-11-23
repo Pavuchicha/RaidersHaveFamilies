@@ -1,4 +1,4 @@
-// S4.1-A/E: Phase 3 single-writer dispatch. Strategic orders ONLY;
+﻿// S4.1-A/E: Phase 3 single-writer dispatch. Strategic orders ONLY;
 // actual construction, refueling and boarding jobs come from ThinkTree.
 using System;
 using System.Collections.Generic;
@@ -11,9 +11,6 @@ namespace RaidersHaveFamilies
 {
     internal static class RHFPodPlannerS41
     {
-        private const int MaxSquad=96;
-        private const int MaxCaptives=24;
-        private const int MaxGuards=32;
 
         // Stable owner for native work. The old nearest-pawn selector ran every
         // 90 ticks and could repeatedly interrupt builders as they moved.
@@ -68,7 +65,7 @@ namespace RaidersHaveFamilies
             // Supplies arrived in soldier inventories, NOT as spawned loot.
             // Carriers must physically travel to the build site to unpack.
             if(op.PodConstructionStage>=1 && op.PodConstructionStage<=3 && op.Squad!=null)
-            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            for(int i=0;i<op.Squad.Count;i++)
             {
                 Pawn carrier=op.Squad[i];
                 if(!RHFRescuePlannerS41.ActiveForRoleS41(carrier,map) ||
@@ -78,8 +75,8 @@ namespace RaidersHaveFamilies
                 board.Assign(carrier,RHFRoleS41.PodSupply,null,unload,now);
                 occupied.Add(carrier);
             }
-            if(work is Building wall && wall.def==ThingDefOf.Wall &&
-               wall.Faction==Faction.OfPlayer && !wall.Destroyed)
+            if(work is Building wall &&
+               RHFCombatPlannerV125.RequiresBreach(wall))
             {
                 Pawn breacher=null;
                 foreach(Pawn fighter in op.Squad)
@@ -118,7 +115,7 @@ namespace RaidersHaveFamilies
             // the protected assembly point. A VIP pod cannot silently abandon
             // another rescued pawn or make that pawn take a vanilla flee job.
             if(op.Freed!=null)
-            for(int i=0;i<op.Freed.Count && i<MaxCaptives;i++)
+            for(int i=0;i<op.Freed.Count;i++)
             {
                 Pawn freed=op.Freed[i];
                 if(freed==null || freed==op.Vip || freed.Dead || !freed.Spawned ||
@@ -136,8 +133,7 @@ namespace RaidersHaveFamilies
             // Guard slots are distinct accessible cells; do not overwrite an
             // engineer, escort or existing physical rescue job.
             var positions=new HashSet<IntVec3>();
-            int guards=0;
-            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            for(int i=0;i<op.Squad.Count;i++)
             {
                 Pawn soldier=op.Squad[i];
                 if(!RHFRescuePlannerS41.ActiveForRoleS41(soldier,map) ||
@@ -151,7 +147,7 @@ namespace RaidersHaveFamilies
                    soldier.CanReach(previous.Cell,PathEndMode.OnCell,Danger.Some))
                 {cell=previous.Cell;positions.Add(cell);}
                 else cell=GuardCell(soldier,assembly,map,positions,op);
-                if(cell.IsValid && guards++<MaxGuards)
+                if(cell.IsValid)
                     board.Assign(soldier,RHFRoleS41.Screen,null,cell,now);
                 else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
             }
@@ -167,17 +163,22 @@ namespace RaidersHaveFamilies
             if(!site.IsValid || !site.InBounds(map))
                 return vip!=null && vip.Spawned ? vip.Position : IntVec3.Invalid;
             if(vip==null || !vip.Spawned || vip.Map!=map)return site;
-            int[] dx={0,0,-3,3,-2,2,-2,2,0,0,-4,4};
-            int[] dz={-3,3,0,0,-2,-2,2,2,-4,4,0,0};
+            // Full physical map search, not twelve hand-picked slots. Stay
+            // near the actual pod while retaining real VIP reachability.
             IntVec3 best=IntVec3.Invalid;
             int score=int.MaxValue;
-            for(int i=0;i<dx.Length;i++)
+            for(int x=0;x<map.Size.x;x++)
+            for(int z=0;z<map.Size.z;z++)
             {
-                IntVec3 cell=site+new IntVec3(dx[i],0,dz[i]);
-                if(!cell.InBounds(map) || !cell.Standable(map) ||
-                   cell.GetEdifice(map)!=null ||
+                IntVec3 cell=new IntVec3(x,0,z);
+                if(!cell.Standable(map) || cell.GetEdifice(map)!=null ||
+                   InFootprint(cell,op.PodLauncherCell,
+                       DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher")) ||
+                   InFootprint(cell,op.PodCell,
+                       DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod")) ||
                    !vip.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
-                int candidate=(vip.Position-cell).LengthHorizontalSquared;
+                int candidate=(site-cell).LengthHorizontalSquared*4+
+                    (vip.Position-cell).LengthHorizontalSquared;
                 if(candidate<score){best=cell;score=candidate;}
             }
             return best.IsValid ? best : vip.Position;
@@ -210,11 +211,9 @@ namespace RaidersHaveFamilies
             Room startRoom=pawn.Position.GetRoom(map);
             IntVec3 best=IntVec3.Invalid;
             int bestScore=int.MaxValue;
-            int costlyPaths=0;
-            // Prefer the prison/launch room itself. A fixed eight-cell ring
-            // previously failed to locate ANY interior guard post in small
-            // rooms and left the whole squad standing outside.
-            for(int radius=1;radius<=8;radius++)
+            // Search every physically reachable room slot, not the first eight
+            // rings or 24 path probes. Guard assignments have no TPS cap.
+            for(int radius=1;radius<=Math.Max(map.Size.x,map.Size.z);radius++)
             for(int dx=-radius;dx<=radius;dx++)
             for(int dz=-radius;dz<=radius;dz++)
             {
@@ -227,13 +226,6 @@ namespace RaidersHaveFamilies
                 int dist=(pawn.Position-cell).LengthHorizontalSquared;
                 int score=(atSite?0:12000)+dist*3+radius*5;
                 if(score>=bestScore)continue;
-                // Bounded A* probes; extra soldiers retain the lower-level
-                // defense job giver instead of scanning the whole map.
-                if(++costlyPaths>24)
-                {
-                    if(best.IsValid)occupied.Add(best);
-                    return best;
-                }
                 if(!pawn.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
                 best=cell;bestScore=score;
             }

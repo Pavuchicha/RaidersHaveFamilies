@@ -17,7 +17,7 @@ namespace RaidersHaveFamilies
             if(map==null)return null;
             List<RHFOperation> operations=RHFMissionIntegrityV130.Operations(map);
             if(operations==null)return null;
-            for(int i=0;i<operations.Count && i<4;i++)
+            for(int i=0;i<operations.Count;i++)
             {
                 RHFOperation op=operations[i];
                 if(op!=null && op.Type==(int)RHFOperationType.Rescue &&
@@ -54,18 +54,57 @@ namespace RaidersHaveFamilies
             if(len==0)return true;
             // Iterate only the bounded mission roster, not every pawn on a
             // heavily modded map, and never alter global faction relationships.
-            return MemberInLine(op.Squad,shooter,target,dx,dz,len) ||
-                MemberInLine(op.Diversion,shooter,target,dx,dz,len) ||
-                MemberInLine(op.Targets,shooter,target,dx,dz,len) ||
-                MemberInLine(op.Freed,shooter,target,dx,dz,len) ||
-                MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len);
+            if(MemberInLine(op.Squad,shooter,target,dx,dz,len) ||
+               MemberInLine(op.Diversion,shooter,target,dx,dz,len) ||
+               MemberInLine(op.Targets,shooter,target,dx,dz,len) ||
+               MemberInLine(op.Freed,shooter,target,dx,dz,len) ||
+               MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len))
+                return true;
+            // Doomsday/triple rockets and explosives have a REAL blast radius.
+            // A clear shot down a two-cell lane is NOT safe if a VIP, builder,
+            // mercenary or fellow raider is standing next to the target.
+            // Read projectile definitions only; CE dynamic ammo may require
+            // its own compatibility adapter and is not misrepresented as safe.
+            float blast=KnownBlastRadius(shooter);
+            return blast>0f &&
+                (MemberNearImpact(op.Squad,shooter,target,blast) ||
+                 MemberNearImpact(op.Diversion,shooter,target,blast) ||
+                 MemberNearImpact(op.Targets,shooter,target,blast) ||
+                 MemberNearImpact(op.Freed,shooter,target,blast) ||
+                 MemberNearImpact(op.NativeAnimalsS41,shooter,target,blast));
+        }
+
+        private static float KnownBlastRadius(Pawn shooter)
+        {
+            ThingDef weapon=shooter?.equipment?.Primary?.def;
+            if(weapon?.Verbs==null)return 0f;
+            float radius=0f;
+            foreach(VerbProperties verb in weapon.Verbs)
+            {
+                float value=verb?.defaultProjectile?.projectile?.explosionRadius ?? 0f;
+                if(value>radius)radius=value;
+            }
+            // Keep a safety margin for indirect hit spread and pawn size.
+            return radius>0f?radius+2f:0f;
+        }
+        private static bool MemberNearImpact(List<Pawn> members,Pawn shooter,
+            Thing target,float radius)
+        {
+            if(members==null)return false;
+            float squared=radius*radius;
+            foreach(Pawn ally in members)
+                if(ally!=null && ally!=shooter && ally!=target &&
+                   ally.Spawned && !ally.Dead && ally.Map==shooter.Map &&
+                   (ally.Position-target.Position).LengthHorizontalSquared<=squared)
+                    return true;
+            return false;
         }
 
         private static bool MemberInLine(List<Pawn> members,Pawn shooter,Thing target,
             long dx,long dz,long len)
         {
             if(members==null)return false;
-            for(int i=0;i<members.Count && i<96;i++)
+            for(int i=0;i<members.Count;i++)
             {
                 Pawn pawn=members[i];
                 if(pawn==null || pawn==shooter || pawn==target ||
@@ -95,7 +134,7 @@ namespace RaidersHaveFamilies
             if(op==null)return null;
             Map map=pawn.Map;
             float range=RHFCombatPlannerV125.WeaponRange(pawn);
-            float safeRange=range>0f?Math.Min(range,55f):2f;
+            float safeRange=range>0f?range:2f;
             float limit=safeRange*safeRange;
             Thing target=null;
             float best=float.MaxValue;

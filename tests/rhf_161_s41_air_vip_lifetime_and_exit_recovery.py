@@ -25,9 +25,9 @@ def verify(a,b,c,d):
     assert 'if(navigator==null && Active(member,map))' not in c # intentionally explicit loop
     assert 'if(navigator==null)navigator=member;' in c
     assert 'if(navigator==null && Active(freed,map))navigator=freed;' in c
-    assert 'RCellFinder.TryFindBestExitSpot(navigator,out IntVec3 cell)' in c
-    assert 'navigator.CanReach(op.ExitCell,PathEndMode.OnCell,Danger.Some)' in c
-    assert 'op.ExitCell=IntVec3.Invalid;' in c
+    assert 'NJRRescueExitS41.Choose(map,op,navigator)' in c
+    assert 'NJRRescueExitS41.Eligible(map,op,navigator,op.ExitCell,Danger.Deadly)' in c
+    assert 'op.ExitCell=NJRRescueExitS41.Choose(map,op,navigator);' in c
     assert 'if(navigator==null)' in c
     assert 'evacuation stalled: no mobile rescuer' in c
     assert 'rhf_161_s41_air_vip_lifetime_and_exit_recovery.py' in d
@@ -40,8 +40,8 @@ mutations=[
  ('a','p.IsWorldPawn() && Find.WorldPawns.ForcefullyKeptPawns.Contains(p)','true'),
  ('b','return JobMaker.MakeJob(JobDefOf.EnterTransporter,vehicle);','return Task(JobDefOf.EnterTransporter,vehicle,180);'),
  ('c','Pawn navigator=null;','Pawn navigator=anchor;'),
- ('c','RCellFinder.TryFindBestExitSpot(navigator,out IntVec3 cell)','RCellFinder.TryFindBestExitSpot(anchor,out IntVec3 cell)'),
- ('c','navigator.CanReach(op.ExitCell,PathEndMode.OnCell,Danger.Some)','anchor.CanReach(op.ExitCell,PathEndMode.OnCell,Danger.Deadly)'),
+ ('c','NJRRescueExitS41.Choose(map,op,navigator)','RCellFinder.TryFindBestExitSpot(anchor,out IntVec3 cell)'),
+ ('c','NJRRescueExitS41.Eligible(map,op,navigator,op.ExitCell,Danger.Deadly)','anchor.CanReach(op.ExitCell,PathEndMode.OnCell,Danger.Deadly)'),
  ('c','if(navigator==null)','if(false)'),
  ('d','rhf_161_s41_air_vip_lifetime_and_exit_recovery.py','removed'),
 ]

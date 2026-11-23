@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-22",
+  "ci_test_scripts": 61,
+  "passed": 61,
+  "failed": 0,
+  "failures": [],
+  "actual_CSharp_compile": "NOT RUN; requires GitHub Actions .NET 10",
+  "actual_RimWorld_playtest": "NOT RUN; user must test new binary",
+  "release_folder": "NJR-NotJustRaiders"
+}

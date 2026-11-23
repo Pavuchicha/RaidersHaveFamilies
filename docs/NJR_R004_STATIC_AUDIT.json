@@ -1,0 +1,417 @@
+{
+  "release": "NJR R004",
+  "date": "2026-11-23",
+  "base": "R003",
+  "test_type": "STATIC PYTHON CONTRACTS ONLY",
+  "tests_total": 67,
+  "tests_passed": 67,
+  "dll_build": "UNVERIFIED",
+  "rimworld_gameplay": "UNVERIFIED",
+  "combat_extended": "UNVERIFIED",
+  "save_load": "UNVERIFIED",
+  "agent_a_audit": "NOT PERFORMED",
+  "results": [
+    {
+      "script": "tests/validate.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: mod metadata, XML, RimWorld 1.7, Harmony 3, source interfaces, CI contracts.\n"
+    },
+    {
+      "script": "tests/performance_contract.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: bounded scheduled operations, no global tick Harmony hooks, bounded world pawn and batch generation.\n"
+    },
+    {
+      "script": "tests/operations_contract.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: rescuer/diversion wings, coalition sponsorship, all rescue phases, metadata.\n"
+    },
+    {
+      "script": "tests/debug_actions_031.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: immediate test raids, rescue/diversion roles, multi-sponsor coalition, hostage rank toolmap.\n"
+    },
+    {
+      "script": "tests/wce_manifest.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: 60 WCE2 recipe defs mapped; 20 non-abusive/reversal recipes excluded; optional guarded surgical hooks.\n"
+    },
+    {
+      "script": "tests/rhf_040_contracts.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: 0.4.0 rank UI (3 surfaces), provenanced family edits, load/save, bounded event generation, debug tools\n"
+    },
+    {
+      "script": "tests/rhf_050_diplomacy.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: 0.5 source contracts (vanilla radio, dialogue, evidence, reputation, pod reward, debug ranks).\n"
+    },
+    {
+      "script": "tests/precept_notes_032.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "RHF v0.3.2 precept tooltip contract: PASS\n"
+    },
+    {
+      "script": "tests/csharp_lexical_050.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: C# structural delimiters in all source files. Does not compile/check API.\n"
+    },
+    {
+      "script": "tests/rhf_060_coalitions.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: 0.6 immediate spawn, 1..4 sponsors, hire, 5 strike parties max, save/load, all prior UI files.\n"
+    },
+    {
+      "script": "tests/rhf_061_compile_contract.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: RimWorld 1.7 StatWorker v0.6.1 compatibility guard\n"
+    },
+    {
+      "script": "tests/rhf_070_regressions.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: rank, family, medical, WCE2, single raid notification, and updated dialogs\n"
+    },
+    {
+      "script": "tests/rhf_080_mercy_and_drops.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: 0.8 mercy/charity, sale vs ransom, physical ransom pods, prison-side rescue drop, diagnostics.\n"
+    },
+    {
+      "script": "tests/rhf_090_tactical.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: RHF v0.9 role records, bounded tactical controller, physical equipment, downed evacuation and CI packaging.\n"
+    },
+    {
+      "script": "tests/rhf_091_guest_api.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: WCE2 mutilation evidence uses compatible guarded interaction API, not removed guest field\n"
+    },
+    {
+      "script": "tests/rhf_092_psychological_cruelty.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: disclosure, mood, and rank-dependent remote-family dialog\n"
+    },
+    {
+      "script": "tests/rhf_100_death_and_reprisals.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: dead hostage dialogue, exclusive resolution, cannibal proof, and remote family communication\n"
+    },
+    {
+      "script": "tests/rhf_101_native_precept_mood.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: RHF precept components are native Mood entries backed by real one-off memories\n"
+    },
+    {
+      "script": "tests/rhf_110_family_escort_dialogue.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: v0.11 family persistence/load backfill, escort extraction, medical, rank, ideology and dialogue contracts.\n"
+    },
+    {
+      "script": "tests/rhf_120_conversion_campaigns.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: actual conversion/recruitment hooks, mood reporting, slave drop, real pod cargo, phased mission orders and debug diagnostics\nPASS: full 82-item requirements audit and tactical-doctrine design preserved\nPASS: dual-objective VIP retribution includes active settlement destruction\n"
+    },
+    {
+      "script": "tests/rhf_121_coherent_ops.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: v0.12.1 mission persistence retained; v0.12.6 CI packaging contract\n"
+    },
+    {
+      "script": "tests/rhf_123_rescue_control.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: v0.12.3 mission ownership, bounded rescue pursuit, safe exit & diagnostics structural contract\n"
+    },
+    {
+      "script": "tests/rhf_124_rescue_command.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: v0.12.4 persistent Lord, group extraction, safe escort, job stability, bounded access scans & CI packaging\n"
+    },
+    {
+      "script": "tests/rhf_125_combat_planner.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: v0.12.5 bounded threat assessment, live covering fire, deliberate route/breach, anti-furniture and coordinated exit\n"
+    },
+    {
+      "script": "tests/rhf_126_smart_routes_and_cover.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: v0.12.6 bounded weighted wall/door route and persistent ranged cover contracts\n"
+    },
+    {
+      "script": "tests/rhf_127_faction_and_strength.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: modded faction PawnKind, rotation/pinning, VIP rank, industrial mercenaries, universal actual-HP path cost\n"
+    },
+    {
+      "script": "tests/rhf_128_route_control.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: control integration, no nearest-wall fallback, 3-door corridor, avoid turret killfield, universal HP behavior\n"
+    },
+    {
+      "script": "tests/rhf_129_firebreak.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: v0.12.9 fire gates, crossfire-safe squad split, corner-safe waypoints, HP routing\n"
+    },
+    {
+      "script": "tests/rhf_130_mission_integrity.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: mission letters, vanilla VIP buildings, paid supplies, safe drops, mission friendlies, group exit safeguards, CI metadata\n"
+    },
+    {
+      "script": "tests/rhf_131_vip_job_recovery.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: VIP mission authority, prevented ExitMap job storm, auto-recovery, construction visibility, WCE2 positional hooks, CI label\n"
+    },
+    {
+      "script": "tests/rhf_132_mission_authority.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: one direct rescue controller, real progress, no arbitrary structural targets, explicit diversion, diagnostic\n"
+    },
+    {
+      "script": "tests/rhf_133_arrival_and_lord.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: one RHF native arrival letter, no scheduled duplicate, direct mission Lord, bounded newly-spawned attribution\n"
+    },
+    {
+      "script": "tests/rhf_134_owner_integrity.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: stripped-comment single Lord owner guards, multiline Harmony detection, negative mutations, rebind ordering\n"
+    },
+    {
+      "script": "tests/rhf_135_s1_rescue_contracts.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: case-keyed target finding, single infiltrate, physically carried authorized exit, single scheduled letter; four negative mutations\n"
+    },
+    {
+      "script": "tests/rhf_136_tactical_playtest_contracts.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: long bounded movement, cautious 3-lane formation, CE suppression isolation, hostage-safe mission targets, recovered drop pawns, finite turret stalemate; 5 negative mutations\n"
+    },
+    {
+      "script": "tests/rhf_137_harmony_hotfix_contracts.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: optional exit hook isolation, patch-per-class, defensive turret/animal/mech engagement, CE prone guard, safe lanes, cumulative drop capture, six negative mutations\n"
+    },
+    {
+      "script": "tests/rhf_138_air_only_pod_gate.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: land pods forbidden, air-rescue-only field kits, industrial field-pod debug 04, successful air crew required to build; 4 negative mutations\n"
+    },
+    {
+      "script": "tests/rhf_139_assembly_breach_fortify.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: 4 mission contracts, 4 negative mutations; not a game test\n"
+    },
+    {
+      "script": "tests/rhf_140_s221_engineer_door_contact.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: 3 S2.2.1 control contracts + 5 negative mutations; NOT C# / RimWorld test\n"
+    },
+    {
+      "script": "tests/rhf_144_s311_vip_native.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: S3.1.1 static native-work, cargo, faction, rollback and guard contracts; 10 mutations. NOT gameplay.\n"
+    },
+    {
+      "script": "tests/rhf_151_s41_rescue_single_writer.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: S4.1-A/B rescue single-writer, board persistence, release/exit guard, 7 negative mutations; NOT a gameplay test\n"
+    },
+    {
+      "script": "tests/rhf_152_s41_agent_review_fixes.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: S4.1 A/C seven audit defects, 10 mutation guards (STATIC ONLY)\n"
+    },
+    {
+      "script": "tests/rhf_153_s41_agent3_combat_and_escort.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: S4.1-A/D static checks; 14 negative mutations; no gameplay claim\n"
+    },
+    {
+      "script": "tests/rhf_154_s41_phase3_native_roles.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS S4.1-A/E phase3 native roles: 14 negative mutants; STATIC ONLY\n"
+    },
+    {
+      "script": "tests/rhf_155_s41_airflight.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS S4.1-A/F airlift: 24 negative contract mutations; STATIC ONLY\n"
+    },
+    {
+      "script": "tests/rhf_156_s41_offense_single_writer.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: S4.1-A/G offense tactical state, native siege/animal preservation, role jobs, save/load; 14 negative mutations\nNOT CHECKED: C# compilation, CE runtime, tactical quality or full 18-scenario behavior\n"
+    },
+    {
+      "script": "tests/rhf_157_s41_native_lords.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: S4.1-A/H native-siege / animal Lord partition, save/load, reserve support, 9 negative mutations\nNOT CHECKED: C# 1.7 compilation or gameplay with siege/CE/animals\n"
+    },
+    {
+      "script": "tests/rhf_158_s41_beast_incident_and_flank.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: incident-specific native beasts, isolated Lords, visible threat, reachable flank, friendly-fire scope; 7 negative mutations\nNOT CHECKED: RimWorld runtime / Beast Lord pathing / CE / 1.7 C# compilation\n"
+    },
+    {
+      "script": "tests/rhf_159_s41_native_lord_identity.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS S4.1-A/J: per-Lord state persistence, same-faction isolation,\nnearest active siege/beast support, stale/wrong-stage rejection, 10 mutation contracts\nNOT TESTED: RimWorld C# compilation / real Lord refs after SaveLoad / CE TPS\n"
+    },
+    {
+      "script": "tests/rhf_160_s41_multivip_downed_single_writer.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS S4.1-A/K: strict one-to-one escort, downed ThinkTree carrier,\nsafe alternative when no free carrier, escort-first exit and count guard; 17 contract mutations\nNOT CHECKED: C# compile, RimWorld 1.7 jobs, engine ExitMap, Combat Extended\n"
+    },
+    {
+      "script": "tests/rhf_161_s41_air_vip_lifetime_and_exit_recovery.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS S4.1-A/L: world-pawn lifetime, boarding jobs, reachable mobile extraction anchor,\n10 static negative mutants; C# compiler/game not tested\n"
+    },
+    {
+      "script": "tests/rhf_162_s41_fuel_reachable_destination.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS AP: reachable direct and remote relay, no premature VIP success (STATIC ONLY)\n"
+    },
+    {
+      "script": "tests/rhf_163_s41_offense_missing_breacher.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS S4.1-A/N: no-sapper structural assault has no null dereference, guarded support, eight policy cases (STATIC ONLY)\n"
+    },
+    {
+      "script": "tests/rhf_164_s41_field_breach_pod_entry.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: no kit/explosion, physical vanilla axes, incident-specific safe entry, native engineer job rotation, 14 negative mutations; STATIC ONLY\n"
+    },
+    {
+      "script": "tests/rhf_165_s41_inventory_pod_enemy_faction.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS: physical cargo in pawn inventories, owner-bound construction, native launch check, 12 negative mutations (STATIC ONLY)\n"
+    },
+    {
+      "script": "tests/rhf_166_s41_spawn_and_barricade.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS AP: verified ground rescue entry and physical enemy-owned barricades (STATIC ONLY)\n"
+    },
+    {
+      "script": "tests/rhf_167_s41_prepared_relay.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS AP: physical flight to first tile, real serialized world VIP, prepared relay routing and briefing; STATIC ONLY\n"
+    },
+    {
+      "script": "tests/njr_200_integrity_audit.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS NJR: 49 C# sources, 13 XML, 28 unique defNames, 14 keyed strings/localization, 18 raid scenarios, 67 CI static checks and save-compatibility invariants (STATIC ONLY).\n"
+    },
+    {
+      "script": "tests/njr_202_field_ops_regressions.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS NJR v0.14.0-beta2: 8 integrated subsystems / 30 static anchors and negative mutations; NOT game runtime\n"
+    },
+    {
+      "script": "tests/njr_203_p0_rescue_entry_pod_site.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS NJR S4.1 P0: safe entry, active rally, non-destructive pod, stable guards and real corridor checks (STATIC ONLY).\n"
+    },
+    {
+      "script": "tests/njr_204_real_playtest_failures.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS NJR 204: physical edge, turret/doors, convoy, door-adjacent walls, named install folder (STATIC)\n"
+    },
+    {
+      "script": "tests/njr_206_world_kin_reuse.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS V15 bounded existing world-pawn reuse contracts (STATIC)\n"
+    },
+    {
+      "script": "tests/njr_207_group_ransom_contract.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS V15/V16 grouped ransom physical exit gate and delivery idempotency (STATIC)\n"
+    },
+    {
+      "script": "tests/njr_208_conversion_privacy.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS V15 explicit-conversion-disclosure intelligence contract (STATIC)\n"
+    },
+    {
+      "script": "tests/njr_209_group_selection_dispatch.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS R002 selectable group contracts and guarded delivery request (STATIC ONLY)\n"
+    },
+    {
+      "script": "tests/njr_210_offense_tactics.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS NJR 210: offense doctrines, turret-sighted safe posts, accessible doors, private hunt sightings, native Lords, 18 dispatch labels (STATIC + independent reference models)\nNOT VERIFIED: actual C# runtime, CE pathfinding, tactical wins or game-save compatibility\n"
+    },
+    {
+      "script": "tests/njr_211_tech_budget_route_office_passive.py",
+      "passed": true,
+      "returncode": 0,
+      "output": "PASS NJR R004: technology restrictions, budgeted beasts and specialized kits, safe-first route semantics, faction offices, event cleanup and Scribe contracts (STATIC ONLY).\n"
+    }
+  ]
+}

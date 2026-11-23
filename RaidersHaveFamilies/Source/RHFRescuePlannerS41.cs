@@ -1,4 +1,4 @@
-// RHF S4.1-B: rescue strategy writes saveable role orders, never regular Pawn jobs.
+﻿// RHF S4.1-B: rescue strategy writes saveable role orders, never regular Pawn jobs.
 // The only direct jobs in this class are one-shot native physical carry/ExitMap actions.
 using System;
 using System.Collections.Generic;
@@ -13,9 +13,22 @@ namespace RaidersHaveFamilies
     {
         internal static bool Enabled => true;
         internal static bool ActiveForRoleS41(Pawn pawn,Map map) => Active(pawn,map);
-        private const int MaxSquad = 96;
-        private const int MaxTargets = 24;
+
         private const int PlanCadence = 180;
+        // Pursuit memory is map/operation-scoped, rebuilt after loading. It
+        // detects PLAYER pawns genuinely moving closer to the exiting convoy;
+        // a static colonist or turret does not force a permanent rearguard.
+        private sealed class PursuitMemory
+        {
+            internal readonly Dictionary<int,IntVec3> Previous =
+                new Dictionary<int,IntVec3>();
+            // Relative movement requires BOTH snapshots. Comparing an old
+            // enemy position with the new convoy position can label an enemy
+            // as "catching up" even when the convoy is outrunning them.
+            internal IntVec3 PreviousConvoy = IntVec3.Invalid;
+        }
+        private static readonly ConditionalWeakTable<RHFOperation,PursuitMemory>
+            Pursuits = new ConditionalWeakTable<RHFOperation,PursuitMemory>();
         private sealed class BarrierEventCache
         {
             internal readonly Dictionary<int,int> Seen = new Dictionary<int,int>();
@@ -28,7 +41,7 @@ namespace RaidersHaveFamilies
             if (map == null || member == null) return null;
             List<RHFOperation> operations = RHFMissionIntegrityV130.Operations(map);
             if (operations == null) return null;
-            for (int i = 0; i < operations.Count && i < 4; i++)
+            for (int i = 0; i < operations.Count; i++)
             {
                 RHFOperation op = operations[i];
                 if (op == null || op.Finished || !op.Deployed ||
@@ -47,7 +60,7 @@ namespace RaidersHaveFamilies
         {
             if (op?.Targets == null) return null;
             if (Captive(op, op.Vip, map)) return op.Vip;
-            for (int i = 0; i < op.Targets.Count && i < MaxTargets; i++)
+            for (int i = 0; i < op.Targets.Count; i++)
                 if (Captive(op, op.Targets[i], map)) return op.Targets[i];
             return null;
         }
@@ -60,7 +73,7 @@ namespace RaidersHaveFamilies
         private static bool InTouch(RHFOperation op, Pawn captive, Map map)
         {
             if(captive==null || op?.Squad==null)return false;
-            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            for(int i=0;i<op.Squad.Count;i++)
             {
                 Pawn rescuer=op.Squad[i];
                 if(Active(rescuer,map) &&
@@ -89,7 +102,7 @@ namespace RaidersHaveFamilies
         {
             if (captive == null || !captive.Spawned || captive.Map != map ||
                 op?.Squad == null) return false;
-            for (int i = 0; i < op.Squad.Count && i < MaxSquad; i++)
+            for (int i = 0; i < op.Squad.Count; i++)
             {
                 Pawn rescuer = op.Squad[i];
                 if (!Active(rescuer, map) ||
@@ -198,7 +211,7 @@ namespace RaidersHaveFamilies
             Pawn previous=existing?.Escort;
             Pawn selected=null;
             int best=int.MaxValue;
-            for (int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            for (int i=0;i<op.Squad.Count;i++)
             {
                 Pawn candidate=op.Squad[i];
                 if (!Active(candidate,map) || candidate==op.BoardS41?.Breacher ||
@@ -256,7 +269,7 @@ namespace RaidersHaveFamilies
         {
             if(op?.Freed==null || map==null)return;
             RHFTacticalBoardS41 board=op.BoardS41 ??= new RHFTacticalBoardS41();
-            for(int i=0;i<op.Freed.Count && i<MaxTargets;i++)
+            for(int i=0;i<op.Freed.Count;i++)
             {
                 Pawn freed=op.Freed[i];
                 if(freed==null || freed.Dead || freed.MapHeld!=map || !freed.Spawned)continue;
@@ -282,7 +295,7 @@ namespace RaidersHaveFamilies
             var operations=RHFMissionIntegrityV130.Operations(map);
             if(operations==null)return;
             int now=Find.TickManager.TicksGame;
-            for(int i=0;i<operations.Count && i<4;i++)
+            for(int i=0;i<operations.Count;i++)
             {
                 RHFOperation op=operations[i];
                 if(op==null || !op.Deployed || op.Finished || op.Phase!=1 ||
@@ -297,7 +310,7 @@ namespace RaidersHaveFamilies
                 }
                 if(op.Targets==null)continue;
                 BarrierEventCache cache=BarrierPulses.GetValue(op,_=>new BarrierEventCache());
-                for(int j=0;j<op.Targets.Count && j<MaxTargets;j++)
+                for(int j=0;j<op.Targets.Count;j++)
                 {
                     Pawn captive=op.Targets[j];
                     if(captive==null || captive.Dead || captive.Map!=map ||
@@ -308,7 +321,6 @@ namespace RaidersHaveFamilies
                     int key=captive.thingIDNumber;
                     if(cache.Seen.TryGetValue(key,out int seen) && seen==now)continue;
                     cache.Seen[key]=now;
-                    if(cache.Seen.Count>MaxTargets*3)cache.Seen.Clear();
                     // First attempt event adoption for a genuinely released
                     // prisoner; for a still imprisoned captive, the mission
                     // must walk in and free them physically, never by geometry.
@@ -339,7 +351,7 @@ namespace RaidersHaveFamilies
             // Sync with actual release state even when a mod altered guest status
             // without going through standard GenGuest/SetGuestStatus APIs.
             if (op.Targets != null)
-                for(int i=0;i<op.Targets.Count && i<MaxTargets;i++)
+                for(int i=0;i<op.Targets.Count;i++)
                     if(op.Targets[i]!=null &&
                        (!op.Targets[i].IsPrisonerOfColony || op.Targets[i].guest?.Released==true) &&
                        !op.Targets[i].IsSlaveOfColony)
@@ -364,7 +376,7 @@ namespace RaidersHaveFamilies
             // Choosing the first generated soldier made the squad route from
             // the farthest stray pawn, leaving nearby fighters idle.
             Pawn lead=null;int leadCost=int.MaxValue;
-            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            for(int i=0;i<op.Squad.Count;i++)
             {
                 Pawn candidate=op.Squad[i];
                 if(!Active(candidate,map) || escortedDuringAssault.Contains(candidate))continue;
@@ -495,10 +507,10 @@ namespace RaidersHaveFamilies
             }
             board.LastThreatHP=board.Threat?.HitPoints ?? 0;
             int shooters=0;
-            int supportBudget=board.Threat==null?0:Math.Min(8,Math.Max(2,op.Squad.Count/3));
+            int supportBudget=board.Threat==null?0:Math.Max(2,op.Squad.Count/3);
             var allocated=new HashSet<IntVec3>();
             int screened=0;
-            for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+            for(int i=0;i<op.Squad.Count;i++)
             {
                 Pawn soldier=op.Squad[i];
                 if(!Active(soldier,map) || escortedDuringAssault.Contains(soldier))continue;
@@ -520,8 +532,29 @@ namespace RaidersHaveFamilies
                     }
                 }
                 IntVec3 way=route.Valid ? RHFObjectiveRouteV128.Waypoint(route,soldier,map) : IntVec3.Invalid;
+                // Do not strand a dispersed member merely because the one
+                // leader-owned path starts in a different reachable region.
+                // This is a per-pawn PHYSICAL route, not a teleport or free shot.
+                if(route.Valid && !way.IsValid && soldier!=lead)
+                {
+                    RHFRoutePlanV128 own=RHFObjectiveRouteV128.PlanIndividual(
+                        map,soldier,captive,now);
+                    if(own.Valid)
+                    {
+                        way=RHFObjectiveRouteV128.Waypoint(own,soldier,map);
+                        if(!way.IsValid && own.FirstBarrier!=null &&
+                           own.FirstBarrier.Spawned &&
+                           soldier.CanReach(own.FirstBarrier.Position,
+                               PathEndMode.Touch,Danger.Deadly))
+                        {
+                            board.Assign(soldier,RHFRoleS41.Breach,
+                                own.FirstBarrier,own.FirstBarrier.Position,now);
+                            continue;
+                        }
+                    }
+                }
                 if(obstacle!=null && !firebreakBeforeBreach &&
-                   screened<Math.Min(5,Math.Max(2,op.Squad.Count/4)))
+                   screened<Math.Max(2,op.Squad.Count/4))
                 {
                     IntVec3 screen=ScreenCell(soldier,obstacle.Position,map,allocated);
                     if(screen.IsValid)
@@ -534,10 +567,13 @@ namespace RaidersHaveFamilies
                 if(way.IsValid)
                     board.Assign(soldier,RHFRoleS41.Advance,null,way,now);
                 else if(!route.Valid && obstacle==null && fallback.IsValid &&
+                    !CrossesTurretLane(map,soldier.Position,fallback) &&
                     soldier.CanReach(fallback,PathEndMode.OnCell,Danger.Some) &&
                     (soldier.Position-fallback).LengthHorizontalSquared>4)
                     board.Assign(soldier,RHFRoleS41.Advance,null,fallback,now);
-                else if(obstacle==null && soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
+                else if(obstacle==null && !route.Valid &&
+                    !CrossesTurretLane(map,soldier.Position,captive.Position) &&
+                    soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
                     board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);
                 else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
             }
@@ -547,6 +583,23 @@ namespace RaidersHaveFamilies
                 (board.Threat!=null && shooters==0?" / NO VIABLE TURRET FIRE POSITION":"") :
                 route.Valid?"advance via cached corridor; suppress="+shooters:
                 "no valid route: "+route.Explanation;
+        }
+
+        // A direct fallback Goto is NOT a tactical route. Do not allow the
+        // vanilla pathfinder to drag stranded troops through a visible
+        // turret firing lane simply because a waypoint could not be found.
+        private static bool CrossesTurretLane(Map map,IntVec3 a,IntVec3 b)
+        {
+            if(map==null)return true;
+            int steps=Math.Max(Math.Abs(b.x-a.x),Math.Abs(b.z-a.z));
+            for(int i=1;i<=steps;i++)
+            {
+                IntVec3 sample=new IntVec3(a.x+(b.x-a.x)*i/steps,0,
+                    a.z+(b.z-a.z)*i/steps);
+                if(RHFObjectiveRouteV128.StagingExposedToTurret(map,sample))
+                    return true;
+            }
+            return false;
         }
 
         // Bounded fallthrough for a failed route: choose a physically reachable
@@ -575,10 +628,9 @@ namespace RaidersHaveFamilies
             // positions around the cell. Caps keep the incident TPS bounded.
             if(!best.IsValid)
             {
-                int queries=0;
-                for(int radius=3;radius<=30 && queries<48;radius+=3)
-                for(int dx=-radius;dx<=radius && queries<48;dx+=3)
-                for(int dz=-radius;dz<=radius && queries<48;dz+=3)
+                for(int radius=3;radius<=Math.Max(map.Size.x,map.Size.z);radius++)
+                for(int dx=-radius;dx<=radius;dx++)
+                for(int dz=-radius;dz<=radius;dz++)
                 {
                     if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
                     IntVec3 cell=captive.Position+new IntVec3(dx,0,dz);
@@ -586,7 +638,6 @@ namespace RaidersHaveFamilies
                        cell.GetEdifice(map)!=null)continue;
                     int distance=(cell-captive.Position).LengthHorizontalSquared;
                     if(distance>=bestDistance)continue;
-                    queries++;
                     if(lead.CanReach(cell,PathEndMode.OnCell,Danger.Some))
                     {best=cell;bestDistance=distance;}
                 }
@@ -602,20 +653,26 @@ namespace RaidersHaveFamilies
         {
             if(map==null || lead==null || op?.Squad==null)return null;
             Building best=null, nearest=null;
-            int cost=int.MaxValue, nearDist=int.MaxValue, inspected=0;
+            int cost=int.MaxValue, nearDist=int.MaxValue;
             foreach(Building turret in map.listerBuildings.allBuildingsColonist)
             {
-                if(++inspected>250)break;
+                // All registered player turrets, not only the first 250 buildings.
                 if(!RHFCombatPlannerV125.IsTurret(turret) ||
                    !turret.Spawned || turret.Destroyed)continue;
+                // Fallback suppression needs an actual sighting by a living
+                // rescuer, not omniscient knowledge of every hidden gun.
+                bool spotted=false;
+                foreach(Pawn observer in op.Squad)
+                    if(Active(observer,map) &&
+                       GenSight.LineOfSight(observer.Position,turret.Position,map))
+                    {spotted=true;break;}
+                if(!spotted)continue;
                 int dist=(lead.Position-turret.Position).LengthHorizontalSquared;
                 if(dist>7000)continue;
                 if(dist<nearDist){nearest=turret;nearDist=dist;}
                 bool feasible=false;
-                int checkedFighters=0;
                 foreach(Pawn soldier in op.Squad)
                 {
-                    if(++checkedFighters>20)break;
                     if(!Active(soldier,map))continue;
                     if(TurretFirePosition(soldier,turret,map).IsValid)
                     {feasible=true;break;}
@@ -636,10 +693,10 @@ namespace RaidersHaveFamilies
                route.FirstTurretExposureIndex>=route.Cells.Count)return null;
             IntVec3 exposure=route.Cells[route.FirstTurretExposureIndex];
             Thing chosen=null;
-            int score=int.MaxValue,seen=0;
+            int score=int.MaxValue;
             foreach(Building building in map.listerBuildings.allBuildingsColonist)
             {
-                if(++seen>200)break;
+                // Keep the observed route exposure tied to an actual turret.
                 if(building==null || building.Destroyed || !building.Spawned ||
                    !RHFCombatPlannerV125.IsTurret(building))continue;
                 int distance=(building.Position-exposure).LengthHorizontalSquared;
@@ -660,10 +717,13 @@ namespace RaidersHaveFamilies
             IntVec3 origin=soldier.Position;
             IntVec3 best=IntVec3.Invalid;
             int cost=int.MaxValue;
-            for(int dx=-12;dx<=12;dx+=3)
-            for(int dz=-12;dz<=12;dz+=3)
+            // Search every real fire position on the map: the weapon's
+            // range and physical reachability, not a 12-cell search cap,
+            // determine whether this soldier can suppress a turret.
+            for(int x=0;x<map.Size.x;x++)
+            for(int z=0;z<map.Size.z;z++)
             {
-                IntVec3 cell=origin+new IntVec3(dx,0,dz);
+                IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.InBounds(map) || !cell.Standable(map) ||
                    cell.GetRoom(map)!=origin.GetRoom(map))continue;
                 int targetDist=(cell-turret.Position).LengthHorizontalSquared;
@@ -693,28 +753,30 @@ namespace RaidersHaveFamilies
             int scale=Math.Max(1,Math.Max(Math.Abs(dx),Math.Abs(dz)));
             IntVec3 best=IntVec3.Invalid;
             int bestCost=int.MaxValue;
-            for(int length=4;length<=16;length+=4)
-            for(int flank=-4;flank<=4;flank+=4)
+            // All reachable improvement cells are considered. The old
+            // four radial lengths and three flank offsets missed entire
+            // usable corridors, leaving long-range riflemen on HOLD.
+            for(int x=0;x<map.Size.x;x++)
+            for(int z=0;z<map.Size.z;z++)
             {
-                int x=dx*length/scale-dz*flank/scale;
-                int z=dz*length/scale+dx*flank/scale;
-                IntVec3 cell=origin+new IntVec3(x,0,z);
+                IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.InBounds(map) || !cell.Standable(map) ||
                    cell.GetEdifice(map)!=null || occupied.Contains(cell))continue;
                 int distance=(cell-turret.Position).LengthHorizontalSquared;
                 if(distance>=starting-9 ||
                    !soldier.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
-                int exposures=0,seen=0;
+                int exposures=0;
                 foreach(Building gun in map.listerBuildings.allBuildingsColonist)
                 {
-                    if(++seen>160)break;
+                    // Prevent later turrets from disappearing behind list caps.
                     if(!RHFCombatPlannerV125.IsTurret(gun))continue;
                     if((cell-gun.Position).LengthHorizontalSquared<=1600 &&
                        GenSight.LineOfSight(gun.Position,cell,map))exposures++;
                 }
                 // Progress must be real. Prefer cover, but do not turn an
                 // unavoidable turret perimeter into an infinite HOLD order.
-                int cost=distance+exposures*240+length*3;
+                int move=(cell-origin).LengthHorizontalSquared;
+                int cost=distance+exposures*240+move;
                 if(cost<bestCost){best=cell;bestCost=cost;}
             }
             return best;
@@ -725,13 +787,12 @@ namespace RaidersHaveFamilies
         {
             // Disperse instead of sending the entire wing to a single door cell.
             IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
-            // Hard cap: 12 candidates * <=5 screen fighters per 180 ticks.
-            // Avoid 64+ expensive CanReach path probes per soldier.
-            int[] dx={-4,4,0,0,-6,6,-4,4,-6,6,-2,2};
-            int[] dz={0,0,-4,4,-2,2,-4,-4,4,4,6,-6};
-            for(int i=0;i<dx.Length;i++)
+            // No fixed 8-cell ring: large squads can use every reachable
+            // interior staging tile while preserving physical dispersion.
+            for(int x=0;x<map.Size.x;x++)
+            for(int z=0;z<map.Size.z;z++)
             {
-                IntVec3 cell=barrier+new IntVec3(dx[i],0,dz[i]);
+                IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.InBounds(map)||!cell.Standable(map)||
                    cell.GetEdifice(map)!=null || occupied.Contains(cell) ||
                    (cell-barrier).LengthHorizontalSquared<9 ||
@@ -757,6 +818,137 @@ namespace RaidersHaveFamilies
             return null;
         }
 
+        private static List<Pawn> ActivePursuers(RHFOperation op,Map map,
+            IntVec3 convoy,IntVec3 exit)
+        {
+            var memory=Pursuits.GetValue(op,_=>new PursuitMemory());
+            var result=new List<Pawn>();
+            var stillHere=new HashSet<int>();
+            IntVec3 heading=exit.IsValid?exit-convoy:IntVec3.Invalid;
+            foreach(Pawn enemy in map.mapPawns.SpawnedPawnsInFaction(Faction.OfPlayer))
+            {
+                if(enemy==null || !enemy.Spawned || enemy.Dead || enemy.Downed ||
+                   enemy.Map!=map || op.Targets?.Contains(enemy)==true ||
+                   op.Freed?.Contains(enemy)==true)continue;
+                // Never infer a pursuer's position through impassable rocks.
+                // Faction-scoped contact must be physically observed.
+                bool observed=false;
+                if(op.Squad!=null)
+                    foreach(Pawn observer in op.Squad)
+                        if(Active(observer,map) &&
+                           GenSight.LineOfSight(observer.Position,enemy.Position,map))
+                        {observed=true;break;}
+                if(!observed)continue;
+                int id=enemy.thingIDNumber;
+                stillHere.Add(id);
+                int distance=(enemy.Position-convoy).LengthHorizontalSquared;
+                // An enemy ahead of the fleeing column is a blocking contact,
+                // not a chaser: the escort's ordinary combat resolves it.
+                bool behind=!heading.IsValid ||
+                    (enemy.Position.x-convoy.x)*heading.x+
+                    (enemy.Position.z-convoy.z)*heading.z<=40;
+                if(behind && distance<=900 &&
+                   memory.PreviousConvoy.IsValid &&
+                   memory.Previous.TryGetValue(id,out IntVec3 before) &&
+                   before!=enemy.Position &&
+                   distance < (before-memory.PreviousConvoy).LengthHorizontalSquared)
+                    result.Add(enemy);
+                memory.Previous[id]=enemy.Position;
+            }
+            // Avoid retaining dead/despawned defenders from previous battles.
+            var stale=new List<int>();
+            foreach(int id in memory.Previous.Keys)
+                if(!stillHere.Contains(id))stale.Add(id);
+            foreach(int id in stale)memory.Previous.Remove(id);
+            memory.PreviousConvoy=convoy;
+            return result;
+        }
+
+        private static IntVec3 RearguardCell(Pawn soldier,Pawn captive,Pawn pursuer,
+            Map map,HashSet<IntVec3> occupied)
+        {
+            IntVec3 best=IntVec3.Invalid;
+            int bestScore=int.MaxValue;
+            // Place the screen BETWEEN the advancing pursuer and convoy,
+            // never on the destination edge ahead of the prisoner.
+            for(int x=0;x<map.Size.x;x++)for(int z=0;z<map.Size.z;z++)
+            {
+                IntVec3 cell=new IntVec3(x,0,z);
+                if(!cell.Standable(map) || cell.GetEdifice(map)!=null ||
+                   occupied.Contains(cell) ||
+                   (cell-captive.Position).LengthHorizontalSquared>225 ||
+                   !soldier.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                int pursuit=(cell-pursuer.Position).LengthHorizontalSquared;
+                int movement=(cell-soldier.Position).LengthHorizontalSquared;
+                int score=pursuit*2+movement;
+                if(RHFObjectiveRouteV128.StagingExposedToTurret(map,cell))
+                    score+=15000;
+                if(score<bestScore){best=cell;bestScore=score;}
+            }
+            if(best.IsValid)occupied.Add(best);
+            return best;
+        }
+
+        // If no edge is passable, at least clear an actual obstructing wall
+        // and maintain an active convoy, rather than returning from Extract()
+        // with stale combat roles and idle rescued pawns forever.
+        private static void RecoverBlockedExit(RHFOperation op,Map map,
+            RHFTacticalBoardS41 board,Pawn anchor,Pawn navigator,int now)
+        {
+            board.Decision="no open exit: engage or breach toward nearest map edge";
+            IntVec3[] edges={new IntVec3(0,0,navigator.Position.z),
+                new IntVec3(map.Size.x-1,0,navigator.Position.z),
+                new IntVec3(navigator.Position.x,0,0),
+                new IntVec3(navigator.Position.x,0,map.Size.z-1)};
+            Building barrier=null;
+            int least=int.MaxValue;
+            foreach(IntVec3 edge in edges)
+            {
+                Building candidate=NJRCombatContactS44.BlockingStructure(navigator,edge);
+                if(candidate==null)continue;
+                int score=(navigator.Position-candidate.Position).LengthHorizontalSquared+
+                    RHFCombatPlannerV125.BreachWorkCost(candidate);
+                if(score<least){least=score;barrier=candidate;}
+            }
+            IntVec3 progress=NJRRescueExitS41.ReachableProgress(map,op,navigator);
+            var reserved=new HashSet<Pawn>();
+            // If a reachable progress cell exists, keep the liberated pair
+            // together. If a sealed wall must be breached, shelter the VIP
+            // until a physical access route has opened.
+            if(op.Freed!=null)
+                foreach(Pawn captive in op.Freed)
+                {
+                    if(captive==null || !captive.Spawned || captive.Map!=map)continue;
+                    if(barrier==null && progress.IsValid && !captive.Downed)
+                    {
+                        RHFEscortLink pair=EnsureEscort(op,captive,map);
+                        if(Active(pair?.Escort,map))
+                        {
+                            board.Assign(pair.Escort,RHFRoleS41.Escort,captive,progress,now);
+                            board.Assign(captive,RHFRoleS41.FollowEscort,
+                                pair.Escort,progress,now);
+                            reserved.Add(pair.Escort);
+                            continue;
+                        }
+                    }
+                    board.Assign(captive,RHFRoleS41.Hold,null,captive.Position,now);
+                }
+            bool assigned=false;
+            foreach(Pawn soldier in op.Squad)
+            {
+                if(!Active(soldier,map) || reserved.Contains(soldier))continue;
+                if(!assigned && barrier!=null &&
+                   soldier.CanReach(barrier.Position,PathEndMode.Touch,Danger.Deadly))
+                {
+                    board.Assign(soldier,RHFRoleS41.Breach,barrier,barrier.Position,now);
+                    assigned=true;
+                }
+                else board.Assign(soldier,RHFRoleS41.Withdraw,null,
+                    progress.IsValid?progress:anchor.Position,now);
+            }
+            board.NextReplanTick=now+PlanCadence;
+        }
+
         internal static bool Extract(RHFOperationController controller,RHFOperation op,int now)
         {
             if(controller==null || op==null || op.Finished)return true;
@@ -764,7 +956,8 @@ namespace RaidersHaveFamilies
             if(map==null)return true;
             RHFTacticalBoardS41 board=op.BoardS41 ??= new RHFTacticalBoardS41();
             board.Prune(map);
-            if(board.ObservedPhase!=op.Phase)
+            bool enteringWithdrawal=board.ObservedPhase!=op.Phase;
+            if(enteringWithdrawal)
             {board.ObservedPhase=op.Phase;board.NextReplanTick=0;board.LastPlanTick=0;}
 
             board.Breacher=null; // breaching is over: every survivor may escort
@@ -778,7 +971,7 @@ namespace RaidersHaveFamilies
             Pawn anchor=null;
             Pawn navigator=null;
             if(op.Freed!=null)
-                for(int i=0;i<op.Freed.Count && i<MaxTargets;i++)
+                for(int i=0;i<op.Freed.Count;i++)
                 {
                     Pawn freed=op.Freed[i];
                     if(freed==null || freed.Dead || freed.MapHeld!=map)continue;
@@ -786,7 +979,7 @@ namespace RaidersHaveFamilies
                     if(navigator==null && Active(freed,map))navigator=freed;
                 }
             if(op.Squad!=null)
-                for(int i=0;i<op.Squad.Count && i<MaxSquad;i++)
+                for(int i=0;i<op.Squad.Count;i++)
                 {
                     Pawn member=op.Squad[i];
                     if(!Active(member,map))continue;
@@ -803,24 +996,24 @@ namespace RaidersHaveFamilies
             }
             if(navigator==null)
             {board.Decision="evacuation stalled: no mobile rescuer to carry VIP";return true;}
-            if(!op.ExitCell.IsValid || !op.ExitCell.InBounds(map) ||
-               !navigator.CanReach(op.ExitCell,PathEndMode.OnCell,Danger.Some))
+            if(enteringWithdrawal ||
+               !NJRRescueExitS41.Eligible(map,op,navigator,op.ExitCell,Danger.Deadly))
             {
-                // A stale exit cell must not survive a failed exit recompute:
-                // otherwise escorts keep receiving impossible Goto orders.
-                op.ExitCell=IntVec3.Invalid;
-                if(RCellFinder.TryFindBestExitSpot(navigator,out IntVec3 cell) &&
-                   cell.IsValid && cell.InBounds(map) &&
-                   navigator.CanReach(cell,PathEndMode.OnCell,Danger.Some))
-                    op.ExitCell=cell;
+                // Freeze a single exit for all rescued pawns. A vanilla
+                // TryFindBestExitSpot per moving pawn causes back-and-forth
+                // between unrelated edges and can strand the VIP in a cave.
+                op.ExitCell=NJRRescueExitS41.Choose(map,op,navigator);
             }
             board.WithdrawalCell=op.ExitCell;
             if(!board.WithdrawalCell.IsValid)
-            {board.Decision="no reachable map edge for mobile rescuer; extraction pending";return true;}
+            {
+                RecoverBlockedExit(op,map,board,anchor,navigator,now);
+                return true;
+            }
             int remaining=0;
             var paired=new HashSet<Pawn>();
             if(op.Freed!=null)
-            for(int i=0;i<op.Freed.Count && i<MaxTargets;i++)
+            for(int i=0;i<op.Freed.Count;i++)
             {
                 Pawn rescued=op.Freed[i];
                 if(rescued==null || rescued.Dead || rescued.MapHeld!=map ||
@@ -879,19 +1072,54 @@ namespace RaidersHaveFamilies
                     }
                 }
             }
-            var coverSlots=new HashSet<IntVec3>();
-            int coverCount=0;
+            // A rearguard is NOT automatic. It exists only while player
+            // defenders really move to catch the already escaping convoy.
+            // Other mobile rescuers withdraw WITH the prisoners, not to the
+            // map edge alone and then back to the prisoner in a loop.
+            Pawn convoy=anchor;
+            if(op.Escorts!=null)
+                foreach(RHFEscortLink link in op.Escorts)
+                    if(link?.Captive!=null && op.Freed?.Contains(link.Captive)==true &&
+                       Active(link.Escort,map))
+                    {convoy=link.Escort;break;}
+            List<Pawn> chasers=remaining>0 ?
+                ActivePursuers(op,map,convoy.Position,board.WithdrawalCell) :
+                new List<Pawn>();
+            var available=new List<Pawn>();
             foreach(Pawn soldier in op.Squad)
+                if(Active(soldier,map) && !paired.Contains(soldier))
+                    available.Add(soldier);
+            available.Sort((a,b)=>
             {
-                if(!Active(soldier,map) || paired.Contains(soldier))continue;
-                if(remaining>0)
+                if(chasers.Count==0)return a.thingIDNumber.CompareTo(b.thingIDNumber);
+                int ad=int.MaxValue,bd=int.MaxValue;
+                foreach(Pawn enemy in chasers)
+                {ad=Math.Min(ad,(a.Position-enemy.Position).LengthHorizontalSquared);
+                 bd=Math.Min(bd,(b.Position-enemy.Position).LengthHorizontalSquared);}
+                return ad!=bd?ad.CompareTo(bd):a.thingIDNumber.CompareTo(b.thingIDNumber);
+            });
+            int rearCount=remaining>0 && paired.Count>0 ?
+                Math.Min(chasers.Count,Math.Max(1,available.Count/2)) : 0;
+            var coverSlots=new HashSet<IntVec3>();
+            for(int i=0;i<available.Count;i++)
+            {
+                Pawn soldier=available[i];
+                if(remaining>0 && i<rearCount)
                 {
-                    IntVec3 cover=coverCount<8 ?
-                        ScreenCell(soldier,anchor.Position,map,coverSlots):IntVec3.Invalid;
-                    if(cover.IsValid)
-                    { board.Assign(soldier,RHFRoleS41.Screen,null,cover,now);coverCount++; }
-                    else // Can't screen, so remain available for VIP defence.
-                        board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
+                    Pawn chaser=chasers[0];int nearest=int.MaxValue;
+                    foreach(Pawn enemy in chasers)
+                    {
+                        int d=(soldier.Position-enemy.Position).LengthHorizontalSquared;
+                        if(d<nearest){nearest=d;chaser=enemy;}
+                    }
+                    IntVec3 cover=RearguardCell(soldier,convoy,chaser,map,coverSlots);
+                    board.Assign(soldier,RHFRoleS41.Screen,chaser,
+                        cover.IsValid?cover:soldier.Position,now);
+                }
+                else if(remaining>0)
+                {
+                    board.Assign(soldier,RHFRoleS41.Withdraw,null,
+                        convoy.Position,now);
                 }
                 else
                 {
@@ -911,7 +1139,9 @@ namespace RaidersHaveFamilies
                     if(!anySoldier){op.Phase=4;op.Finished=true;board.Orders.Clear();}
                 }
             }
-            board.Decision="extraction; remaining="+remaining+"; escorted="+op.EscapedWithEscort;
+            board.Decision="extraction; remaining="+remaining+"; escorted="+
+                op.EscapedWithEscort+"; pursuers="+chasers.Count+
+                "; rearguard="+rearCount;
             return true;
         }
     }
