@@ -34,7 +34,7 @@ def verify(t=T,role=ROLE,off=OFF,planner=PLANNER,pod=POD,ops=OPS,entry=ENTRY,rou
     # Bounded, threat-aware explicit starting edge before vanilla EdgeWalkIn.
     assert 'RHFRescueGroundEntryS41.Choose(map,op)' in ops
     assert 'parms.spawnCenter=safer;' in ops
-    assert 'ReachableExterior(map,edge,captive)' in entry
+    assert 'ReachableExterior(map,center,captive)' in entry
     assert 'GenSight.LineOfSight' in entry
     assert 'foreach(Building turret in map.listerBuildings.allBuildingsColonist)' in entry
     assert 'checkedTurrets>200' not in entry and 'checkedDefenders>96' not in entry
@@ -58,7 +58,7 @@ changed=[
  ('planner','RHFTactical.EnsureBreachTeam(op,map)','// no second sapper'),
  ('off','return Task(JobDefOf.AttackMelee,target,600);','return null;'),
  ('ops','parms.spawnCenter=safer;','// no safer spawn'),
- ('entry','ReachableExterior(map,edge,captive)','return false; /* no approach check */'),
+ ('entry','ReachableExterior(map,center,captive)','return false; /* no approach check */'),
  ('entry','GenSight.LineOfSight','true /* bypass LOS */'),
  ('entry','foreach(Building turret in map.listerBuildings.allBuildingsColonist)','// no turret search'),
  ('route','now-prior.Tick>=300','now-prior.Tick>=30000'),

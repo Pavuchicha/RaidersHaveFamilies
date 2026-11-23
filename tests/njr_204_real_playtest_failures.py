@@ -7,7 +7,7 @@ route=(S/'RHFObjectiveRouteV128.cs').read_text()
 job=(S/'RHFRescueRoleJobGiverS41.cs').read_text()
 fort=(S/'RHFVipEvacS311.cs').read_text()
 release=(R/'.github/workflows/build.yml').read_text()
-assert 'ReachableExterior(map,edge,captive)' in entry
+assert 'ReachableExterior(map,center,captive)' in entry
 assert 'SafeRescueDropPad(map,nearby)' in (S/'RHFOperations.cs').read_text()
 assert 'TraverseMode.PassDoors,Danger.Deadly' in entry
 assert 'PassAllDestroyableThings' not in entry

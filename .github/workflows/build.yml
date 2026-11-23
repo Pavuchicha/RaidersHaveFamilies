@@ -1,4 +1,4 @@
-﻿name: NJR - Not Just Raiders v0.15.0-beta1 (RimWorld 1.7, Harmony 3)
+﻿name: NJR - Not Just Raiders v0.16.0-beta1 (RimWorld 1.7, Harmony 3)
 # Retains regression requirements introduced in 0.12.1 through 0.12.4.
 
 on:
@@ -105,6 +105,7 @@ jobs:
           python3 tests/njr_219_community_ai_manual_review.py
           python3 tests/njr_220_mission_intelligence_r014.py
           python3 tests/njr_221_route_execution_r015.py
+          python3 tests/njr_222_ground_rescue_actual_arrival_r016.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)
@@ -117,12 +118,12 @@ jobs:
           mkdir -p _release/NJR-NotJustRaiders
           cp -a RaidersHaveFamilies/About RaidersHaveFamilies/Languages RaidersHaveFamilies/Defs RaidersHaveFamilies/Textures RaidersHaveFamilies/Assemblies _release/NJR-NotJustRaiders/
           cd _release
-          zip -qr ../NJR_NotJustRaiders_v0.15.0-beta1_RimWorld_1.7_INSTALL.zip NJR-NotJustRaiders
+          zip -qr ../NJR_NotJustRaiders_v0.16.0-beta1_RimWorld_1.7_INSTALL.zip NJR-NotJustRaiders
       - name: Validate NJR install ZIP
-        run: python3 tests/njr_201_release_zip.py NJR_NotJustRaiders_v0.15.0-beta1_RimWorld_1.7_INSTALL.zip
+        run: python3 tests/njr_201_release_zip.py NJR_NotJustRaiders_v0.16.0-beta1_RimWorld_1.7_INSTALL.zip
       - name: Upload test build ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1
-          path: NJR_NotJustRaiders_v0.15.0-beta1_RimWorld_1.7_INSTALL.zip
+          name: NJR-NotJustRaiders-RimWorld-1.7-v0.16.0-beta1
+          path: NJR_NotJustRaiders_v0.16.0-beta1_RimWorld_1.7_INSTALL.zip
           if-no-files-found: error

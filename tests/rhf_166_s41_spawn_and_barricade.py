@@ -13,7 +13,7 @@ checks=[
  (ops,'Native retry with safe rescue'),
  (ops,'refusing a random cave/remote map spawn'),
  (ops,'parms.raidArrivalMode=PawnsArrivalModeDefOf.EdgeWalkIn;'),
- (entry,'ReachableExterior(map,edge,captive)'),
+ (entry,'ReachableExterior(map,center,captive)'),
  (pod,'private Thing NativeFortificationWorkS41('),
  (pod,'GenConstruct.PlaceBlueprintForBuild('),
  (pod,'ThingDefOf.Wall,target,map,Rot4.North,owner,ThingDefOf.Steel'),

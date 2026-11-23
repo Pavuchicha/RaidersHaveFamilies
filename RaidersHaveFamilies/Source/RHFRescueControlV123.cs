@@ -139,6 +139,19 @@ namespace RaidersHaveFamilies
                     GiveOrder(rescuer, JobDefOf.Goto, target);
                     taken++;
                 }
+                else
+                {
+                    // A locked prison is NOT a reason to idle at the edge.
+                    // Start moving to an actually reachable exterior approach.
+                    // The tactical breacher takes over at the obstruction.
+                    IntVec3 approach=RHFRescueGroundEntryS41.ReachableApproach(
+                        map,rescuer.Position,target);
+                    if(approach.IsValid && approach!=rescuer.Position)
+                    {
+                        GiveOrder(rescuer,JobDefOf.Goto,approach);
+                        taken++;
+                    }
+                }
             }
             Log.Message("[RHF][RescueV123] Mission claimed immediately after deployment: " +
                 "rescuers=" + op.Squad.Count + ", target=" + target.LabelShortCap +

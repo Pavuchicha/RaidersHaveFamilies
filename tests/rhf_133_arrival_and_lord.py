@@ -52,5 +52,5 @@ assert 'pawn.Faction != party.Faction' in ops
 assert 'op.Diversion.Contains(pawn)' in ops
 # Test harness really runs this newer contract and includes new XML in build.
 assert 'python3 tests/rhf_133_arrival_and_lord.py' in wf
-assert 'v0.15.0-beta1' in wf
+assert 'v0.16.0-beta1' in wf
 print('PASS: one RHF native arrival letter, no scheduled duplicate, direct mission Lord, bounded newly-spawned attribution')

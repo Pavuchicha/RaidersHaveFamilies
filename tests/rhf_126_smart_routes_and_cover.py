@@ -39,7 +39,7 @@ for marker in (
 assert 'RHFCombatPlannerV125.FirstObjectiveObstacle(' in command
 assert 'if (clearCorridor)' in command
 assert 'if (covering.Contains(rescuer)) continue;' in command
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in workflow
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.16.0-beta1' in workflow
 assert 'tests/rhf_126_smart_routes_and_cover.py' in workflow
 assert 'HarmonyPatch(typeof(TickManager)' not in planner
 assert 'HarmonyPatch(typeof(Pawn_JobTracker)' not in planner

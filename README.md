@@ -1,4 +1,12 @@
-﻿## R015 (2026-11-23) — tactical route execution / SOURCE ONLY
+﻿## R016 (2026-11-23) — REAL GROUND RESCUE ENTRY HOTFIX (SOURCE ONLY)
+
+The recurring cave/lake rescue #01 screenshot exposed three flaws: an exterior approach scan could accept unrelated terrain anywhere on the map; vanilla `EdgeWalkIn` scattering ignored roof/fog/water after NJR validated only the center; and initially blocked captives left some rescuers without a forward approach order. R016 checks objective-near connectivity and filters *every actual spawned pawn cell* with mission-scoped Harmony hooks. The center is protected against native re-resolution. See `docs/NJR_R016_GROUND_RESCUE_SPAWN_ROOT_CAUSE_AND_RETEST_RU.md`.
+
+**No DLL compilation or RimWorld gameplay retest has been performed in this environment.** Scenario #01 and VIP #16 are not declared game-tested.
+
+---
+
+## R015 (2026-11-23) — tactical route execution / SOURCE ONLY
 
 The offense JobGiver now requests the next adjacent cell of the individual fighter's own safe-first A* route instead of handing a distant Goto to the vanilla pathfinder. Guard regrouping no longer falls back to an own-position idle order; open doors are excluded from physical breaching. See `docs/NJR_R015_FINAL_HOME_AI_AND_RELEASE_RU.md` and `NJR_R015_HOME_TEST_CARD_RU.md`. Compiling a DLL and checking real JobDrivers is still REQUIRED.
 

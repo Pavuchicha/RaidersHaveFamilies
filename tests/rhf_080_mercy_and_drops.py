@@ -32,5 +32,5 @@ assert 'SafeRescueDropPad(map,c)' in ops and 'NJRRescueInteriorS41.DirectDoor' i
 assert 'squared<16 || (roof!=null && squared<25)' in ops
 assert 'Рейд отменён' in ops or 'рейд отменён' in ops
 assert '19 — Проверить бонусы идеологии и милосердия' in dbg
-assert '0.15.0-beta1' in (r/'.github/workflows/build.yml').read_text()
+assert '0.16.0-beta1' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: 0.8 mercy/charity, sale vs ransom, physical ransom pods, prison-side rescue drop, diagnostics.')

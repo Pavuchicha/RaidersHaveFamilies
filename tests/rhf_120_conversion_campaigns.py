@@ -69,7 +69,7 @@ for stage in (1,2,3):
         assert name in defs
         assert defs[name].findtext('durationDays')=='5'
 assert '26 — Аудит вербовки' in dbg and '27 — Аудит боевой доктрины' in dbg
-assert '0.15.0-beta1' in (r/'.github/workflows/build.yml').read_text()
+assert '0.16.0-beta1' in (r/'.github/workflows/build.yml').read_text()
 print('PASS: actual conversion/recruitment hooks, mood reporting, slave drop, real pod cargo, phased mission orders and debug diagnostics')
 # A durable trace of all gathered requirements and their distinct tactical cases
 # must survive the next archive transfer, not just appear in prose once.

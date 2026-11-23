@@ -70,5 +70,5 @@ assert float(node.findtext('./stages/li/baseMoodEffect'))<0
 # Diagnostics available in Russian, 2 new tests.
 assert '24 — Аудит автоматических семей' in debug
 assert '25 — Аудит эвакуации' in debug
-assert '0.15.0-beta1' in (root/'.github/workflows/build.yml').read_text()
+assert '0.16.0-beta1' in (root/'.github/workflows/build.yml').read_text()
 print('PASS: v0.11 family persistence/load backfill, escort extraction, medical, rank, ideology and dialogue contracts.')

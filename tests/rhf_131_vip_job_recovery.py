@@ -41,7 +41,7 @@ assert 'Pawn __0, Pawn __2' in medical
 assert 'Pawn pawn=__0, billDoer=__2;' in medical
 assert 'Pawn pawn, Pawn billDoer' not in medical
 assert 'python3 tests/rhf_131_vip_job_recovery.py' in workflow
-assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.15.0-beta1' in workflow
+assert 'NJR-NotJustRaiders-RimWorld-1.7-v0.16.0-beta1' in workflow
 # Deterministic state-machine sanity: independent walk-away must not terminate
 # an active scripted pod mission.  The physical escort/pod completes it.
 def allowed_independent_exit(is_freed,live,pod_finished,authorized):

@@ -33,7 +33,7 @@ expected={
  'route': (route,['while(heap.Count>0)','Math.Max(map.Size.x,map.Size.z),false)']),
  'rescuer': (rescue,['for(int i=0;i<operations.Count;i++)','for(int radius=3;radius<=Math.Max(map.Size.x,map.Size.z);radius++)']),
  'pod': (pod,['private static bool InFootprint','private static bool ValidGuardCell','private static IntVec3 GuardCell','radius<=Math.Max(map.Size.x,map.Size.z)']),
- 'entry': (entry,['for(int t=5;t<span-5;t++)','ReachableExterior(map,edge,captive)']),
+ 'entry': (entry,['for(int t=5;t<span-5;t++)','ReachableExterior(map,center,captive)']),
  'animals':(beasts,['while(available>=30f)','available-=selected.combatPower']),
  'ops':(ops,['now - op.CreatedTick > MaxOperationDuration','capable < Math.Max(1, op.Squad.Count / 4)'])
 }
