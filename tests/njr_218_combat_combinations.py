@@ -28,8 +28,8 @@ assert 'bool urgent=false;' in off and 'foreach(Pawn member in members)' in off
 assert 'goal.GetFirstPawn(map)==null' in off  # no goto an occupied enemy tile
 assert 'route.FirstTurretExposureIndex>=0 && !route.RiskFallback' in rescue
 assert 'if(!route.RiskFallback && LateralExposed(map,from,to))return true;' in rescue
-assert 'PlanIndividual(Map map,Pawn member,' in rescue
-assert 'RHFObjectiveRouteV128.PlanIndividual(' in plan
+assert 'PlanIndividual(Map map,Pawn member,' not in rescue
+assert 'RHFObjectiveRouteV128.ResolveShared(' in plan
 assert 'if(!spotted)continue;' in plan
 assert 'else if(phase3Role==RHFRoleS41.PodSupply)' in role
 assert 'else if(phase3Role==RHFRoleS41.Engineer)' in role

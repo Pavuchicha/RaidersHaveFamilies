@@ -50,7 +50,7 @@ assert 'MaxBatchSize' in read('RaidersHaveFamilies.cs')  # passive work is STILL
 # size limit, an inability to see distant turrets, or a free demolition.
 assert 'MaxRouteExpansionsR019 = 12000' in route
 assert 'if(expanded>MaxRouteExpansionsR019)' in route
-assert 'IndividualRoutesR019.GetValue(member' in route
+assert 'IndividualRoutesR019.GetValue(member' not in route  # R021 unified source route
 assert 'for(int radius=1;radius<=12;radius++)' in pod
 assert 'for(int x=Math.Max(0,origin.x-20)' in rescue
 assert 'for(int x=Math.Max(0,origin.x-14)' in rescue

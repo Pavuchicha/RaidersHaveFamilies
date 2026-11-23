@@ -109,6 +109,7 @@ jobs:
           python3 tests/njr_223_force_strength_coordinated_breach_r017.py
           python3 tests/njr_224_r019_ai_regression_gate.py
           python3 tests/njr_225_r020_command_stability.py
+          python3 tests/njr_226_r021_leaderless_multisource.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)

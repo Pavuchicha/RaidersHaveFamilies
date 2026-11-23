@@ -49,7 +49,7 @@ assert ops.index('NJRForceStrengthR017.CommitMissionBudget(op,party);') < ops.in
 assert ops.index('NJRForceStrengthR017.CommitMissionBudget(op,party);') < ops.index('NJRForceCompositionS42.Reserve(op,party);')
 assert ops.index('NJRForceStrengthR017.CompleteGroundRescue(op,party,map,') > ops.index('finally { activeOperation = null; activeParty = null; }')
 assert 'board.Assign(soldier,RHFRoleS41.Breach,\n                                own.FirstBarrier' not in planner
-assert 'own.FirstBarrier!=obstacle' in planner
+assert 'RHFObjectiveRouteV128.PlanIndividual(' not in planner  # R021: no alternate path authority
 assert 'board.Assign(soldier,RHFRoleS41.Breach,obstacle,obstacle.Position,now)' not in planner or 'board.Breacher' in planner
 for token in [
     'bool forbidWalls=false',
@@ -58,7 +58,6 @@ for token in [
     'if(building is Building_Door openDoor && openDoor.Open)return 10;',
     'Math.Max(map.Size.x,map.Size.z),true,true)',
     'Math.Max(map.Size.x,map.Size.z),true)',
-    'Math.Max(map.Size.x,map.Size.z),false,true)',
     'Math.Max(map.Size.x,map.Size.z),false)',
     'RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier)'
 ]: assert token in route,token

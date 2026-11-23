@@ -1,3 +1,5 @@
+> R021 (23.11.2026): rescue №1 pathfinding without commander, shared multi-source route, no personal A*; uncompiled and untested in RimWorld. See docs/NJR_R021_LEADERLESS_RESCUE_ROUTE_FORENSICS_RU.md.
+
 ## R020 (2026-11-23) — stabilize rescue command and structural-attack authority (SOURCE ONLY)
 
 After field report of R019 squad attacking unrelated walls, the objective commander is held stable per captive, an A* CPU-budget abort can no longer authorize a demolition fallback, intact agreed breaches retain their plan while the breacher works, and stale vanilla structure-attack jobs are interrupted on mission claim. Only source/model checks have passed; C# compilation and real game behavior are UNVERIFIED. Pod construction #16 is unchanged. Details: `docs/NJR_R020_COMMAND_AUTHORITY_AND_BREACH_REGRESSION_RU.md`.

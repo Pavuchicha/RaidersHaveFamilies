@@ -63,14 +63,6 @@ namespace RaidersHaveFamilies
         // Finite per-decision CPU budget. A failed tactical search must
         // never lock a RimWorld frame while inspecting every wall/turret tile.
         private const int MaxRouteExpansionsR019 = 12000;
-        private sealed class IndividualRouteCacheR019
-        {
-            internal RHFRoutePlanV128 Plan;
-            internal Pawn Target;
-            internal int Tick;
-        }
-        private static readonly ConditionalWeakTable<Pawn,IndividualRouteCacheR019>
-            IndividualRoutesR019 = new ConditionalWeakTable<Pawn,IndividualRouteCacheR019>();
         // No artificial cell, expansion, turret or mobile-shooter limits.
         // The actual finite map bounds terminate the A* search.
         // Only real emitted attacks affect danger, not an arbitrary 35-tile ring.
@@ -250,19 +242,30 @@ namespace RaidersHaveFamilies
             if(!cell.Standable(map))return -1;
             return 10;
         }
-        private static bool PlanBounded(Map map,Pawn leader,Pawn captive,
+        // R021: a single multi-source A* represents the WHOLE available assault
+        // wing. No selected pawn owns the mission's path or demolition target.
+        // All active start positions are genuine standable map cells.
+        private static bool PlanBounded(Map map,IList<IntVec3> origins,Pawn captive,
             RHFRoutePlanV128 plan,int margin,bool forbidTurretExposure,
             bool forbidWalls=false)
         {
-            IntVec3 start=leader.Position,goal=captive.Position;
-            int minX=Math.Max(0,Math.Min(start.x,goal.x)-margin);
-            int minZ=Math.Max(0,Math.Min(start.z,goal.z)-margin);
-            int maxX=Math.Min(map.Size.x-1,Math.Max(start.x,goal.x)+margin);
-            int maxZ=Math.Min(map.Size.z-1,Math.Max(start.z,goal.z)+margin);
+            if(origins==null || origins.Count==0 || map==null || captive==null)
+                return false;
+            IntVec3 start=origins[0],goal=captive.Position;
+            int lowX=goal.x,lowZ=goal.z,highX=goal.x,highZ=goal.z;
+            for(int i=0;i<origins.Count;i++)
+            {
+                IntVec3 source=origins[i];
+                lowX=Math.Min(lowX,source.x);lowZ=Math.Min(lowZ,source.z);
+                highX=Math.Max(highX,source.x);highZ=Math.Max(highZ,source.z);
+            }
+            int minX=Math.Max(0,lowX-margin);
+            int minZ=Math.Max(0,lowZ-margin);
+            int maxX=Math.Min(map.Size.x-1,highX+margin);
+            int maxZ=Math.Min(map.Size.z-1,highZ+margin);
             int width=maxX-minX+1,height=maxZ-minZ+1;
             int count=width*height;
             if(count<=0)return false;
-            int from=(start.z-minZ)*width+start.x-minX;
             int finish=(goal.z-minZ)*width+goal.x-minX;
             var costs=new int[count];
             var parents=new int[count];
@@ -270,8 +273,17 @@ namespace RaidersHaveFamilies
             for(int i=0;i<count;i++){costs[i]=int.MaxValue;parents[i]=-1;hazard[i]=-1;}
             List<Emitter> threats=Threats(map,start,goal);
             var heap=new List<HeapItem>(128);
-            costs[from]=0;
-            Push(heap,from,Heuristic(start.x,start.z,goal));
+            // One queue, many roots. Cheapest VALID approach wins, rather
+            // than the approach of the geometrically nearest arbitrary leader.
+            for(int i=0;i<origins.Count;i++)
+            {
+                IntVec3 source=origins[i];
+                if(!source.InBounds(map) || !source.Standable(map))continue;
+                int id=(source.z-minZ)*width+source.x-minX;
+                if(costs[id]!=int.MaxValue)continue;
+                costs[id]=0;
+                Push(heap,id,Heuristic(source.x,source.z,goal));
+            }
             int expanded=0;
             bool reached=false;
             while(heap.Count>0)
@@ -328,14 +340,15 @@ namespace RaidersHaveFamilies
             for(int cursor=finish;cursor>=0 && reverse.Count<count;cursor=parents[cursor])
             {
                 reverse.Add(new IntVec3(cursor%width+minX,0,cursor/width+minZ));
-                if(cursor==from)break;
+                if(parents[cursor]<0)break;
             }
-            if(reverse.Count<2 || reverse[reverse.Count-1]!=start)
+            if(reverse.Count<2 || !origins.Contains(reverse[reverse.Count-1]))
             {
                 plan.Explanation="ошибка восстановления полного маршрута";
                 return false;
             }
             reverse.Reverse();
+            plan.From=reverse[0]; // geometric route root, NOT a commander
             plan.Cells=reverse;
             plan.TotalCost=costs[finish];
             plan.FirstBarrier=null;
@@ -395,11 +408,37 @@ namespace RaidersHaveFamilies
             }
         }
 
+        internal static RHFRoutePlanV128 ResolveShared(RHFOperation op,Map map,
+            List<Pawn> squad,HashSet<Pawn> reserved,Pawn captive,int now)
+        {
+            var starts=new List<IntVec3>();
+            if(map!=null && squad!=null)
+                for(int i=0;i<squad.Count;i++)
+                {
+                    Pawn p=squad[i];
+                    if(p==null || !p.Spawned || p.Dead || p.Downed || p.InMentalState ||
+                       p.Map!=map || (reserved!=null && reserved.Contains(p)))continue;
+                    if(p.Position.Standable(map) && !starts.Contains(p.Position))
+                        starts.Add(p.Position);
+                }
+            return ResolveFromSources(op,map,starts,captive,now);
+        }
+
+        // Compatibility for legacy (inactive) callers. No pawn is given
+        // command authority by being a source to the geometric solver.
         internal static RHFRoutePlanV128 Resolve(RHFOperation op,Map map,
             Pawn leader,Pawn captive,int now)
         {
-            if(op==null || map==null || leader==null || captive==null ||
-               !leader.Spawned || !captive.Spawned || leader.Map!=map || captive.Map!=map)
+            var sources=new List<IntVec3>();
+            if(leader!=null && leader.Spawned)sources.Add(leader.Position);
+            return ResolveFromSources(op,map,sources,captive,now);
+        }
+
+        private static RHFRoutePlanV128 ResolveFromSources(RHFOperation op,Map map,
+            List<IntVec3> origins,Pawn captive,int now)
+        {
+            if(op==null || map==null || origins==null || origins.Count==0 ||
+               captive==null || !captive.Spawned || captive.Map!=map)
                 return new RHFRoutePlanV128{Explanation="неверная цель или карта"};
             RHFRouteStoreV128 holder=Cache.GetValue(op,_=>new RHFRouteStoreV128());
             bool layoutChanged=false;
@@ -417,41 +456,38 @@ namespace RaidersHaveFamilies
             // otherwise idle pawns can retain a bad initial approach for 900t.
             bool stalled=prior!=null && now-prior.Tick>=300 &&
                 now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>600;
-            // An intact authorized barrier is a committed entry decision:
-            // do not re-elect another wall merely because the squad stopped
-            // while its breacher is damaging this one. Replan on destruction,
-            // target/leader change, threat layout change or a hard timeout.
+            // An intact authorized barrier is a committed entry decision.
+            // Replan on destruction, target/threat change or hard timeout.
             bool committedBarrier=prior!=null && prior.FirstBarrier!=null &&
                 prior.FirstBarrier.Spawned &&
                 RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier) &&
                 now-prior.Tick<2700;
             if(prior!=null && (!stalled || committedBarrier) && !layoutChanged && prior.Captive==captive &&
-               // The plan and its cells belong to THIS origin and target.
-               // A rescue commander may be replaced mid-assault; borrowing
-               // the previous leader's path made other soldiers idle or loop.
-               prior.Leader==leader && prior.To==captive.Position &&
-               prior.Leader.Spawned && prior.Leader.Map==map && !prior.Leader.Dead &&
-               now-prior.Tick<(committedBarrier?2700:ReplanTicks) &&
+               // Route permission belongs to the objective, not a fighter.
+               // If no member can reach the cached corridor, replan below.
+               prior.To==captive.Position &&
+               now-prior.Tick<(prior.Valid ?
+                   (committedBarrier?2700:ReplanTicks) : 300) &&
                (prior.FirstBarrier==null ||
                 (prior.FirstBarrier.Spawned &&
                  RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier))) &&
                (!prior.Valid || (prior.Cells.Count>0 &&
-                                   NearPath(prior,prior.Leader.Position,144))))
+                                   NearAnyOrigin(prior,origins,144))))
                 return prior;
-            var fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
-                From=leader.Position,To=captive.Position};
+            var fresh=new RHFRoutePlanV128 {Tick=now,Captive=captive,
+                From=origins[0],To=captive.Position};
             // Pass 1: prefer EVERY possible fully unexposed route, even if
             // it requires more demolition. Pass 2: when all routes face guns,
             // minimize exposed firing lanes with the highest actual penalty.
             // Door/corridor-first, then a safe necessary wall breach. Only
             // AFTER every safe path is exhausted may the route enter gunfire.
-            bool safe=PlanBounded(map,leader,captive,fresh,
+            bool safe=PlanBounded(map,origins,captive,fresh,
                 Math.Max(map.Size.x,map.Size.z),true,true);
             if(!safe && !fresh.BudgetExceeded)
             {
-                fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
-                    From=leader.Position,To=captive.Position};
-                safe=PlanBounded(map,leader,captive,fresh,
+                fresh=new RHFRoutePlanV128 {Tick=now,Captive=captive,
+                    From=origins[0],To=captive.Position};
+                safe=PlanBounded(map,origins,captive,fresh,
                     Math.Max(map.Size.x,map.Size.z),true);
             }
             if(!safe && !fresh.BudgetExceeded)
@@ -459,52 +495,23 @@ namespace RaidersHaveFamilies
                 // The ordinary wall penalty already makes an intact wall
                 // drastically more expensive than a door. The fourth full
                 // A* pass was redundant and multiplied TPS spikes.
-                fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
-                    From=leader.Position,To=captive.Position};
-                PlanBounded(map,leader,captive,fresh,
+                fresh=new RHFRoutePlanV128 {Tick=now,Captive=captive,
+                    From=origins[0],To=captive.Position};
+                PlanBounded(map,origins,captive,fresh,
                     Math.Max(map.Size.x,map.Size.z),false);
             }
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
-                    " source="+leader.Position+" target="+captive.Position);
+                    " sources="+origins.Count+" target="+captive.Position);
             holder.Plan=fresh;
             return fresh;
         }
-        // A soldier appearing away from the commander's corridor must not
-        // inherit a route whose starting region is physically inaccessible.
-        // Run the same safe-first search from that SOLDIER, without replacing
-        // the operation's cached commander route or its current breacher.
-        internal static RHFRoutePlanV128 PlanIndividual(Map map,Pawn member,
-            Pawn captive,int now)
+        private static bool NearAnyOrigin(RHFRoutePlanV128 plan,
+            List<IntVec3> origins,int tolerance)
         {
-            var plan=new RHFRoutePlanV128{Tick=now,Leader=member,
-                Captive=captive,From=member?.Position??IntVec3.Invalid,
-                To=captive?.Position??IntVec3.Invalid};
-            if(map==null || member==null || captive==null ||
-               !member.Spawned || !captive.Spawned ||
-               member.Map!=map || captive.Map!=map)return plan;
-            // A dispersed squad used to run 4 independent full-map A*s for
-            // EACH soldier every 180 ticks. Reuse results for 900 ticks and
-            // never authorize an individual demolition in the local plan.
-            IndividualRouteCacheR019 cache=IndividualRoutesR019.GetValue(member,
-                _=>new IndividualRouteCacheR019());
-            if(cache.Plan!=null && cache.Target==captive &&
-               cache.Plan.To==captive.Position && now-cache.Tick<ReplanTicks &&
-               (!cache.Plan.Valid || NearPath(cache.Plan,member.Position,100)))
-                return cache.Plan;
-            bool safe=PlanBounded(map,member,captive,plan,
-                Math.Max(map.Size.x,map.Size.z),true,true);
-            if(!safe && !plan.BudgetExceeded)
-            {
-                plan=new RHFRoutePlanV128{Tick=now,Leader=member,
-                    Captive=captive,From=member.Position,To=captive.Position};
-                PlanBounded(map,member,captive,plan,
-                    Math.Max(map.Size.x,map.Size.z),false,true);
-            }
-            cache.Plan=plan;
-            cache.Target=captive;
-            cache.Tick=now;
-            return plan;
+            for(int i=0;i<origins.Count;i++)
+                if(NearPath(plan,origins[i],tolerance))return true;
+            return false;
         }
         private static bool NearPath(RHFRoutePlanV128 plan,IntVec3 point,int tolerance)
         {
@@ -606,7 +613,7 @@ namespace RaidersHaveFamilies
                 int distance=(soldier.Position-route.Cells[i]).LengthHorizontalSquared;
                 if(distance<best){best=distance;nearest=i;}
             }
-            if(best>225)return IntVec3.Invalid;
+            if(best>225)return JoinCommonCorridor(route,soldier,map,limit);
             // Off-corridor soldiers must join at a nearby SAFE cell. A Goto
             // several tiles ahead is unsafe because the vanilla pathfinder may
             // cut a corner across a defended killing field.
@@ -614,8 +621,8 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 join=route.Cells[nearest];
                 if(join!=soldier.Position && soldier.CanReach(join,PathEndMode.OnCell,Danger.Deadly) &&
-                   !CrossesKnownFire(route,soldier.Position,join,map))return join;
-                return IntVec3.Invalid;
+                   !LateralExposed(map,soldier.Position,join))return join;
+                return JoinCommonCorridor(route,soldier,map,limit);
             }
             if(nearest>=limit)return IntVec3.Invalid;
             // Follow one uninterrupted CARDINAL corridor leg at a time.
@@ -669,10 +676,35 @@ namespace RaidersHaveFamilies
             }
             return IntVec3.Invalid;
         }
-        // The route hazard cache can be stale after the world changes; this
-        // geometric check rejects a direct Goto whose segment crosses a cell
-        // that is absent from the selected route. Changes to visible stationary
-        // defence trigger re-evaluation on the next mission planning pulse.
+        // Physically accessible rendezvous on the SAME shared corridor.
+        // Native CanReach disallows magic wall traversal; no private breach.
+        private static IntVec3 JoinCommonCorridor(RHFRoutePlanV128 route,
+            Pawn pawn,Map map,int limit)
+        {
+            int probes=0;
+            for(int radius=8;radius<=32 && probes<8;radius+=8)
+            {
+                int nearest=int.MaxValue;
+                IntVec3 candidate=IntVec3.Invalid;
+                for(int i=0;i<=limit;i+=Math.Max(1,limit/32))
+                {
+                    IntVec3 cell=route.Cells[i];
+                    int d=(pawn.Position-cell).LengthHorizontalSquared;
+                    if(d<=radius*radius && d<nearest && cell.Standable(map) &&
+                       cell.GetEdifice(map)==null)
+                    {candidate=cell;nearest=d;}
+                }
+                if(!candidate.IsValid || candidate==pawn.Position)continue;
+                probes++;
+                if(!LateralExposed(map,pawn.Position,candidate) &&
+                   pawn.CanReach(candidate,PathEndMode.OnCell,Danger.Deadly))
+                    return candidate;
+            }
+            return IntVec3.Invalid;
+        }
+
+        // Check that a Goto does not shortcut the costed protected centerline
+        // through an unapproved firing lane or other unplanned passage.
         private static bool CrossesKnownFire(RHFRoutePlanV128 route,IntVec3 from,
             IntVec3 to,Map map)
         {

@@ -35,17 +35,9 @@ namespace RaidersHaveFamilies
         }
         private static readonly ConditionalWeakTable<RHFOperation,BarrierEventCache>
             BarrierPulses = new ConditionalWeakTable<RHFOperation,BarrierEventCache>();
-        // R020: a rescue is commanded by a stable leader for each hostage.
-        // Electing the geometrically nearest soldier on EVERY strategy pulse
-        // moved the A* origin between different flanks and changed demolition
-        // targets while a breacher was still working on the first one.
-        private sealed class RescueCommandR020
-        {
-            internal Pawn Target;
-            internal Pawn Leader;
-        }
-        private static readonly ConditionalWeakTable<RHFOperation,RescueCommandR020>
-            RescueLeadsR020 = new ConditionalWeakTable<RHFOperation,RescueCommandR020>();
+        // R021: NO squad leader. The tactical board holds the shared objective
+        // and at most one demolition permit; fighters retain personal combat AI.
+        // The route solver accepts all available fighter positions as sources.
 
         internal static RHFOperation MissionFor(Map map, Pawn member)
         {
@@ -384,45 +376,34 @@ namespace RaidersHaveFamilies
             Pawn previousTarget=board.RescueTarget;
             board.RescueTarget=captive;
             board.LastKnownCell=captive.Position; // declared hostage location, not enemy omniscience
-            // Select the nearest available leader ONCE per captive, then keep
-            // that leader until incapacitated or assigned to an earlier VIP.
-            // It is not valid to switch the squad's breach corridor every 180t.
-            RescueCommandR020 command=RescueLeadsR020.GetValue(op,
-                _=>new RescueCommandR020());
-            if(command.Target!=captive)
-            { command.Target=captive;command.Leader=null; }
-            Pawn lead=command.Leader;
-            if(!Active(lead,map) || escortedDuringAssault.Contains(lead) ||
-               !op.Squad.Contains(lead))
+            // Select every combat-capable, unreserved rescuer as a possible
+            // route source. This is NOT a commander election: the route search
+            // evaluates an approach from the whole available wing at once.
+            Pawn sample=null;
+            int available=0;
+            int bestDistance=int.MaxValue;
+            for(int i=0;i<op.Squad.Count;i++)
             {
-                lead=null;
-                int leadCost=int.MaxValue;
-                for(int i=0;i<op.Squad.Count;i++)
+                Pawn member=op.Squad[i];
+                if(!Active(member,map) || escortedDuringAssault.Contains(member))continue;
+                available++;
+                if(sample==null)sample=member; // fallback-only physical probe
+                int distance=(member.Position-captive.Position).LengthHorizontalSquared;
+                if(distance<bestDistance)
                 {
-                    Pawn candidate=op.Squad[i];
-                    if(!Active(candidate,map) || escortedDuringAssault.Contains(candidate))continue;
-                    int cost=(candidate.Position-captive.Position).LengthHorizontalSquared;
-                    if(cost<leadCost){lead=candidate;leadCost=cost;}
+                    bestDistance=distance;
+                    board.LeadProgressCell=member.Position; // legacy save field
                 }
-                command.Leader=lead;
-                if(lead!=null && RHFMod.Settings?.VerboseLogging==true)
-                    Log.Message("[NJR][R020] Rescue leader assigned: "+lead.LabelShortCap+
-                        ", target="+captive.LabelShortCap);
             }
-            if(lead==null)
+            if(available==0)
             {
-                // An entire squad protecting first-liberated hostages is not
-                // a valid leader for the next room's breach. Do not build an
-                // A* route from the escort and then strand both subgroups.
                 bool anyone=false;
                 foreach(Pawn member in op.Squad)
                     if(Active(member,map)){anyone=true;break;}
                 if(!anyone){op.Finished=true;board.Orders.Clear();}
                 else if(now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>27000)
                 {
-                    // Protect the survivors and the already rescued; this is
-                    // a documented failed multi-captive assault, never success.
-                    board.Decision="no free assault team; abort remaining captives";
+                    board.Decision="all fighters escort earlier captives; abort remaining targets";
                     op.Phase=2;
                     op.PhaseStartTick=now;
                     board.NextReplanTick=0;
@@ -431,20 +412,15 @@ namespace RaidersHaveFamilies
                     return;
                 }
                 board.Decision=anyone ?
-                    "all fighters reserved for earlier captives; no assault lead" :
+                    "all fighters reserved for escort; no available assault wing" :
                     "rescue force destroyed";
                 return;
             }
             if(previousTarget!=captive)
-            {
                 board.BestLeadDistance=int.MaxValue;
-                board.LeadProgressCell=IntVec3.Invalid;
-            }
-            int leadDistance=(lead.Position-captive.Position).LengthHorizontalSquared;
-            if(leadDistance<board.BestLeadDistance)
+            if(bestDistance<board.BestLeadDistance)
             {
-                board.BestLeadDistance=leadDistance;
-                board.LeadProgressCell=lead.Position;
+                board.BestLeadDistance=bestDistance;
                 board.LastProgressTick=now;
                 op.LastProgressTick=now;
             }
@@ -472,13 +448,24 @@ namespace RaidersHaveFamilies
             if(now<board.NextReplanTick && board.LastPlanTick>0)return;
             board.NextReplanTick=now+PlanCadence;
             board.LastPlanTick=now;
-            RHFRoutePlanV128 route=RHFObjectiveRouteV128.Resolve(op,map,lead,captive,now);
+            RHFRoutePlanV128 route=RHFObjectiveRouteV128.ResolveShared(
+                op,map,op.Squad,escortedDuringAssault,captive,now);
+            // One trace per NEW plan, never one message per pawn or game tick.
+            if(route.Tick==now && RHFMod.Settings?.VerboseLogging==true)
+                Log.Message("[NJR][R021][SharedRoute] members="+available+
+                    ", target="+captive.Position+", origin="+route.From+
+                    ", valid="+route.Valid+", CPUExceeded="+route.BudgetExceeded+
+                    ", steps="+(route.Cells?.Count??0)+", doors="+route.Doors+
+                    ", walls="+route.Walls+", expanded="+route.Expanded+
+                    ", cost="+route.TotalCost+", result="+route.Explanation);
             Thing obstacle=route.Valid ? route.FirstBarrier : null;
             // If the expensive route solver cannot establish a corridor,
             // rally toward an actually reachable objective approach instead
             // of giving every soldier Hold for 27,000 ticks.
-            IntVec3 fallback=route.Valid ? IntVec3.Invalid :
-                ChooseReachableApproach(lead,captive,map);
+            // A budget-exhausted A* is an UNKNOWN, never a license to
+            // generate more expensive path probes or demolish a guessed wall.
+            IntVec3 fallback=route.Valid || route.BudgetExceeded ?
+                IntVec3.Invalid : ChooseReachableApproach(sample,captive,map);
             // A failed A* route is not permission to pick a random wall
             // approximately toward the captive. Only the validated shared
             // objective corridor may authorize demolition.
@@ -490,7 +477,7 @@ namespace RaidersHaveFamilies
                 // line per pawn/tick. Needed to diagnose unnecessary breaches.
                 if(RHFMod.Settings?.VerboseLogging==true)
                     Log.Message("[NJR][R020][EntryChoice] captive="+
-                        captive.LabelShortCap+", leader="+lead.LabelShortCap+
+                        captive.LabelShortCap+", sources="+available+
                         ", previous="+(board.Barrier?.LabelShortCap??"none")+
                         ", next="+(obstacle?.LabelShortCap??"none")+
                         ", doors="+route.Doors+", walls="+route.Walls+
@@ -532,7 +519,7 @@ namespace RaidersHaveFamilies
             board.Threat=FirstRouteTurret(route,map);
             if(board.Threat==null && (!route.Valid ||
                 route.FirstTurretExposureIndex<0))
-                board.Threat=DefensiveTurretFront(op,map,lead);
+                board.Threat=DefensiveTurretFront(op,map);
             if(board.Threat!=null && board.Threat.HitPoints<board.LastThreatHP)
             {
                 op.LastProgressTick=now;
@@ -565,25 +552,9 @@ namespace RaidersHaveFamilies
                     }
                 }
                 IntVec3 way=route.Valid ? RHFObjectiveRouteV128.Waypoint(route,soldier,map) : IntVec3.Invalid;
-                // Do not strand a dispersed member merely because the one
-                // leader-owned path starts in a different reachable region.
-                // This is a per-pawn PHYSICAL route, not a teleport or free shot.
-                if(route.Valid && !way.IsValid && soldier!=lead)
-                {
-                    RHFRoutePlanV128 own=RHFObjectiveRouteV128.PlanIndividual(
-                        map,soldier,captive,now);
-                    if(own.Valid)
-                    {
-                        way=RHFObjectiveRouteV128.Waypoint(own,soldier,map);
-                        // A soldier's local path is ONLY a movement aid.
-                        // It cannot independently authorize a second demolition
-                        // target while the operation already has a shared
-                        // objective corridor and a single breacher.
-                        if(!way.IsValid && own.FirstBarrier!=null &&
-                           own.FirstBarrier!=obstacle)
-                            way=IntVec3.Invalid;
-                    }
-                }
+                // R021: rejoin the SAME common corridor using native
+                // reachability. Never build per-pawn alternative A* corridors
+                // and NEVER authorize demolition outside the shared permit.
                 if(obstacle!=null && !firebreakBeforeBreach &&
                    screened<Math.Max(2,op.Squad.Count/4))
                 {
@@ -680,9 +651,9 @@ namespace RaidersHaveFamilies
         // may be invalid: never turn the entire assault into HOLD. Choose a
         // truly active turret visible from an achievable front; the ordinary
         // attack jobs retain real line-of-fire and weapon-range requirements.
-        private static Building DefensiveTurretFront(RHFOperation op,Map map,Pawn lead)
+        private static Building DefensiveTurretFront(RHFOperation op,Map map)
         {
-            if(map==null || lead==null || op?.Squad==null)return null;
+            if(map==null || op?.Squad==null)return null;
             Building best=null, nearest=null;
             int cost=int.MaxValue, nearDist=int.MaxValue;
             foreach(Building turret in map.listerBuildings.allBuildingsColonist)
@@ -698,7 +669,13 @@ namespace RaidersHaveFamilies
                        GenSight.LineOfSight(observer.Position,turret.Position,map))
                     {spotted=true;break;}
                 if(!spotted)continue;
-                int dist=(lead.Position-turret.Position).LengthHorizontalSquared;
+                // Any soldier may observe and engage the relevant defence;
+                // a single arbitrarily chosen member cannot exclude a gun.
+                int dist=int.MaxValue;
+                foreach(Pawn member in op.Squad)
+                    if(Active(member,map))
+                        dist=Math.Min(dist,
+                            (member.Position-turret.Position).LengthHorizontalSquared);
                 if(dist>7000)continue;
                 if(dist<nearDist){nearest=turret;nearDist=dist;}
                 bool feasible=false;
