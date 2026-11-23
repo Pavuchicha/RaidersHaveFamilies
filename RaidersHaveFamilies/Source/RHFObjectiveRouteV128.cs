@@ -57,6 +57,17 @@ namespace RaidersHaveFamilies
             Log.Message("[RHF] v0.12.8 route mission controller loaded (HP + threat corridor).");
         }
         private const int ReplanTicks = 900;
+        // Finite per-decision CPU budget. A failed tactical search must
+        // never lock a RimWorld frame while inspecting every wall/turret tile.
+        private const int MaxRouteExpansionsR019 = 12000;
+        private sealed class IndividualRouteCacheR019
+        {
+            internal RHFRoutePlanV128 Plan;
+            internal Pawn Target;
+            internal int Tick;
+        }
+        private static readonly ConditionalWeakTable<Pawn,IndividualRouteCacheR019>
+            IndividualRoutesR019 = new ConditionalWeakTable<Pawn,IndividualRouteCacheR019>();
         // No artificial cell, expansion, turret or mobile-shooter limits.
         // The actual finite map bounds terminate the A* search.
         // Only real emitted attacks affect danger, not an arbitrary 35-tile ring.
@@ -267,6 +278,11 @@ namespace RaidersHaveFamilies
                 int cx=at%width+minX,cz=at/width+minZ;
                 if(current.Priority!=costs[at]+Heuristic(cx,cz,goal))continue;
                 expanded++;
+                if(expanded>MaxRouteExpansionsR019)
+                {
+                    plan.Explanation="CPU budget exhausted: tactical path will retry";
+                    break;
+                }
                 if(at==finish){reached=true;break;}
                 for(int direction=0;direction<4;direction++)
                 {
@@ -300,7 +316,8 @@ namespace RaidersHaveFamilies
             plan.Expanded+=expanded;
             if(!reached)
             {
-                plan.Explanation="вся достижимая область проверена: маршрута нет";
+                if(expanded<=MaxRouteExpansionsR019)
+                    plan.Explanation="вся достижимая область проверена: маршрута нет";
                 return false;
             }
             var reverse=new List<IntVec3>(256);
@@ -427,17 +444,13 @@ namespace RaidersHaveFamilies
             }
             if(!safe)
             {
+                // The ordinary wall penalty already makes an intact wall
+                // drastically more expensive than a door. The fourth full
+                // A* pass was redundant and multiplied TPS spikes.
                 fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
                     From=leader.Position,To=captive.Position};
-                bool doorOnly=PlanBounded(map,leader,captive,fresh,
-                    Math.Max(map.Size.x,map.Size.z),false,true);
-                if(!doorOnly)
-                {
-                    fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
-                        From=leader.Position,To=captive.Position};
-                    PlanBounded(map,leader,captive,fresh,
-                        Math.Max(map.Size.x,map.Size.z),false);
-                }
+                PlanBounded(map,leader,captive,fresh,
+                    Math.Max(map.Size.x,map.Size.z),false);
             }
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
@@ -458,20 +471,27 @@ namespace RaidersHaveFamilies
             if(map==null || member==null || captive==null ||
                !member.Spawned || !captive.Spawned ||
                member.Map!=map || captive.Map!=map)return plan;
-            if(PlanBounded(map,member,captive,plan,
-                Math.Max(map.Size.x,map.Size.z),true,true))return plan;
-            plan=new RHFRoutePlanV128{Tick=now,Leader=member,
-                Captive=captive,From=member.Position,To=captive.Position};
-            if(PlanBounded(map,member,captive,plan,
-                Math.Max(map.Size.x,map.Size.z),true))return plan;
-            plan=new RHFRoutePlanV128{Tick=now,Leader=member,
-                Captive=captive,From=member.Position,To=captive.Position};
-            if(PlanBounded(map,member,captive,plan,
-                Math.Max(map.Size.x,map.Size.z),false,true))return plan;
-            plan=new RHFRoutePlanV128{Tick=now,Leader=member,
-                Captive=captive,From=member.Position,To=captive.Position};
-            PlanBounded(map,member,captive,plan,
-                Math.Max(map.Size.x,map.Size.z),false);
+            // A dispersed squad used to run 4 independent full-map A*s for
+            // EACH soldier every 180 ticks. Reuse results for 900 ticks and
+            // never authorize an individual demolition in the local plan.
+            IndividualRouteCacheR019 cache=IndividualRoutesR019.GetValue(member,
+                _=>new IndividualRouteCacheR019());
+            if(cache.Plan!=null && cache.Target==captive &&
+               cache.Plan.To==captive.Position && now-cache.Tick<ReplanTicks &&
+               (!cache.Plan.Valid || NearPath(cache.Plan,member.Position,100)))
+                return cache.Plan;
+            bool safe=PlanBounded(map,member,captive,plan,
+                Math.Max(map.Size.x,map.Size.z),true,true);
+            if(!safe)
+            {
+                plan=new RHFRoutePlanV128{Tick=now,Leader=member,
+                    Captive=captive,From=member.Position,To=captive.Position};
+                PlanBounded(map,member,captive,plan,
+                    Math.Max(map.Size.x,map.Size.z),false,true);
+            }
+            cache.Plan=plan;
+            cache.Target=captive;
+            cache.Tick=now;
             return plan;
         }
         private static bool NearPath(RHFRoutePlanV128 plan,IntVec3 point,int tolerance)

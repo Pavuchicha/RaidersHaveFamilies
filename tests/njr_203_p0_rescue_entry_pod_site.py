@@ -21,7 +21,8 @@ assert 't++' in entry and 'GroundEntryClusterSafe(map,center)' in entry
 # Candidate can't choose a destructive launch pad while a free footprint exists.
 assert 'if(clearance!=0 ||' in ops
 assert 'vehicle.GetRoom(map)!=candidate' in ops
-assert 'LengthHorizontalSquared<9' in ops
+assert 'roof!=null && roof.isThickRoof' in ops  # thin roofs can be worked physically
+assert 'c==vip.Position' in clear  # never overlap the VIP's actual tile
 assert 'occupant.GetLord()?.LordJob is RHFRescueLordJobV124' in clear
 # Every fighter receives a mission assignment after a failed route solution.
 assert 'ChooseReachableApproach(lead,captive,map)' in plan

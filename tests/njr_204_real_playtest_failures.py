@@ -16,8 +16,9 @@ assert 'if(!route.RiskFallback && LateralExposed(map,from,to))return true;' in r
 assert 'plan.RiskFallback=!forbidTurretExposure;' in route
 assert 'if(route.FirstTurretExposureIndex>=0 && !route.RiskFallback)' in route
 follow=job.split('case RHFRoleS41.FollowEscort:')[-1].split('case RHFRoleS41.Withdraw:')[0]
-assert 'JobDefOf.Goto,order.Cell' not in follow
-assert 'JobDefOf.Goto,escort,120' in follow
+assert 'return Task(JobDefOf.Goto,order.Cell,90);' in follow
+assert 'JobDefOf.Goto,escort,120' not in follow
+assert 'if(gap>16)return Task(JobDefOf.Wait,pawn.Position,120);' in follow
 assert 'CrossesTurretLane(map,soldier.Position,captive.Position)' in (S/'RHFRescuePlannerS41.cs').read_text()
 assert 'if(op.PodConstructionStage==3 &&' in fort
 assert 'NativeEscapeLaneS41(op.PodLauncherCell,cell)' in fort

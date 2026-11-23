@@ -1,0 +1,7 @@
+NJR R019: патч ИИ рейдов #1 и #16 от 23.11.2026
+1. Распаковать ZIP R019 в КОРЕНЬ уже существующего репозитория (рядом с .github, tests, RaidersHaveFamilies). С заменой.
+2. GitHub Desktop Summary: R019: Bound rescue AI scans and stabilize evacuation
+3. Commit to main -> Push origin. Дождаться GitHub Actions успеха. Только после сборки установить новый test build.
+4. Спасение #1: замер TPS, число рейдеров, стены/двери, выход пары с пленником.
+5. Спасение #16: проверить PodBudgetPaid, TryPod, PodSuppliesIssued, PodConstructionStage, PodLauncherCell. Если пусковая не строится — Player.log от момента высадки до отказа.
+Статические тесты: 79/79. Компиляция в этом чате не проводилась. Это НЕ заявление об устранении игровых багов.

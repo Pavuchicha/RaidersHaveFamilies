@@ -40,7 +40,12 @@ namespace RaidersHaveFamilies
             int currentEdge=Math.Min(Math.Min(navigator.Position.x,
                 map.Size.x-1-navigator.Position.x),Math.Min(navigator.Position.z,
                 map.Size.z-1-navigator.Position.z));
-            for(int x=0;x<map.Size.x;x++)for(int z=0;z<map.Size.z;z++)
+            // Only choose a near-term advance position. Re-evaluate after
+            // the convoy moves, instead of probing the whole map every pulse.
+            for(int x=Math.Max(0,navigator.Position.x-24);
+                x<=Math.Min(map.Size.x-1,navigator.Position.x+24);x++)
+            for(int z=Math.Max(0,navigator.Position.z-24);
+                z<=Math.Min(map.Size.z-1,navigator.Position.z+24);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
                 int edge=Math.Min(Math.Min(x,map.Size.x-1-x),

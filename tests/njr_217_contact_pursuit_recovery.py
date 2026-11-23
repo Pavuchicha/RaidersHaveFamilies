@@ -21,7 +21,8 @@ assert 'RHFCombatPlannerV125.IsTurret(gun)' in contact
 assert 'GenSight.LineOfSight' in contact
 assert 'RHFRescueFireDisciplineV136.UnsafeLine' in contact
 assert 'JobDefOf.AttackStatic' in contact and 'JobDefOf.AttackMelee' in contact
-assert 'CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in contact
+assert 'soldier.CanReach(cells[i],PathEndMode.OnCell,Danger.Deadly)' in contact
+assert 'if(cells.Count>20)' in contact  # source is a bounded list, not a full-map pathing scan
 assert 'NJRCombatContactS44.BreachToward' in rescue and 'NJRCombatContactS44.BreachToward' in offense
 
 # Phase3: defenders intercept routinely; the pinned engineer builds while
@@ -59,8 +60,8 @@ assert 'ReachableProgress(Map map,RHFOperation op,Pawn navigator)' in exitpath
 assert 'RecoverBlockedExit(op,map,board,anchor,navigator,now)' in planner
 assert 'NJRCombatContactS44.BlockingStructure(navigator,edge)' in planner
 assert 'captive.CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in exitpath
-assert 'EscortStep(pawn,escorted,order.Cell)' in rescue
-assert 'vip.CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in rescue
+assert 'if(separation>9)' in rescue and 'return Task(JobDefOf.Goto,escorted,180);' in rescue
+assert 'pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly)' in rescue
 
 # Full real weapon range instead of a fake 55-tile CE/mod weapon cap.
 assert 'return Math.Max(0f,range);' in combat

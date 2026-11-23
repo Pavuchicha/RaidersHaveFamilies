@@ -35,10 +35,10 @@ def test(p,g,b,j,w,x):
     assert 'return op.Freed!=null && op.Freed.Contains(pawn) ?' in g
     assert 'Task(JobDefOf.Wait,pawn.Position,90) : null' in g
     # Synchronised escort: tight range + short path job + no VIP-first ExitMap.
-    assert 'if(separation>16)' in g
-    assert 'IntVec3 step=EscortStep(pawn,escorted,order.Cell)' in g
-    assert 'vip.CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in g
-    assert 'return Task(JobDefOf.Goto,step,90)' in g
+    assert 'if(separation>9)' in g
+    assert 'int gap=(pawn.Position-escort.Position).LengthHorizontalSquared;' in g
+    assert 'pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly)' in g
+    assert 'return Task(JobDefOf.Goto,order.Cell,90)' in g
     assert 'RHFRescueCommandV124.MissionExit(escort);' in p
     assert p.index('RHFRescueCommandV124.MissionExit(escort);') < p.index('RHFRescueCommandV124.MissionExit(rescued);')
     assert 'pair.Escort=null;' in p
@@ -61,7 +61,7 @@ changes=[
  ('p', 'board.Threat=FirstRouteTurret(route,map);','board.Threat=null;'),
  ('p', 'RHFRoleS41.SuppressTurret','RHFRoleS41.Screen'),
  ('g', 'Task(JobDefOf.Wait,pawn.Position,90) : null','Task(JobDefOf.Wait,pawn.Position,90) : Task(JobDefOf.Wait,pawn.Position,90)'),
- ('g', 'if(separation>16)','if(separation>81)'),
+ ('g', 'if(separation>9)','if(separation>81)'),
  ('p', 'RHFRescueCommandV124.MissionExit(escort);','RHFRescueCommandV124.MissionExit(rescued);'),
  ('p', 'cell.GetRoom(map)!=soldier.Position.GetRoom(map)','false'),
  ('p', 'cache.Seen.TryGetValue(key,out int seen) && seen==now','false'),

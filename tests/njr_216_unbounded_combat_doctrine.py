@@ -1,5 +1,5 @@
-"""R010 source contract: no artificial TPS/roster/route cutoffs in active combat.
-This is NOT C# compilation nor RimWorld runtime or proof of correct tactics.
+"""R019 active combat invariant: no squad/target truncation, but expensive
+per-decision pathfinding MUST have finite computational cost. STATIC ONLY.
 """
 from pathlib import Path
 import re
@@ -18,7 +18,7 @@ legacy=read('RHFRescueControlV123.cs')
 blocks={
  'ops': (ops,['MaxOperationsPerMap','MaxSquad','MaxTargets','MaxOrdersPerDecision','MaxStrikeParties']),
  'combat': (combat,['MaxThreats','MaxPawnScan','MaxStructureScan','MaxTacticalOrders','MaxFlankCandidates','visited++<12000']),
- 'route': (route,['MaxExpanded','MaxCells','expanded++<85000','PlanBounded(map,leader,captive,fresh,44,false)']),
+ 'route': (route,['MaxCells','expanded++<85000','PlanBounded(map,leader,captive,fresh,44,false)']),
  'rescue': (rescue,['MaxTargets','queries<48','checkedFighters>20','coverCount<8','operations.Count && i<4']),
  'pod': (pod,['MaxSquad','MaxCaptives','MaxGuards','costlyPaths>24','radius<=8']),
  'offense': (off,['MaxObserve','MaxMembers','MaxStructures','MaxCandidateCells','MaxOperations']),
@@ -31,8 +31,8 @@ for name,(text,forbidden) in blocks.items():
 expected={
  'combat': (combat,['while(queue.Count>0)','for(int x=0;x<map.Size.x;x++)','exposureCache','remaining>=initialRemaining']),
  'route': (route,['while(heap.Count>0)','Math.Max(map.Size.x,map.Size.z),false)']),
- 'rescuer': (rescue,['for(int i=0;i<operations.Count;i++)','for(int radius=3;radius<=Math.Max(map.Size.x,map.Size.z);radius++)']),
- 'pod': (pod,['private static bool InFootprint','private static bool ValidGuardCell','private static IntVec3 GuardCell','radius<=Math.Max(map.Size.x,map.Size.z)']),
+ 'rescuer': (rescue,['for(int i=0;i<operations.Count;i++)','for(int radius=3;radius<=Math.Min(16,Math.Max(map.Size.x,map.Size.z));radius++)']),
+ 'pod': (pod,['private static bool InFootprint','private static bool ValidGuardCell','private static IntVec3 GuardCell','radius<=12']),
  'entry': (entry,['for(int t=5;t<span-5;t++)','ReachableExterior(map,center,captive)']),
  'animals':(beasts,['while(available>=30f)','available-=selected.combatPower']),
  'ops':(ops,['now - op.CreatedTick > MaxOperationDuration','capable < Math.Max(1, op.Squad.Count / 4)'])
@@ -46,8 +46,14 @@ assert 'if(++checkedFighters>20)break;' not in rescue
 assert 'if (op.RerouteCount >= 3)' not in ops
 assert 'MapComponentTick()' in ops
 assert 'MaxBatchSize' in read('RaidersHaveFamilies.cs')  # passive work is STILL bounded.
-# A mutation of the path's heap loop must fail the contract.
-def route_unbounded(text):return 'while(heap.Count>0)' in text and 'MaxExpanded' not in text
-assert route_unbounded(route)
-assert not route_unbounded(route.replace('while(heap.Count>0)','while(heap.Count>0 && expanded++<85000)',1))
-print('PASS R010: active combat caps removed and key helper methods preserved; STATIC ONLY')
+# The CPU budget is a safety limit for an A* invocation, NOT a raid
+# size limit, an inability to see distant turrets, or a free demolition.
+assert 'MaxRouteExpansionsR019 = 12000' in route
+assert 'if(expanded>MaxRouteExpansionsR019)' in route
+assert 'IndividualRoutesR019.GetValue(member' in route
+assert 'for(int radius=1;radius<=12;radius++)' in pod
+assert 'for(int x=Math.Max(0,origin.x-20)' in rescue
+assert 'for(int x=Math.Max(0,origin.x-14)' in rescue
+assert 'site.x-10' in pod
+assert 'siteRadius=32' in ops
+print('PASS R019: full squad semantics retained, bounded expensive search; STATIC ONLY')

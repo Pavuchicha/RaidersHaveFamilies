@@ -1,4 +1,4 @@
-﻿// RHF S4.1-B: the ONLY routine rescue job issuer.
+// RHF S4.1-B: the ONLY routine rescue job issuer.
 // It is executed by the pawn's mission ThinkTree, not by MapComponentTick.
 using System;
 using RimWorld;
@@ -272,35 +272,33 @@ namespace RaidersHaveFamilies
                         return job;
                     }
                     int separation=(pawn.Position-escorted.Position).LengthHorizontalSquared;
-                    if(separation>16)
-                        return Task(JobDefOf.Goto,escorted,90);
-                    // Do not sprint to the map edge and leave slow VIPs behind.
-                    // Only advance a short escort step, measured from the VIP.
-                    if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
-                       (pawn.Position-order.Cell).LengthHorizontalSquared>10 &&
-                       separation<=9)
-                    {
-                        IntVec3 step=EscortStep(pawn,escorted,order.Cell);
-                        if(step.IsValid &&
-                           (pawn.Position-step).LengthHorizontalSquared>2 &&
-                           pawn.CanReach(step,PathEndMode.OnCell,Danger.Deadly))
-                            return Task(JobDefOf.Goto,step,90);
-                    }
-                    return null; // local defence may protect the nearby VIP
+                    // R019: the VIP leads a short, native path toward the
+                    // frozen exit. The escort only catches up when separated.
+                    // The old escort-leads/VIP-follows mutual Goto loop was
+                    // especially unstable around doors and furniture.
+                    if(separation>9)
+                        return Task(JobDefOf.Goto,escorted,180);
+                    return null; // hold formation and defend near the VIP
                 }
                 case RHFRoleS41.FollowEscort:
                 {
                     Pawn escort=order.Objective as Pawn;
                     if(escort==null || escort.Dead || escort.Map!=pawn.Map)
                         return Task(JobDefOf.Wait,pawn.Position,150);
-                    if((pawn.Position-escort.Position).LengthHorizontalSquared>25)
-                        return Task(JobDefOf.Goto,escort,90);
-                    // Never independently sprint to ExitCell: the escort
-                    // will follow, turn back for the VIP, and both will loop.
-                    // Keep within a short leash of the real moving escort.
-                    if((pawn.Position-escort.Position).LengthHorizontalSquared>4)
-                        return Task(JobDefOf.Goto,escort,120);
-                    return Task(JobDefOf.Wait,pawn.Position,90);
+                    int gap=(pawn.Position-escort.Position).LengthHorizontalSquared;
+                    if(op.Phase!=2 || !order.Cell.IsValid ||
+                       !order.Cell.InBounds(pawn.Map))
+                        return Task(JobDefOf.Wait,pawn.Position,120);
+                    // Wait for the escort to catch up instead of reversing
+                    // direction to chase its previous position.
+                    if(gap>16)return Task(JobDefOf.Wait,pawn.Position,120);
+                    if((pawn.Position-order.Cell).LengthHorizontalSquared<=10)
+                        return Task(JobDefOf.Wait,pawn.Position,120);
+                    // Use native pathfinding to the SAME fixed exit, in short
+                    // bursts; expiry makes the convoy recheck its separation.
+                    if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
+                        return Task(JobDefOf.Goto,order.Cell,90);
+                    return Task(JobDefOf.Wait,pawn.Position,120);
                 }
                 case RHFRoleS41.Withdraw:
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&

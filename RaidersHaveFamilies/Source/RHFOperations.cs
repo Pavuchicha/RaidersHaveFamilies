@@ -2036,13 +2036,19 @@ namespace RaidersHaveFamilies
             if(vip==null || !vip.Spawned || vip.Map!=map)return false;
             Room prison=vip.Position.GetRoom(map);
             int bestScore=int.MaxValue;
-            for(int radius=0;radius<=Math.Max(map.Size.x,map.Size.z);radius++)
-            for(int dx=-radius;dx<=radius;dx++)
-            for(int dz=-radius;dz<=radius;dz++)
+            // R019: evaluate every real candidate ONCE within a local
+            // construction perimeter, not O(mapRadius^3) nested ring scans.
+            // When no viable pad exists nearby, ground extraction is honest;
+            // a launcher across the map is not a defensible rescue site.
+            const int siteRadius=32;
+            for(int x=Math.Max(0,vip.Position.x-siteRadius);
+                x<=Math.Min(map.Size.x-1,vip.Position.x+siteRadius);x++)
+            for(int z=Math.Max(0,vip.Position.z-siteRadius);
+                z<=Math.Min(map.Size.z-1,vip.Position.z+siteRadius);z++)
             {
-                if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
-                IntVec3 cell=vip.Position+new IntVec3(dx,0,dz);
+                IntVec3 cell=new IntVec3(x,0,z);
                 IntVec3 vehicle=FuelingPortUtility.GetFuelingPortCell(cell,Rot4.North);
+                if(!vehicle.InBounds(map))continue;
                 int clearance=NJRPodSiteClearS41.Needed(map,cell,vehicle,
                     launcher,pod,vip);
                 // Do not demolish existing walls or colony furniture for a
@@ -2054,10 +2060,10 @@ namespace RaidersHaveFamilies
                 // Keep roof-punch labor away from the captive, even if the
                 // same prison room is large enough for the built structures.
                 RoofDef roof=map.roofGrid.RoofAt(vehicle);
-                if(roof!=null && (roof.isThickRoof ||
-                    // A five-tile exclusion rejected almost every ordinary
-                    // 5x5 prison even with a clear physically buildable site.
-                    (vehicle-vip.Position).LengthHorizontalSquared<9))continue;
+                // The roof work driver removes only the launch-cell thin
+                // roof, never the VIP's tile. Reject thick mountain roofs,
+                // not otherwise valid compact indoor prison-room footprints.
+                if(roof!=null && roof.isThickRoof)continue;
                 int tier = candidate==prison ? 0 :
                     !candidate.PsychologicallyOutdoors &&
                     NJRRescueInteriorS41.DirectDoor(map,prison,candidate,vip.Position) ? 1 :

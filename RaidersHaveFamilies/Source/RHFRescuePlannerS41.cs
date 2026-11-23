@@ -453,12 +453,10 @@ namespace RaidersHaveFamilies
             // of giving every soldier Hold for 27,000 ticks.
             IntVec3 fallback=route.Valid ? IntVec3.Invalid :
                 ChooseReachableApproach(lead,captive,map);
-            if(obstacle==null && !route.Valid)
-            {
-                bool clear;
-                obstacle=RHFCombatPlannerV125.FirstObjectiveObstacle(
-                    lead,captive,out clear);
-            }
+            // A failed A* route is not permission to pick a random wall
+            // approximately toward the captive. Only the validated shared
+            // objective corridor may authorize demolition.
+            if(!route.Valid)obstacle=null;
             if(obstacle!=null && (obstacle.Destroyed || !obstacle.Spawned))obstacle=null;
             if (board.Barrier != obstacle)
             {
@@ -626,7 +624,7 @@ namespace RaidersHaveFamilies
             // positions around the cell. Caps keep the incident TPS bounded.
             if(!best.IsValid)
             {
-                for(int radius=3;radius<=Math.Max(map.Size.x,map.Size.z);radius++)
+                for(int radius=3;radius<=Math.Min(16,Math.Max(map.Size.x,map.Size.z));radius++)
                 for(int dx=-radius;dx<=radius;dx++)
                 for(int dz=-radius;dz<=radius;dz++)
                 {
@@ -715,11 +713,10 @@ namespace RaidersHaveFamilies
             IntVec3 origin=soldier.Position;
             IntVec3 best=IntVec3.Invalid;
             int cost=int.MaxValue;
-            // Search every real fire position on the map: the weapon's
-            // range and physical reachability, not a 12-cell search cap,
-            // determine whether this soldier can suppress a turret.
-            for(int x=0;x<map.Size.x;x++)
-            for(int z=0;z<map.Size.z;z++)
+            // R019: check reachable fire positions within one tactical move,
+            // rather than the whole map for every shooter every plan pulse.
+            for(int x=Math.Max(0,origin.x-20);x<=Math.Min(map.Size.x-1,origin.x+20);x++)
+            for(int z=Math.Max(0,origin.z-20);z<=Math.Min(map.Size.z-1,origin.z+20);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.InBounds(map) || !cell.Standable(map) ||
@@ -751,11 +748,10 @@ namespace RaidersHaveFamilies
             int scale=Math.Max(1,Math.Max(Math.Abs(dx),Math.Abs(dz)));
             IntVec3 best=IntVec3.Invalid;
             int bestCost=int.MaxValue;
-            // All reachable improvement cells are considered. The old
-            // four radial lengths and three flank offsets missed entire
-            // usable corridors, leaving long-range riflemen on HOLD.
-            for(int x=0;x<map.Size.x;x++)
-            for(int z=0;z<map.Size.z;z++)
+            // Plan a short tactical leg; on the next pulse another leg may
+            // advance. Full-map CanReach queries created severe TPS spikes.
+            for(int x=Math.Max(0,origin.x-14);x<=Math.Min(map.Size.x-1,origin.x+14);x++)
+            for(int z=Math.Max(0,origin.z-14);z<=Math.Min(map.Size.z-1,origin.z+14);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.InBounds(map) || !cell.Standable(map) ||
@@ -785,10 +781,9 @@ namespace RaidersHaveFamilies
         {
             // Disperse instead of sending the entire wing to a single door cell.
             IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
-            // No fixed 8-cell ring: large squads can use every reachable
-            // interior staging tile while preserving physical dispersion.
-            for(int x=0;x<map.Size.x;x++)
-            for(int z=0;z<map.Size.z;z++)
+            // A screen occupies nearby physical cover, not any cell on map.
+            for(int x=Math.Max(0,soldier.Position.x-16);x<=Math.Min(map.Size.x-1,soldier.Position.x+16);x++)
+            for(int z=Math.Max(0,soldier.Position.z-16);z<=Math.Min(map.Size.z-1,soldier.Position.z+16);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.InBounds(map)||!cell.Standable(map)||
@@ -869,7 +864,8 @@ namespace RaidersHaveFamilies
             int bestScore=int.MaxValue;
             // Place the screen BETWEEN the advancing pursuer and convoy,
             // never on the destination edge ahead of the prisoner.
-            for(int x=0;x<map.Size.x;x++)for(int z=0;z<map.Size.z;z++)
+            for(int x=Math.Max(0,captive.Position.x-15);x<=Math.Min(map.Size.x-1,captive.Position.x+15);x++)
+            for(int z=Math.Max(0,captive.Position.z-15);z<=Math.Min(map.Size.z-1,captive.Position.z+15);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.Standable(map) || cell.GetEdifice(map)!=null ||
@@ -903,7 +899,9 @@ namespace RaidersHaveFamilies
             foreach(IntVec3 edge in edges)
             {
                 Building candidate=NJRCombatContactS44.BlockingStructure(navigator,edge);
-                if(candidate==null)continue;
+                // Do not destroy a random perimeter wall to escape. Only a
+                // real reachable door is eligible for this emergency fallback.
+                if(!(candidate is Building_Door))continue;
                 int score=(navigator.Position-candidate.Position).LengthHorizontalSquared+
                     RHFCombatPlannerV125.BreachWorkCost(candidate);
                 if(score<least){least=score;barrier=candidate;}

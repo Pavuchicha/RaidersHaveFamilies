@@ -1,4 +1,4 @@
-﻿// S4.1-A/E: Phase 3 single-writer dispatch. Strategic orders ONLY;
+// S4.1-A/E: Phase 3 single-writer dispatch. Strategic orders ONLY;
 // actual construction, refueling and boarding jobs come from ThinkTree.
 using System;
 using System.Collections.Generic;
@@ -163,12 +163,12 @@ namespace RaidersHaveFamilies
             if(!site.IsValid || !site.InBounds(map))
                 return vip!=null && vip.Spawned ? vip.Position : IntVec3.Invalid;
             if(vip==null || !vip.Spawned || vip.Map!=map)return site;
-            // Full physical map search, not twelve hand-picked slots. Stay
-            // near the actual pod while retaining real VIP reachability.
+            // Pod assembly is LOCAL. Searching all map cells and calling
+            // VIP.CanReach for most of them every 120 ticks caused TPS loss.
             IntVec3 best=IntVec3.Invalid;
             int score=int.MaxValue;
-            for(int x=0;x<map.Size.x;x++)
-            for(int z=0;z<map.Size.z;z++)
+            for(int x=Math.Max(0,site.x-10);x<=Math.Min(map.Size.x-1,site.x+10);x++)
+            for(int z=Math.Max(0,site.z-10);z<=Math.Min(map.Size.z-1,site.z+10);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.Standable(map) || cell.GetEdifice(map)!=null ||
@@ -211,9 +211,9 @@ namespace RaidersHaveFamilies
             Room startRoom=pawn.Position.GetRoom(map);
             IntVec3 best=IntVec3.Invalid;
             int bestScore=int.MaxValue;
-            // Search every physically reachable room slot, not the first eight
-            // rings or 24 path probes. Guard assignments have no TPS cap.
-            for(int radius=1;radius<=Math.Max(map.Size.x,map.Size.z);radius++)
+            // Stable guard positions inside a tactical perimeter. Searching
+            // an entire map in nested rings multiplied the problem by squad size.
+            for(int radius=1;radius<=12;radius++)
             for(int dx=-radius;dx<=radius;dx++)
             for(int dz=-radius;dz<=radius;dz++)
             {

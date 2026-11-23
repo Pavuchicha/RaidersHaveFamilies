@@ -1,4 +1,4 @@
-﻿// NJR R011: mission-scoped physical-contact response shared by rescue and offense.
+// NJR R011: mission-scoped physical-contact response shared by rescue and offense.
 // No global pawn patches, no fake damage, no omniscient target acquisition.
 using System;
 using RimWorld;
@@ -108,25 +108,35 @@ namespace RaidersHaveFamilies
                 return null;
             }
             if(!mayManeuver)return null;
-            // Find an actual reachable firing tile rather than continuing a
-            // blind Goto past a visible turret. Exhaust the physical map if
-            // necessary; no arbitrary combat/TPS search cap.
-            IntVec3 best=IntVec3.Invalid;
-            int score=int.MaxValue;
-            for(int x=0;x<map.Size.x;x++)for(int z=0;z<map.Size.z;z++)
+            // R019: never run CanReach over an entire map from a job-giver.
+            // Cheap LOS candidates are sorted first; at most 20 actual path
+            // probes are made from the bounded contact neighbourhood.
+            var cells=new System.Collections.Generic.List<IntVec3>(20);
+            var scores=new System.Collections.Generic.List<int>(20);
+            int bound=Math.Min(radius,30);
+            int x0=Math.Max(0,soldier.Position.x-bound);
+            int x1=Math.Min(map.Size.x-1,soldier.Position.x+bound);
+            int z0=Math.Max(0,soldier.Position.z-bound);
+            int z1=Math.Min(map.Size.z-1,soldier.Position.z+bound);
+            for(int x=x0;x<=x1;x++)for(int z=z0;z<=z1;z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
-                if(!cell.Standable(map) || cell.GetEdifice(map)!=null)continue;
-                int shot=(cell-enemy.Position).LengthHorizontalSquared;
-                if(shot>weaponRange*weaponRange || shot<9 ||
-                   !GenSight.LineOfSight(cell,enemy.Position,map))continue;
                 int move=(cell-soldier.Position).LengthHorizontalSquared;
-                if(move>=score || move>radius*radius ||
-                   !soldier.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
-                best=cell;score=move;
+                int shot=(cell-enemy.Position).LengthHorizontalSquared;
+                if(move>bound*bound || shot>weaponRange*weaponRange || shot<9 ||
+                   cell==soldier.Position || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null ||
+                   !GenSight.LineOfSight(cell,enemy.Position,map))continue;
+                int slot=0;
+                while(slot<scores.Count && scores[slot]<=move)slot++;
+                if(slot>=20)continue;
+                cells.Insert(slot,cell);scores.Insert(slot,move);
+                if(cells.Count>20){cells.RemoveAt(20);scores.RemoveAt(20);}
             }
-            return best.IsValid && best!=soldier.Position ?
-                Order(JobDefOf.Goto,best,150) : null;
+            for(int i=0;i<cells.Count;i++)
+                if(soldier.CanReach(cells[i],PathEndMode.OnCell,Danger.Deadly))
+                    return Order(JobDefOf.Goto,cells[i],180);
+            return null;
         }
 
         // When there is no open way through a hostile perimeter, find a REAL
@@ -166,6 +176,12 @@ namespace RaidersHaveFamilies
                 return null;
             Building best=BlockingStructure(soldier,destination);
             if(best==null)return null;
+            // The rescue wing has ONE authorized demolition target. A personal
+            // line-of-sight or approximate direction never grants permission
+            // to break a second wall. Offense has its separate raid doctrine.
+            if(op.Type==(int)RHFOperationType.Rescue &&
+               (op.Phase!=1 || op.BoardS41?.Barrier!=best ||
+                op.BoardS41?.Breacher!=soldier))return null;
             // Prefer a real, safe physical attack over a fake route through a wall.
             if(soldier.CanReach(best.Position,PathEndMode.Touch,Danger.Deadly))
                 return Order(JobDefOf.AttackMelee,best,600);

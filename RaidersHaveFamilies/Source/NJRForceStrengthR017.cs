@@ -98,6 +98,14 @@ namespace RaidersHaveFamilies
                 "; final party budget="+party.Points.ToString("F0"));
         }
 
+        private static bool QualifiedPodEngineer(Pawn pawn,Faction faction)
+        {
+            return pawn!=null && pawn.Faction==faction &&
+                pawn.RaceProps?.Humanlike==true && !pawn.Dead &&
+                pawn.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)==true &&
+                !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction);
+        }
+
         // Called at the native Arrive(List<Pawn>, IncidentParms) boundary,
         // AFTER the native PawnGroupMaker made its choices and BEFORE either
         // spawning or native MakeLords. This is the authoritative roster gate:
@@ -117,7 +125,14 @@ namespace RaidersHaveFamilies
                 humans++;
                 nativeSpent+=Mathf.Max(0f,pawn.kindDef?.combatPower ?? 0f);
             }
-            if(humans>=minimum)return;
+            bool requiresEngineer=party.Drop && op.TryPod &&
+                party.Role==(int)RHFStrikeRole.Rescue;
+            bool hasEngineer=false;
+            if(requiresEngineer)
+                foreach(Pawn pawn in pawns)
+                    if(QualifiedPodEngineer(pawn,party.Faction))
+                    {hasEngineer=true;break;}
+            if(humans>=minimum && (!requiresEngineer || hasEngineer))return;
             List<PawnKindDef> kinds=CombatKinds(party.Faction);
             if(kinds.Count==0)
             {
@@ -160,6 +175,51 @@ namespace RaidersHaveFamilies
                         soldier.Destroy(DestroyMode.Vanish);
                     break;
                 }
+            }
+            // R019: five armed soldiers are not an air rescue team if none
+            // can perform Construction. Add ONE qualified native combatant
+            // before the real drop pods are instantiated; never conjure an
+            // engineer at the prison later. All extra strength is paid.
+            if(requiresEngineer && !hasEngineer)
+            {
+                int attempts=0;
+                foreach(PawnKindDef kind in kinds)
+                {
+                    int trialsForKind=0;
+                    while(attempts<8 && trialsForKind<3 && !hasEngineer)
+                    {
+                        attempts++;trialsForKind++;
+                        Pawn candidate=null;
+                        try
+                        {
+                            candidate=PawnGenerator.GeneratePawn(kind,party.Faction);
+                            if(!QualifiedPodEngineer(candidate,party.Faction))
+                            {candidate?.Destroy(DestroyMode.Vanish);continue;}
+                            float need=Mathf.Max(0f,kind.combatPower-unused);
+                            if(party.Points+need>15000f)
+                            {candidate.Destroy(DestroyMode.Vanish);break;}
+                            pawns.Add(candidate);
+                            party.Points+=need;op.ThreatPoints+=need;
+                            unused=Mathf.Max(0f,unused+need-kind.combatPower);
+                            hasEngineer=true;
+                            Log.Message("[NJR][AirR019] Real pod engineer "+
+                                candidate.LabelShortCap+" included in landing; budget +"+
+                                need.ToString("F0"));
+                        }
+                        catch(Exception e)
+                        {
+                            if(candidate!=null && !candidate.Spawned &&
+                               !pawns.Contains(candidate))candidate.Destroy(DestroyMode.Vanish);
+                            Log.Warning("[NJR][AirR019] Engineer generation: "+e.Message);
+                            break;
+                        }
+                    }
+                    if(hasEngineer || attempts>=8)break;
+                }
+                if(!hasEngineer)
+                    Log.Error("[NJR][AirR019] No qualified Construction pawn "+
+                        "for funded VIP drop. Air extraction may fall back; "+
+                        "check faction's native PawnKind labor tags.");
             }
             Log.Message("[NJR][ForceR017] Native list before arrival: "+
                 party.Faction.Name+", required="+minimum+", actual="+humans+
