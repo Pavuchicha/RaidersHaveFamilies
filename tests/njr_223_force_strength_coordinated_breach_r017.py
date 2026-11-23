@@ -35,7 +35,9 @@ for token in [
 for token in [
     'NJRForceStrengthR017.CommitMissionBudget(op,party);',
     'NJRForceStrengthR017.CompleteGroundRescue(op,party,map,',
-    'parms.spawnCenter);',
+    'rescueReinforcementEntry);',
+    'IntVec3 rescueReinforcementEntry = IntVec3.Invalid;',
+    'rescueReinforcementEntry=safer;',
     'NJRForceStrengthR017.HumanCoreFloor(party)',
     'float additional=required-effectivePoints;',
     'party.Points+=additional;',

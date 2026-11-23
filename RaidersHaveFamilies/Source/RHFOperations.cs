@@ -762,6 +762,9 @@ namespace RaidersHaveFamilies
                     }
                 }
                 bool accepted = false;
+                // Preserve the verified ground insertion location across try/finally.
+                // Native reinforcements must share the same real entry cell.
+                IntVec3 rescueReinforcementEntry = IntVec3.Invalid;
                 try
                 {
                     // Fund all role tools from the same force budget; reserve at most
@@ -864,7 +867,8 @@ namespace RaidersHaveFamilies
                         {
                             IntVec3 safer=RHFRescueGroundEntryS41.Choose(map,op);
                             if(safer.IsValid)
-                            {plannedRescueEntry=safer;parms.spawnCenter=safer;}
+                            {plannedRescueEntry=safer;parms.spawnCenter=safer;
+                             rescueReinforcementEntry=safer;}
                         }
                         catch(Exception e)
                         {
@@ -945,7 +949,7 @@ namespace RaidersHaveFamilies
                    op.Type==(int)RHFOperationType.Rescue &&
                    party.Role==(int)RHFStrikeRole.Rescue)
                     NJRForceStrengthR017.CompleteGroundRescue(op,party,map,
-                        parms.spawnCenter);
+                        rescueReinforcementEntry);
                 if(party.Succeeded && party.Members<
                     NJRForceStrengthR017.RequiredMembers(party) && !party.Drop)
                     Log.Warning("[NJR][ForceR017] Partial native wing "+
