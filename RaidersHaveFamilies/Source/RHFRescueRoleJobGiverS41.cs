@@ -158,6 +158,12 @@ namespace RaidersHaveFamilies
             {
                 case RHFRoleS41.Breach:
                 {
+                    // A stale saved/order assignment is not a demolition permit.
+                    // The CURRENT rescue blackboard owns exactly one barrier
+                    // and exactly one authorized operator.
+                    if(op.Phase!=1 || op.BoardS41?.Breacher!=pawn ||
+                       op.BoardS41?.Barrier!=order.Objective)
+                        return null;
                     Thing obstacle=order.Objective;
                     if(obstacle==null || obstacle.Destroyed || !obstacle.Spawned ||
                        obstacle.Map!=pawn.Map ||
@@ -216,13 +222,9 @@ namespace RaidersHaveFamilies
                 }
                 case RHFRoleS41.Advance:
                 {
-                    if(op.Phase==1 && op.BoardS41?.Barrier==null &&
-                       !order.Cell.IsValid && op.BoardS41?.RescueTarget!=null)
-                    {
-                        Job breach=NJRCombatContactS44.BreachToward(pawn,op,
-                            op.BoardS41.RescueTarget.Position);
-                        if(breach!=null)return breach;
-                    }
+                    // Do NOT guess a wall when strategic route is unknown.
+                    // Only the explicit Breach role can attack a blackboard
+                    // barrier; all other members must navigate or defend.
                     if(order.Objective!=null && order.Objective.Spawned &&
                        order.Objective.Map==pawn.Map)
                         return Task(JobDefOf.Goto,order.Objective,90);

@@ -23,60 +23,104 @@ namespace RaidersHaveFamilies
                 cell.GetTerrain(map) != null && !cell.GetTerrain(map).IsWater;
         }
 
+        // This is a LOCAL eight-tile flood, not hundreds of expensive native
+        // CanReach calls for EACH map-edge candidate. All deployment cells
+        // must belong to the same genuinely walkable outdoor pocket.
+        private static List<IntVec3> ConnectedCluster(Map map,IntVec3 center)
+        {
+            var cells=new List<IntVec3>(180);
+            if(!SafeArrivalCell(map,center))return cells;
+            var seen=new HashSet<IntVec3>();
+            var queue=new Queue<IntVec3>();
+            queue.Enqueue(center);seen.Add(center);
+            while(queue.Count>0)
+            {
+                IntVec3 here=queue.Dequeue();
+                cells.Add(here);
+                for(int direction=0;direction<4;direction++)
+                {
+                    IntVec3 next=here+(direction==0 ? new IntVec3(1,0,0) :
+                        direction==1 ? new IntVec3(-1,0,0) :
+                        direction==2 ? new IntVec3(0,0,1) : new IntVec3(0,0,-1));
+                    int dx=next.x-center.x,dz=next.z-center.z;
+                    if(dx*dx+dz*dz>64 || !next.InBounds(map) ||
+                       seen.Contains(next) || !SafeArrivalCell(map,next))continue;
+                    seen.Add(next);queue.Enqueue(next);
+                }
+            }
+            return cells;
+        }
+
         internal static bool GroundEntryClusterSafe(Map map, IntVec3 center)
         {
-            if(!SafeArrivalCell(map,center)) return false;
-            int clear=0, total=0;
-            for(int dx=-8;dx<=8;dx++)
-            for(int dz=-8;dz<=8;dz++)
+            if(!SafeArrivalCell(map,center))return false;
+            int total=0;
+            for(int dx=-8;dx<=8;dx++)for(int dz=-8;dz<=8;dz++)
             {
                 if(dx*dx+dz*dz>64)continue;
                 IntVec3 c=center+new IntVec3(dx,0,dz);
                 if(!c.InBounds(map))continue;
                 total++;
                 RoofDef roof=map.roofGrid.RoofAt(c);
-                // Unseen thick-roof caves should disqualify this whole staging
-                // area; scattering onto one of their walkable floors is unsafe.
                 if(roof!=null && roof.isThickRoof)return false;
-                bool pass=SafeArrivalCell(map,c);
-                if(dx*dx+dz*dz<=16 && !pass)return false;
-                if(!pass)continue;
-                if(!map.reachability.CanReach(center,c,PathEndMode.OnCell,
-                    TraverseMode.PassDoors,Danger.Deadly))continue;
-                clear++;
+                // Never scatter the first four ranks into water, caves, or
+                // rock even when the outer half of the formation is valid.
+                if(dx*dx+dz*dz<=16 && !SafeArrivalCell(map,c))return false;
             }
-            // On a map edge a portion of the 8-cell disc is out of bounds.
-            // Count only in-bounds cells; reserve enough REAL deployment space.
-            return total>=45 && clear>=24 && clear*5>=total*4;
+            if(total<45)return false;
+            int connected=ConnectedCluster(map,center).Count;
+            return connected>=24 && connected*5>=total*4;
         }
 
-        // A nearby real approach, not an arbitrary outdoor tile on the far
-        // side of a mountain. The pre-R016 scan expanded to the WHOLE map,
-        // making every disconnected mountain perimeter look "reachable".
+        // Probe both near- and medium-range outdoor approaches. An enclosed
+        // prison does not need to be walkable from the edge before a breach;
+        // at least an EXTERIOR region near the objective must be reachable.
+        // Each probe is real vanilla reachability, no geometric teleport.
         internal static IntVec3 ReachableApproach(Map map,IntVec3 from,Pawn prisoner)
         {
             if(map==null || prisoner==null || !from.IsValid ||
                !from.InBounds(map))return IntVec3.Invalid;
-            // The objective is a nearby accessible OUTSIDE approach, not an
-            // arbitrary other location on the map; prisoners may be enclosed
-            // by walls/locked doors that the team will breach later.
             int maxRadius=Math.Min(64,Math.Max(map.Size.x,map.Size.z)/3);
-            for(int radius=1;radius<=maxRadius;radius++)
-            for(int dx=-radius;dx<=radius;dx++)
-            for(int dz=-radius;dz<=radius;dz++)
+            int[] sampleRadii={1,2,3,4,5,6,8,10,12,16,20,24,32,40,48,56,64};
+            for(int i=0;i<sampleRadii.Length;i++)
             {
-                if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
-                IntVec3 outside=prisoner.Position+new IntVec3(dx,0,dz);
-                if(!SafeArrivalCell(map,outside))continue;
-                if(map.reachability.CanReach(from,outside,PathEndMode.OnCell,
-                    TraverseMode.PassDoors,Danger.Deadly))return outside;
+                int radius=sampleRadii[i];
+                if(radius>maxRadius)break;
+                for(int direction=0;direction<8;direction++)
+                {
+                    int dx=direction==0||direction==4?0:
+                        direction==1||direction==2||direction==3?radius:-radius;
+                    int dz=direction==2||direction==6?0:
+                        direction==3||direction==4||direction==5?radius:-radius;
+                    IntVec3 outside=prisoner.Position+new IntVec3(dx,0,dz);
+                    if(!SafeArrivalCell(map,outside))continue;
+                    if(map.reachability.CanReach(from,outside,PathEndMode.OnCell,
+                        TraverseMode.PassDoors,Danger.Deadly))return outside;
+                }
             }
             return IntVec3.Invalid;
         }
 
-        private static bool ReachableExterior(Map map,IntVec3 edge,Pawn prisoner)
+        private static bool ReachableExterior(Map map,IntVec3 edge,Pawn captive)
+        {return ReachableApproach(map,edge,captive).IsValid;}
+
+        private struct EntryCandidate
         {
-            return ReachableApproach(map,edge,prisoner).IsValid;
+            internal IntVec3 Edge,Center;
+            internal int Distance,Score,Danger,Side;
+            internal EntryCandidate(IntVec3 edge,IntVec3 center,int distance,int side)
+            {Edge=edge;Center=center;Distance=distance;Score=distance;Danger=0;Side=side;}
+        }
+        // Evaluate a few of the CLOSEST cells on EACH side, not every
+        // single edge cell with hundreds of native reachability tests.
+        private static void InsertCandidate(List<EntryCandidate> list,
+            EntryCandidate item,int limit)
+        {
+            int i=0;
+            while(i<list.Count && list[i].Distance<=item.Distance)i++;
+            if(i>=limit)return;
+            list.Insert(i,item);
+            if(list.Count>limit)list.RemoveAt(limit);
         }
 
         internal static IntVec3 Choose(Map map,RHFOperation op)
@@ -92,10 +136,10 @@ namespace RaidersHaveFamilies
                     {captive=op.Targets[i];break;}
             }
             if(captive==null)return IntVec3.Invalid;
-            IntVec3 best=IntVec3.Invalid;
-            int bestScore=int.MaxValue;
+            var candidateEdges=new List<EntryCandidate>(384);
             for(int side=0;side<4;side++)
             {
+                var nearSide=new List<EntryCandidate>(96);
                 int span=side<2 ? map.Size.z : map.Size.x;
                 for(int t=5;t<span-5;t++)
                 {
@@ -103,50 +147,75 @@ namespace RaidersHaveFamilies
                         side==1 ? new IntVec3(map.Size.x-1,0,t) :
                         side==2 ? new IntVec3(t,0,0) :
                                   new IntVec3(t,0,map.Size.z-1);
-                    // Place the formation six cells INSIDE the map. Vanilla
-                    // scattering around an exact boundary center previously
-                    // produced precarious shoreline/mountain insertions.
                     IntVec3 center=edge+(side==0 ? new IntVec3(6,0,0) :
                         side==1 ? new IntVec3(-6,0,0) :
                         side==2 ? new IntVec3(0,0,6) :
                                   new IntVec3(0,0,-6));
                     if(!SafeArrivalCell(map,edge) ||
-                       !GroundEntryClusterSafe(map,center))continue;
-                    if(!map.reachability.CanReach(edge,center,PathEndMode.OnCell,
-                        TraverseMode.PassDoors,Danger.Deadly))continue;
-                    if(!ReachableExterior(map,center,captive))continue;
-                    int danger=0;
-                    // Evaluate actual defenders at this staging area. Avoid
-                    // ordinal list limits on turrets or pawn defenders.
-                    for(int depth=0;depth<=8;depth+=4)
-                    {
-                        IntVec3 sample=center+(side==0 ? new IntVec3(depth,0,0) :
-                            side==1 ? new IntVec3(-depth,0,0) :
-                            side==2 ? new IntVec3(0,0,depth) :
-                                      new IntVec3(0,0,-depth));
-                        if(!sample.InBounds(map))break;
-                        foreach(Building turret in map.listerBuildings.allBuildingsColonist)
-                        {
-                            if(!RHFCombatPlannerV125.IsTurret(turret))continue;
-                            if((sample-turret.Position).LengthHorizontalSquared<=1600 &&
-                               GenSight.LineOfSight(turret.Position,sample,map))
-                                danger+=12000;
-                        }
-                        foreach(Pawn defender in map.mapPawns.FreeColonistsSpawned)
-                        {
-                            if(defender==null || defender.Dead || defender.Downed ||
-                               defender.equipment?.Primary?.def?.IsRangedWeapon!=true)continue;
-                            float range=RHFCombatPlannerV125.WeaponRange(defender);
-                            if(range<2f)continue;
-                            if((sample-defender.Position).LengthHorizontalSquared<=range*range &&
-                               GenSight.LineOfSight(defender.Position,sample,map))danger+=3000;
-                        }
-                    }
-                    int cost=danger/4+(center-captive.Position).LengthHorizontalSquared;
-                    if(cost<bestScore){best=center;bestScore=cost;}
+                       !SafeArrivalCell(map,center))continue;
+                    InsertCandidate(nearSide,new EntryCandidate(edge,center,
+                        (center-captive.Position).LengthHorizontalSquared,side),96);
                 }
+                candidateEdges.AddRange(nearSide);
             }
-            return best;
+            var valid=new List<EntryCandidate>(32);
+            int[] validPerSide=new int[4];
+            foreach(EntryCandidate proposed in candidateEdges)
+            {
+                if(validPerSide[proposed.Side]>=8)continue;
+                IntVec3 edge=proposed.Edge,center=proposed.Center;
+                if(!GroundEntryClusterSafe(map,center))continue;
+                if(!map.reachability.CanReach(edge,center,PathEndMode.OnCell,
+                    TraverseMode.PassDoors,Danger.Deadly))continue;
+                if(!ReachableExterior(map,center,captive))continue;
+                int danger=0;
+                for(int depth=0;depth<=8;depth+=4)
+                {
+                    // Score threatening guns at the ACTUAL proposed center;
+                    // never alter the raid target to get more spawn variance.
+                    IntVec3 sample=center+new IntVec3(depth==0?0:
+                        Math.Sign(captive.Position.x-center.x)*depth,0,
+                        depth==0?0:Math.Sign(captive.Position.z-center.z)*depth);
+                    if(!sample.InBounds(map))break;
+                    foreach(Building turret in map.listerBuildings.allBuildingsColonist)
+                    {
+                        if(!RHFCombatPlannerV125.IsTurret(turret))continue;
+                        if((sample-turret.Position).LengthHorizontalSquared<=1600 &&
+                           GenSight.LineOfSight(turret.Position,sample,map))
+                            danger+=12000;
+                    }
+                    foreach(Pawn defender in map.mapPawns.FreeColonistsSpawned)
+                    {
+                        if(defender==null || defender.Dead || defender.Downed ||
+                           defender.equipment?.Primary?.def?.IsRangedWeapon!=true)continue;
+                        float range=RHFCombatPlannerV125.WeaponRange(defender);
+                        if(range<2f)continue;
+                        if((sample-defender.Position).LengthHorizontalSquared<=range*range &&
+                           GenSight.LineOfSight(defender.Position,sample,map))danger+=3000;
+                    }
+                }
+                EntryCandidate evaluated=proposed;
+                evaluated.Danger=danger;
+                evaluated.Score=danger/4+proposed.Distance;
+                valid.Add(evaluated);
+                validPerSide[proposed.Side]++;
+            }
+            if(valid.Count==0)return IntVec3.Invalid;
+            valid.Sort((a,b)=>a.Score.CompareTo(b.Score));
+            // An actual raid must not reuse a single hardcoded best cell on
+            // every test. Randomize ONLY between comparably safe/near entries.
+            int eligible=1;
+            int tolerance=Math.Max(2500,valid[0].Score/4);
+            while(eligible<valid.Count && eligible<8 &&
+                valid[eligible].Danger<=valid[0].Danger &&
+                valid[eligible].Score-valid[0].Score<=tolerance)
+                eligible++;
+            int choice=eligible>1 ? Rand.Range(0,eligible) : 0;
+            IntVec3 selected=valid[choice].Center;
+            Log.Message("[NJR][EntryR023] candidates="+valid.Count+
+                " comparable="+eligible+" chosen="+selected+
+                " score="+valid[choice].Score+" danger="+valid[choice].Danger);
+            return selected;
         }
 
         internal static bool IsGroundRescueIncident(IncidentParms parms)
@@ -162,17 +231,12 @@ namespace RaidersHaveFamilies
         {
             var result=new List<IntVec3>();
             if(!GroundEntryClusterSafe(map,center))return result;
-            for(int radius=0;radius<=8;radius++)
-            for(int dx=-radius;dx<=radius;dx++)
-            for(int dz=-radius;dz<=radius;dz++)
-            {
-                if(dx*dx+dz*dz>64 || Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
-                IntVec3 c=center+new IntVec3(dx,0,dz);
-                if(!SafeArrivalCell(map,c))continue;
-                if(!map.reachability.CanReach(center,c,PathEndMode.OnCell,
-                    TraverseMode.PassDoors,Danger.Deadly))continue;
-                result.Add(c);
-            }
+            // The local connected flood also prevents scattering onto a
+            // separate island behind a one-tile wall or impassable terrain.
+            result.AddRange(ConnectedCluster(map,center));
+            result.Sort((a,b)=>
+                (a-center).LengthHorizontalSquared.CompareTo(
+                    (b-center).LengthHorizontalSquared));
             return result;
         }
     }

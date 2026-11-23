@@ -31,7 +31,11 @@ assert 'RHFObjectiveRouteV128.ResolveShared(' in plan
 assert 'op,map,op.Squad,escortedDuringAssault,captive,now)' in plan
 assert 'if(sample==null)sample=member;' in plan
 assert 'ChooseReachableApproach(sample,captive,map)' in plan
-assert 'route.Valid || route.BudgetExceeded ?' in plan
+# An exhausted strategic search is unknown, NOT proof that a valid
+# vanilla walkable approach is forbidden. Never turn it into a wall permit.
+assert 'IntVec3 fallback=route.Valid ? IntVec3.Invalid :' in plan
+assert 'ChooseReachableApproach(sample,captive,map)' in plan
+assert 'if(!route.Valid)obstacle=null;' in plan
 assert 'if(!route.Valid)obstacle=null;' in plan
 assert 'soldier.CanReach(fallback,PathEndMode.OnCell,Danger.Some)' in plan
 assert 'if(way.IsValid)' in plan

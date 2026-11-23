@@ -93,12 +93,15 @@ namespace RaidersHaveFamilies
         private static bool SameAccessibleRoom(Pawn rescuer,Pawn captive,Map map)
         {
             if (rescuer?.Map!=map || captive?.Map!=map)return false;
-            Room a=rescuer.Position.GetRoom(map), b=captive.Position.GetRoom(map);
-            if(a!=b)return false;
-            // Both null: no room graph (unroofed/open area). Demand physical LoS.
-            if(a==null && !GenSight.LineOfSight(rescuer.Position,captive.Position,map))
-                return false;
-            return true;
+            // Do not compare Room IDs. A physically open passage may separate
+            // game Room records while remaining accessible to the soldier.
+            // Room identity is NOT a physical-contact test: RimWorld can keep
+            // separate Room objects on opposite sides of an OPEN DOOR.
+            // At rescue-contact range, a real unobstructed sightline plus a
+            // native walkable path is sufficient; a solid wall or shut door
+            // blocks sight and can never free the hostage remotely.
+            return GenSight.LineOfSight(rescuer.Position,captive.Position,map) &&
+                rescuer.CanReach(captive,PathEndMode.Touch,Danger.Some);
         }
 
         internal static bool PhysicalContact(RHFOperation op, Pawn captive, Map map)
@@ -464,8 +467,8 @@ namespace RaidersHaveFamilies
             // of giving every soldier Hold for 27,000 ticks.
             // A budget-exhausted A* is an UNKNOWN, never a license to
             // generate more expensive path probes or demolish a guessed wall.
-            IntVec3 fallback=route.Valid || route.BudgetExceeded ?
-                IntVec3.Invalid : ChooseReachableApproach(sample,captive,map);
+            IntVec3 fallback=route.Valid ? IntVec3.Invalid :
+                ChooseReachableApproach(sample,captive,map);
             // A failed A* route is not permission to pick a random wall
             // approximately toward the captive. Only the validated shared
             // objective corridor may authorize demolition.
@@ -568,15 +571,16 @@ namespace RaidersHaveFamilies
                 }
                 if(way.IsValid)
                     board.Assign(soldier,RHFRoleS41.Advance,null,way,now);
+                else if(obstacle==null && !route.Valid &&
+                    soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
+                    // A real vanilla route to the prisoner outranks a FAILED
+                    // strategic scan AND the fallback staging position.
+                    board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);
                 else if(!route.Valid && obstacle==null && fallback.IsValid &&
                     !CrossesTurretLane(map,soldier.Position,fallback) &&
                     soldier.CanReach(fallback,PathEndMode.OnCell,Danger.Some) &&
                     (soldier.Position-fallback).LengthHorizontalSquared>4)
                     board.Assign(soldier,RHFRoleS41.Advance,null,fallback,now);
-                else if(obstacle==null && !route.Valid &&
-                    !CrossesTurretLane(map,soldier.Position,captive.Position) &&
-                    soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
-                    board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);
                 else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
             }
             board.Decision=obstacle!=null ?
@@ -626,22 +630,29 @@ namespace RaidersHaveFamilies
                    !lead.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
                 best=cell;bestDistance=distance;
             }
-            // If the direct line intersects a mountain, probe real reachable
-            // positions around the cell. Caps keep the incident TPS bounded.
+            // When the line intersects a mountain, sample a finite set of
+            // genuinely reachable exterior points, not every cell of sixteen
+            // perimeter rings (which used hundreds of native path queries).
             if(!best.IsValid)
             {
-                for(int radius=3;radius<=Math.Min(16,Math.Max(map.Size.x,map.Size.z));radius++)
-                for(int dx=-radius;dx<=radius;dx++)
-                for(int dz=-radius;dz<=radius;dz++)
+                int[] radii={2,4,6,9,12,16};
+                for(int r=0;r<radii.Length;r++)
                 {
-                    if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
-                    IntVec3 cell=captive.Position+new IntVec3(dx,0,dz);
-                    if(!cell.InBounds(map) || !cell.Standable(map) ||
-                       cell.GetEdifice(map)!=null)continue;
-                    int distance=(cell-captive.Position).LengthHorizontalSquared;
-                    if(distance>=bestDistance)continue;
-                    if(lead.CanReach(cell,PathEndMode.OnCell,Danger.Some))
-                    {best=cell;bestDistance=distance;}
+                    int radius=radii[r];
+                    for(int direction=0;direction<8;direction++)
+                    {
+                        int dx=direction==0||direction==4?0:
+                            direction==1||direction==2||direction==3?radius:-radius;
+                        int dz=direction==2||direction==6?0:
+                            direction==3||direction==4||direction==5?radius:-radius;
+                        IntVec3 cell=captive.Position+new IntVec3(dx,0,dz);
+                        if(!cell.InBounds(map) || !cell.Standable(map) ||
+                           cell.GetEdifice(map)!=null)continue;
+                        int distance=(cell-captive.Position).LengthHorizontalSquared;
+                        if(distance>=bestDistance)continue;
+                        if(lead.CanReach(cell,PathEndMode.OnCell,Danger.Some))
+                        {best=cell;bestDistance=distance;}
+                    }
                 }
             }
             return best;

@@ -19,7 +19,13 @@ follow=job.split('case RHFRoleS41.FollowEscort:')[-1].split('case RHFRoleS41.Wit
 assert 'return Task(JobDefOf.Goto,order.Cell,90);' in follow
 assert 'JobDefOf.Goto,escort,120' not in follow
 assert 'if(gap>16)return Task(JobDefOf.Wait,pawn.Position,120);' in follow
-assert 'CrossesTurretLane(map,soldier.Position,captive.Position)' in (S/'RHFRescuePlannerS41.cs').read_text()
+# A direct LOS-to-VIP line is NOT the same as the actual native walking
+# path. A failed strategic search must not mask confirmed prisoner access.
+plan=(S/'RHFRescuePlannerS41.cs').read_text()
+assert 'else if(obstacle==null && !route.Valid &&' in plan
+assert 'soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly)' in plan
+assert 'board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);' in plan
+assert 'if(!route.Valid)obstacle=null;' in plan
 assert 'if(op.PodConstructionStage==3 &&' in fort
 assert 'NativeEscapeLaneS41(op.PodLauncherCell,cell)' in fort
 assert 'adjacentDoor' in fort and 'cell.GetRoom(map)!=protectedRoom' in fort
