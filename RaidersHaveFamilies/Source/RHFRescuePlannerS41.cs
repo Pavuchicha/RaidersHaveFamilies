@@ -496,7 +496,7 @@ namespace RaidersHaveFamilies
                 board.LastProgressTick=now;
                 op.LastProgressTick=now;
             }
-            bool firebreakBeforeBreach=route.Valid &&
+            bool firebreakBeforeBreach=route.Valid && !route.RiskFallback &&
                 route.FirstTurretExposureIndex>=0 &&
                 (route.FirstBarrierIndex<0 ||
                  route.FirstTurretExposureIndex<=route.FirstBarrierIndex);
@@ -520,8 +520,10 @@ namespace RaidersHaveFamilies
                 return;
             }
             board.Threat=FirstRouteTurret(route,map);
-            if(board.Threat==null && (!route.Valid ||
-                route.FirstTurretExposureIndex<0))
+            // Do NOT send a third of the rescue wing after an unrelated
+            // visible turret if the hostage route is already clear of guns.
+            // Only a failed route triggers a defensive-front recovery.
+            if(board.Threat==null && !route.Valid)
                 board.Threat=DefensiveTurretFront(op,map);
             if(board.Threat!=null && board.Threat.HitPoints<board.LastThreatHP)
             {

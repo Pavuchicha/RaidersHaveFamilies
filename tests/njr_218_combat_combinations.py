@@ -1,4 +1,4 @@
-﻿"""R012 tactical edge-case invariants plus independent reference models.
+"""R012 tactical edge-case invariants plus independent reference models.
 
 Not a RimWorld runtime, C# compiler, TPS benchmark or gameplay certification.
 The crucial changes have also been manually reviewed against their call sites.
@@ -46,36 +46,33 @@ assert 'Task(JobDefOf.AttackMelee,target,600) : null;' in off
 # Modded, player-owned, physically breachable doors and walls must be accepted.
 assert '!RHFCombatPlannerV125.RequiresBreach(wall))return null;' in role
 
-# Independent small-graph oracle for safe-first and risk-minimized routes.
-# It does NOT run the C# source. Each edge: destination, movement/breach cost,
-# observed turret firing-cell count. Named edges make regressions legible.
+# Independent single-pass cost model: doors can beat excessive wall
+# demolition even with partial turret exposure; full turret coverage still
+# yields a route rather than failing the mission by policy.
 def choose(graph, source, target):
-    def search(avoid):
-        queue=[(0,source,())]
-        seen={}
-        while queue:
-            cost,node,path=heapq.heappop(queue)
-            if node in seen and seen[node]<=cost:continue
-            seen[node]=cost
-            if node==target:return cost,path+(node,)
-            for nxt,work,guns in graph.get(node,[]):
-                if avoid and guns:continue
-                heapq.heappush(queue,(cost+work+guns*12000,nxt,path+(node,)))
-        return None
-    return search(True) or search(False)
+    queue=[(0,source,())]
+    seen={}
+    while queue:
+        cost,node,path=heapq.heappop(queue)
+        if node in seen and seen[node]<=cost:continue
+        seen[node]=cost
+        if node==target:return cost,path+(node,)
+        for nxt,work,guns in graph.get(node,[]):
+            heapq.heappush(queue,(cost+work+guns*600,nxt,path+(node,)))
+    return None
 
-three_walls={'start':[('wall1',90,0),('door1',2,0)],
-    'wall1':[('wall2',90,0)],'wall2':[('wall3',90,0)],
-    'wall3':[('goal',10,0)],'door1':[('door2',2,1)],
-    'door2':[('goal',2,2)]}
-assert choose(three_walls,'start','goal')[1] == ('start','wall1','wall2','wall3','goal')
-no_safe={'start':[('short',2,3),('long',20,1)],
-         'short':[('goal',2,2)], 'long':[('goal',100,0)]}
-assert choose(no_safe,'start','goal')[1] == ('start','long','goal')
+three_walls={'start':[('wall1',8500,0),('door1',800,0)],
+    'wall1':[('wall2',8500,0)],'wall2':[('wall3',8500,0)],
+    'wall3':[('goal',10,0)],'door1':[('door2',800,1)],
+    'door2':[('goal',10,2)]}
+assert choose(three_walls,'start','goal')[1] == ('start','door1','door2','goal')
+no_safe={'start':[('short',20,3),('long',3000,1)],
+         'short':[('goal',20,2)], 'long':[('goal',2000,0)]}
+assert choose(no_safe,'start','goal')[1] == ('start','short','goal')
 block={'start':[], 'goal':[]}
-assert choose(block,'start','goal') is None  # unreachable must terminate, not loop
-unknown={'start':[('door',5,0),('walls',20,0)],'door':[('goal',5,0)],
-         'walls':[('goal',20,0)]}
+assert choose(block,'start','goal') is None
+unknown={'start':[('door',500,0),('walls',4000,0)],'door':[('goal',500,0)],
+         'walls':[('goal',4000,0)]}
 assert choose(unknown,'start','goal')[1] == ('start','door','goal')
 
 # Contact-aware convoy: no automatic rearguard for a stationary observer or

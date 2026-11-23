@@ -15,7 +15,8 @@ assert 'ResolveShared(RHFOperation op' in route
 assert 'IList<IntVec3> origins' in route
 assert 'for(int i=0;i<origins.Count;i++)' in route
 assert 'internal bool BudgetExceeded;' in route
-assert 'if(!safe && !fresh.BudgetExceeded)' in route
+assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
+assert 'if(!safe && !fresh.BudgetExceeded)' not in route
 assert 'PlanIndividual(Map map' not in route  # removed redundant personal routing
 assert 'prior.FirstBarrier.Spawned' in route
 assert 'RHfIgnore' not in route

@@ -11,9 +11,9 @@ assert 'ReachableExterior(map,center,captive)' in entry
 assert 'SafeRescueDropPad(map,nearby)' in (S/'RHFOperations.cs').read_text()
 assert 'TraverseMode.PassDoors,Danger.Deadly' in entry
 assert 'PassAllDestroyableThings' not in entry
-assert 'building is Building_Door ? work' in route
+assert 'building is Building_Door ?' in route and 'DoorBreachBaseR024+work' in route
 assert 'if(!route.RiskFallback && LateralExposed(map,from,to))return true;' in route
-assert 'plan.RiskFallback=!forbidTurretExposure;' in route
+assert 'plan.RiskFallback=plan.FirstTurretExposureIndex>=0;' in route
 assert 'if(route.FirstTurretExposureIndex>=0 && !route.RiskFallback)' in route
 follow=job.split('case RHFRoleS41.FollowEscort:')[-1].split('case RHFRoleS41.Withdraw:')[0]
 assert 'return Task(JobDefOf.Goto,order.Cell,90);' in follow

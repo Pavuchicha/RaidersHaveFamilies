@@ -167,7 +167,7 @@ namespace RaidersHaveFamilies
                     Thing obstacle=order.Objective;
                     if(obstacle==null || obstacle.Destroyed || !obstacle.Spawned ||
                        obstacle.Map!=pawn.Map ||
-                       !RHFCombatPlannerV125.RequiresBreach(obstacle))return null;
+                       !RHFObjectiveRouteV128.IsRescueStructuralBarrier(obstacle))return null;
                     JobDef strike=RHFCombatPlannerV125.BreachAttack(pawn);
                     // No instant damage/charges: only ordinary weapon attack jobs.
                     if(strike==null)return null;

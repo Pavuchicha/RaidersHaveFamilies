@@ -39,12 +39,11 @@ assert 'OrbitalTargeterPowerBeam' in orb and 'VerbTracker' in orb
 assert 'TryStartCastOn' in orb and 'FriendlyNear(op,map' in orb
 assert 'njrAnimalBudgetS42' in ops and 'njrLoadoutBudgetS42' in ops
 assert 'njrWeaponPresetS42' in member and 'njrOrbitalItemS42' in member
-assert 'Math.Max(map.Size.x,map.Size.z),true)' in route
-assert 'Math.Max(map.Size.x,map.Size.z),true' in route
-assert 'Math.Max(map.Size.x,map.Size.z),false)' in route
-assert 'if(forbidTurretExposure && ExposedToTurret' in route
+assert 'Math.Max(map.Size.x,map.Size.z));' in route
+assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
+assert 'forbidTurretExposure' not in route
 assert 't.Origin.GetRoom(map)==cell.GetRoom(map)' in route
-assert 'SAFE-FIRST' in route and 'RISK-MINIMIZED' in route
+assert 'WEIGHTED-R024' in route
 assert 'private static readonly string[][] Clan' in offices
 assert 'private static readonly string[][] Outlaw' in offices
 assert 'tech<TechLevel.Medieval ? Clan' in offices
@@ -55,9 +54,9 @@ assert 'OnPrisonerExit' in patch and 'ledger.Hostages.Remove(r)' in hostages and
 assert 'private void CleanupStaleHostagesS42()' in ledger
 assert 'CleanupStaleHostagesS42();' in ledger
 
-# A tiny independent graph demonstrates the declared policy, NOT an in-game
-# proof: 3 walls on a clean route outrank 2 doors on a turret corridor.
-def plan(edges, avoid_turret):
+# R024: independent weighted graph regression. One turret-covered doorway
+# is not automatically worse than demolishing three unrelated walls.
+def plan(edges):
     q=[(0,'start',())]
     seen={}
     while q:
@@ -66,18 +65,17 @@ def plan(edges, avoid_turret):
         if node in seen and seen[node]<=cost:continue
         seen[node]=cost
         for nxt,kind in edges.get(node,()):
-            if kind=='turret' and avoid_turret:continue
-            weight={'walk':1,'wall':18,'door':6,'turret':1000}[kind]
+            weight={'walk':10,'wall':8500,'door':800,'turret':600}[kind]
             heapq.heappush(q,(cost+weight,nxt,trail+(kind,)))
     return None
 G={'start':[('a','wall'),('d','door')],
    'a':[('b','wall')],'b':[('end','wall')],
    'd':[('e','door')],'e':[('end','turret')]}
-assert plan(G,True)[1]==('wall','wall','wall')
-assert plan(G,False)[1]==('wall','wall','wall')
+assert plan(G)[1]==('door','door','turret')
+G['d']=[]
+assert plan(G)[1]==('wall','wall','wall')
 G['b']=[]
-assert plan(G,True) is None
-assert plan(G,False)[1]==('door','door','turret')
+assert plan(G) is None
 
 # Reserve model mirrors critical declared percentages and minimum human core.
 def reserve(points,low,role):
@@ -96,4 +94,4 @@ for points in (250,450,650,2000,8000,15000):
         if not low:assert animals==0
 assert reserve(10000,True,True)[1]>reserve(1000,True,True)[1]
 print('PASS NJR R004: technology restrictions, budgeted beasts and specialized kits, '
-      'safe-first route semantics, faction offices, event cleanup and Scribe contracts (STATIC ONLY).')
+      'weighted route semantics, faction offices, event cleanup and Scribe contracts (STATIC ONLY).')

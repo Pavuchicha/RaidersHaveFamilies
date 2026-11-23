@@ -302,6 +302,8 @@ namespace RaidersHaveFamilies
                     if(!permitted && (op.Phase==2 || op.Phase==3) && issued!=null)
                         permitted=(RHFRoleS41)issued.Role==RHFRoleS41.Breach &&
                             issued.Objective==structure;
+                    if(permitted && !RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure))
+                        permitted=false;
                     if(permitted)continue;
                     Log.WarningOnce("[NJR][R020] Cancelled stale native structure " +
                         "attack: "+p.LabelShortCap+" / "+structure.LabelShortCap,

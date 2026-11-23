@@ -20,7 +20,7 @@ assert 'if(parents[cursor]<0)break;' in source
 assert 'plan.From=reverse[0]' in source
 assert 'JoinCommonCorridor(' in source
 assert 'Prior.Leader' not in source
-assert 'if(!safe && !fresh.BudgetExceeded)' in source
+assert 'PlanBounded(map,origins,captive,fresh,' in source and 'bool forbidTurretExposure' not in source
 assert 'op.BoardS41?.Breacher==p' in (ROOT/'RaidersHaveFamilies/Source/RHFRescueCommandV124.cs').read_text()
 assert 'RHFRoleS41.Breach' in jobgiver
 

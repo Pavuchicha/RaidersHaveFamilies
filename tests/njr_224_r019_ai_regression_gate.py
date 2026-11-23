@@ -12,10 +12,10 @@ job=file('RHFRescueRoleJobGiverS41.cs')
 pod=file('RHFPodPlannerS41.cs')
 ops=file('RHFOperations.cs')
 roster=file('NJRForceStrengthR017.cs')
-assert 'MaxRouteExpansionsR019 = 12000' in route
-assert 'if(expanded>MaxRouteExpansionsR019)' in route
+assert 'MaxRouteExpansionsR024 = 30000' in route
+assert 'if(expanded>MaxRouteExpansionsR024)' in route
 assert 'IndividualRoutesR019.GetValue(member' not in route  # obsolete per-unit A* removed R021
-assert route.count('Math.Max(map.Size.x,map.Size.z),false)')>=1
+assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
 assert 'for(int x=0;x<map.Size.x;x++)for(int z=0;z<map.Size.z;z++)' not in contact
 assert 'if(cells.Count>20)' in contact
 assert 'if(op.Type==(int)RHFOperationType.Rescue &&' in contact

@@ -169,6 +169,9 @@ namespace RaidersHaveFamilies
 
         internal static Job BreachToward(Pawn soldier,RHFOperation op,IntVec3 destination)
         {
+            // Rescue demolition is owned exclusively by the shared verified
+            // route and the Breach role. Do not guess from a straight line.
+            if(op?.Type==(int)RHFOperationType.Rescue)return null;
             if(soldier?.Map==null || op==null || !destination.IsValid ||
                soldier.WorkTagIsDisabled(WorkTags.Violent) ||
                soldier.health?.capacities==null ||

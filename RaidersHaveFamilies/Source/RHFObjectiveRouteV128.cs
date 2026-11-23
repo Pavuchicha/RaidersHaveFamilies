@@ -19,8 +19,8 @@ namespace RaidersHaveFamilies
         // A capped search is UNKNOWN, not proof that the wall-free route fails.
         // Never escalate to demolition after a CPU limit interrupted A*.
         internal bool BudgetExceeded;
-        // True only when a full-map safe-first search failed and the second
-        // search had to accept a physically unavoidable gun corridor.
+        // True when the chosen complete route crosses a real turret arc.
+        // Such a route must advance while the rescue wing fights back.
         internal bool RiskFallback;
         internal int Tick;
         internal Pawn Leader;
@@ -30,8 +30,8 @@ namespace RaidersHaveFamilies
         internal List<IntVec3> Cells = new List<IntVec3>();
         internal Thing FirstBarrier;
         internal int FirstBarrierIndex = -1;
-        // A physical turret fire corridor is a STOP, not a route waypoint.
-        // The assault wing holds at the last genuinely unexposed map cell.
+        // Used to assign suppression around the FIRST exposed approach leg.
+        // Exposure alone does not cancel an otherwise complete route.
         internal int FirstTurretExposureIndex = -1;
         internal int ExposedTurretCells;
         internal int TotalCost;
@@ -62,15 +62,16 @@ namespace RaidersHaveFamilies
         private const int ReplanTicks = 900;
         // Finite per-decision CPU budget. A failed tactical search must
         // never lock a RimWorld frame while inspecting every wall/turret tile.
-        private const int MaxRouteExpansionsR019 = 12000;
-        // No artificial cell, expansion, turret or mobile-shooter limits.
-        // The actual finite map bounds terminate the A* search.
-        // Only real emitted attacks affect danger, not an arbitrary 35-tile ring.
-        // A few steps under concentrated direct fire must cost more than
-        // breaching several ordinary walls; never trade soldiers for trivial distance.
-        private const int ExposedCost = 12000;
-        // Safe-first objective: a path through 3 walls is preferable to 2 doors
-        // followed by a turret corridor. Risky routes are a LAST RESORT.
+        private const int MaxRouteExpansionsR024 = 30000;
+        // R024: ONE weighted whole-route search, as in the user-supplied
+        // 0.14.0-beta2 baseline. Never force a zero-turret search that can
+        // prefer three demolished walls over one door and a short exposed lane.
+        // Threat cost is paid for each ACTUALLY exposed cell, so a prolonged
+        // crossfire remains much worse than a short covered approach.
+        // ONE capped search replaces three expensive whole-map passes.
+        private const int ExposedCost = 300;
+        private const int WallBreachBaseR024 = 7000;
+        private const int DoorBreachBaseR024 = 350;
         private static readonly ConditionalWeakTable<RHFOperation, RHFRouteStoreV128> Cache =
             new ConditionalWeakTable<RHFOperation, RHFRouteStoreV128>();
 
@@ -198,7 +199,7 @@ namespace RaidersHaveFamilies
                 if(!sameGunRoom && !GenSight.LineOfSight(t.Origin,cell,map))continue;
                 cost+=ExposedCost*t.Importance;
                 if(dist<t.RangeSquared*0.32f)cost+=180*t.Importance;
-                if(cost>=60000)return 60000;
+                if(cost>=4800)return 4800;
             }
             return cost;
         }
@@ -219,23 +220,38 @@ namespace RaidersHaveFamilies
             }
             return false;
         }
+        // R024: demolition authorization is limited to actual doors and
+        // structural WALL/GATE barriers on the proven objective corridor.
+        // A generator, battery, workbench or other impassable machinery is
+        // NEVER made a rescue target just because it is an Edifice.
+        internal static bool IsRescueStructuralBarrier(Thing thing)
+        {
+            if(!(thing is Building building) ||
+               !RHFCombatPlannerV125.RequiresBreach(thing))return false;
+            if(building is Building_Door)return true;
+            if(building.def?.passability!=Traversability.Impassable ||
+               !building.def.IsEdifice())return false;
+            string name=building.def.defName??string.Empty;
+            return name.IndexOf("Wall",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("Gate",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("Barricade",StringComparison.OrdinalIgnoreCase)>=0;
+        }
+
         private static int Step(Map map,IntVec3 cell, out Thing obstacle)
         {
             obstacle=null;
             Building building=cell.GetEdifice(map);
             if(building!=null && !building.Destroyed)
             {
-                // Open doors are traversable despite their edifice entry.
                 if(building is Building_Door openDoor && openDoor.Open)return 10;
-                if(RHFCombatPlannerV125.RequiresBreach(building))
+                if(IsRescueStructuralBarrier(building))
                 {
                     obstacle=building;
                     int work=RHFCombatPlannerV125.BreachWorkCost(building);
-                    // A door is the intended access point. Penalize ripping
-                    // down a sound wall much more heavily than opening it via
-                    // a controlled melee breach, even if that door is farther.
-                    return 10+(building is Building_Door ? work :
-                        Math.Max(1000,work*6));
+                    // Evaluate COMPLETE demolition work, not nearest-wall
+                    // distance. Doors are cheaper than physically solid walls.
+                    return 10+(building is Building_Door ?
+                        DoorBreachBaseR024+work : WallBreachBaseR024+work*6);
                 }
                 if(building.def?.passability==Traversability.Impassable)return -1;
             }
@@ -246,8 +262,7 @@ namespace RaidersHaveFamilies
         // wing. No selected pawn owns the mission's path or demolition target.
         // All active start positions are genuine standable map cells.
         private static bool PlanBounded(Map map,IList<IntVec3> origins,Pawn captive,
-            RHFRoutePlanV128 plan,int margin,bool forbidTurretExposure,
-            bool forbidWalls=false)
+            RHFRoutePlanV128 plan,int margin)
         {
             if(origins==null || origins.Count==0 || map==null || captive==null)
                 return false;
@@ -293,7 +308,7 @@ namespace RaidersHaveFamilies
                 int cx=at%width+minX,cz=at/width+minZ;
                 if(current.Priority!=costs[at]+Heuristic(cx,cz,goal))continue;
                 expanded++;
-                if(expanded>MaxRouteExpansionsR019)
+                if(expanded>MaxRouteExpansionsR024)
                 {
                     plan.BudgetExceeded=true;
                     plan.Explanation="CPU budget exhausted: route unknown; demolition forbidden";
@@ -310,13 +325,9 @@ namespace RaidersHaveFamilies
                     Thing obstacle;
                     int step=Step(map,cell,out obstacle);
                     if(step<0)continue;
-                    // R017: an intact wall is NOT an access route while an
-                    // actual door/corridor can reach the prison safely.
-                    if(forbidWalls && obstacle!=null &&
-                       !(obstacle is Building_Door))continue;
-                    // No chosen door is automatically safe: look at its NEXT
-                    // room's real firing lanes. A safe wall breach may win.
-                    if(forbidTurretExposure && ExposedToTurret(map,cell,threats))continue;
+                    // Do not disqualify an otherwise sensible doorway just
+                    // because one turret covers a short part of the route.
+                    // Threats enter the SAME whole-path cost calculation.
                     // Out-of-sight soft-cover and shooter arcs enter the ACTUAL
                     // cost of every route segment, not a straight-line estimate.
                     if(hazard[next]<0)hazard[next]=Exposure(map,cell,threats);
@@ -332,7 +343,7 @@ namespace RaidersHaveFamilies
             plan.Expanded+=expanded;
             if(!reached)
             {
-                if(expanded<=MaxRouteExpansionsR019)
+                if(expanded<=MaxRouteExpansionsR024)
                     plan.Explanation="вся достижимая область проверена: маршрута нет";
                 return false;
             }
@@ -378,8 +389,11 @@ namespace RaidersHaveFamilies
                 }
             }
             plan.Valid=true;
-            plan.RiskFallback=!forbidTurretExposure;
-            plan.Explanation=(forbidTurretExposure ? "SAFE-FIRST" : "RISK-MINIMIZED")+
+            // R024: an exposed leg is an explicitly accepted risk. Without
+            // this flag old SafeAdvanceLimit() stopped ALL rescuers before
+            // a fully turret-covered perimeter even after finding a route.
+            plan.RiskFallback=plan.FirstTurretExposureIndex>=0;
+            plan.Explanation="WEIGHTED-R024"+
                 " маршрут: "+plan.Cells.Count+" клеток; " +
                 "дверей="+plan.Doors+", стен="+plan.Walls+
                 (plan.FirstTurretExposureIndex>=0 ?
@@ -476,30 +490,11 @@ namespace RaidersHaveFamilies
                 return prior;
             var fresh=new RHFRoutePlanV128 {Tick=now,Captive=captive,
                 From=origins[0],To=captive.Position};
-            // Pass 1: prefer EVERY possible fully unexposed route, even if
-            // it requires more demolition. Pass 2: when all routes face guns,
-            // minimize exposed firing lanes with the highest actual penalty.
-            // Door/corridor-first, then a safe necessary wall breach. Only
-            // AFTER every safe path is exhausted may the route enter gunfire.
-            bool safe=PlanBounded(map,origins,captive,fresh,
-                Math.Max(map.Size.x,map.Size.z),true,true);
-            if(!safe && !fresh.BudgetExceeded)
-            {
-                fresh=new RHFRoutePlanV128 {Tick=now,Captive=captive,
-                    From=origins[0],To=captive.Position};
-                safe=PlanBounded(map,origins,captive,fresh,
-                    Math.Max(map.Size.x,map.Size.z),true);
-            }
-            if(!safe && !fresh.BudgetExceeded)
-            {
-                // The ordinary wall penalty already makes an intact wall
-                // drastically more expensive than a door. The fourth full
-                // A* pass was redundant and multiplied TPS spikes.
-                fresh=new RHFRoutePlanV128 {Tick=now,Captive=captive,
-                    From=origins[0],To=captive.Position};
-                PlanBounded(map,origins,captive,fresh,
-                    Math.Max(map.Size.x,map.Size.z),false);
-            }
+            // Exactly one full-map multi-source weighted A* pass. In an
+            // entirely turret-covered colony it still finds a route, pays
+            // for the real exposure, and allows actual combat on approach.
+            PlanBounded(map,origins,captive,fresh,
+                Math.Max(map.Size.x,map.Size.z));
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
                     " sources="+origins.Count+" target="+captive.Position);

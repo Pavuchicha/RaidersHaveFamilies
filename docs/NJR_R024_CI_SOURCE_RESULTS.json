@@ -1,0 +1,341 @@
+{
+  "revision": "R024",
+  "checks": 83,
+  "passed": 83,
+  "failed": 0,
+  "note": "CI pre-build stage Python scripts, run in four isolated batches; C# compile and RimWorld game not executed",
+  "results": [
+    {
+      "test": "tests/validate.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/performance_contract.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/operations_contract.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/debug_actions_031.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/wce_manifest.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_040_contracts.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_050_diplomacy.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/precept_notes_032.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/csharp_lexical_050.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_060_coalitions.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_061_compile_contract.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_070_regressions.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_080_mercy_and_drops.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_090_tactical.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_091_guest_api.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_092_psychological_cruelty.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_100_death_and_reprisals.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_101_native_precept_mood.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_110_family_escort_dialogue.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_120_conversion_campaigns.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_121_coherent_ops.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_123_rescue_control.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_124_rescue_command.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_125_combat_planner.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_126_smart_routes_and_cover.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_127_faction_and_strength.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_128_route_control.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_129_firebreak.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_130_mission_integrity.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_131_vip_job_recovery.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_132_mission_authority.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_133_arrival_and_lord.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_134_owner_integrity.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_135_s1_rescue_contracts.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_136_tactical_playtest_contracts.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_137_harmony_hotfix_contracts.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_138_air_only_pod_gate.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_139_assembly_breach_fortify.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_140_s221_engineer_door_contact.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_144_s311_vip_native.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_151_s41_rescue_single_writer.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_152_s41_agent_review_fixes.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_153_s41_agent3_combat_and_escort.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_154_s41_phase3_native_roles.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_155_s41_airflight.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_156_s41_offense_single_writer.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_157_s41_native_lords.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_158_s41_beast_incident_and_flank.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_159_s41_native_lord_identity.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_160_s41_multivip_downed_single_writer.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_161_s41_air_vip_lifetime_and_exit_recovery.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_162_s41_fuel_reachable_destination.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_163_s41_offense_missing_breacher.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_164_s41_field_breach_pod_entry.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_165_s41_inventory_pod_enemy_faction.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_166_s41_spawn_and_barricade.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/rhf_167_s41_prepared_relay.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_200_integrity_audit.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_202_field_ops_regressions.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_203_p0_rescue_entry_pod_site.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_204_real_playtest_failures.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_206_world_kin_reuse.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_207_group_ransom_contract.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_208_conversion_privacy.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_209_group_selection_dispatch.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_210_offense_tactics.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_211_tech_budget_route_office_passive.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_212_random_debug_factions_and_audit.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_213_global_forensic_regressions.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_214_compatibility_and_passive_cache.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_216_unbounded_combat_doctrine.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_217_contact_pursuit_recovery.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_218_combat_combinations.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_219_community_ai_manual_review.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_220_mission_intelligence_r014.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_221_route_execution_r015.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_222_ground_rescue_actual_arrival_r016.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_223_force_strength_coordinated_breach_r017.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_224_r019_ai_regression_gate.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_225_r020_command_stability.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_226_r021_leaderless_multisource.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_227_r023_rescue_priority_spawn_authority.py",
+      "status": "pass"
+    },
+    {
+      "test": "tests/njr_228_r024_old_beta2_weighted_rescue.py",
+      "status": "pass"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+NJR R024 — маршрут спасения на основе проверенного принципа старого v0.14.0-beta2.
+
+1. Распаковать NJR_R024_GITHUB_DESKTOP_WEIGHTED_RESCUE.zip в КОРЕНЬ репозитория
+   GitHub Desktop, подтвердить замену файлов.
+2. В GitHub Desktop: Summary = R024: Restore weighted rescue routing and stop needless demolition
+3. Commit to main -> Push origin.
+4. Дождаться результата GitHub Actions, скачать новый установочный ZIP и
+   удалить/заменить старый DLL мода перед тестом, чтобы не проверять R023.
+5. Проверить спасение №1 на той же карте (3 стены vs стена+дверь) и карту с
+   полным сектором огня турелей. №16 пока НЕ исправлено.
+
+Исходники и модель: 83/83 проверок проверки исходников; НЕ компиляция DLL и НЕ RimWorld.
+Полное сравнение и ограничения: docs/NJR_R024_OLD_BUILD_COMPARISON_AND_FIX_RU.md

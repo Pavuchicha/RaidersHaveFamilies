@@ -626,9 +626,14 @@ namespace RaidersHaveFamilies
             Thing defender=NearestVisibleEnemy(op,members,map);
             // Destructive targets require an explicit raze/retaliation doctrine.
             // A named-target hunt is not permission to destroy every workshop.
-            bool raze=op.AssaultAfterObjective ||
-                op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ||
-                op.Doctrine==(int)RHFDoctrine.PunitiveAssault;
+            // R024: a diversion DURING prisoner rescue attacks defenders and
+            // observed turrets, not arbitrary generators or workshops.
+            // Actual punitive destruction begins only in a vengeance raid or
+            // the explicit post-rescue assault phase.
+            bool raze=(op.Type==(int)RHFOperationType.Vengeance || op.Phase==5) &&
+                (op.AssaultAfterObjective ||
+                 op.Doctrine==(int)RHFDoctrine.SiegeAndRaze ||
+                 op.Doctrine==(int)RHFDoctrine.PunitiveAssault);
             List<Building> knownTurrets=KnownTurrets(board,members[0].Faction,
                 members,map,now);
             Thing building=raze ?
@@ -713,6 +718,13 @@ namespace RaidersHaveFamilies
                 NJROffensePathS45.Plan(members[0],goal,knownTurrets) : null;
             Thing barrier=attackRoute?.Found==true ? attackRoute.FirstBarrier :
                 hasObjective ? FirstBarrier(members[0],goal,map,knownTurrets) : null;
+            // The diversion cannot open a gratuitous second demolition front
+            // through powered machinery while the rescue wing uses its own
+            // verified prison route. Other revenge doctrines are untouched.
+            if(op.Type==(int)RHFOperationType.Rescue && op.Phase!=5 &&
+               barrier!=null &&
+               !RHFObjectiveRouteV128.IsRescueStructuralBarrier(barrier))
+                barrier=null;
             IntVec3 staging=attackRoute?.Found==true &&
                 attackRoute.Approach.IsValid ? attackRoute.Approach : goal;
             Pawn breacher=null;

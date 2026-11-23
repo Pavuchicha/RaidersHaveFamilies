@@ -17,7 +17,8 @@ pod=load('RHFPodPlannerS41.cs')
 assert 'internal static bool RequiresBreach(Thing obstacle)' in combat
 assert 'door.Open' in combat
 assert 'RequiresBreach(block) ? BreachWorkCost(block)' in combat
-assert 'RHFCombatPlannerV125.RequiresBreach(building)' in rescuepath
+assert 'RHFCombatPlannerV125.RequiresBreach(thing)' in rescuepath
+assert 'IsRescueStructuralBarrier(building)' in rescuepath
 assert 'RHFCombatPlannerV125.RequiresBreach(edifice)' in offensepath
 assert 'RHFCombatPlannerV125.RequiresBreach(wall)' in offensepath
 assert '!RHFCombatPlannerV125.RequiresBreach(b)' in offense

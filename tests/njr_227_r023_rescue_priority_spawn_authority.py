@@ -28,7 +28,7 @@ assert 'op.BoardS41?.Barrier!=best' in combat
 assert 'op.BoardS41?.Breacher!=soldier' in combat
 assert 'op.BoardS41?.Breacher==p' in command
 assert 'if(!route.Valid)obstacle=null;' in plan
-assert 'if(forbidWalls && obstacle!=null &&' in route
+assert 'IsRescueStructuralBarrier(building)' in route and 'DoorBreachBaseR024+work' in route
 
 # Issue 3: If a real native path to the captive exists, an exhausted tactical
 # solver must not send everybody into Hold or invent a random wall.

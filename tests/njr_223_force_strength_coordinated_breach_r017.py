@@ -52,15 +52,15 @@ assert 'board.Assign(soldier,RHFRoleS41.Breach,\n                               
 assert 'RHFObjectiveRouteV128.PlanIndividual(' not in planner  # R021: no alternate path authority
 assert 'board.Assign(soldier,RHFRoleS41.Breach,obstacle,obstacle.Position,now)' not in planner or 'board.Breacher' in planner
 for token in [
-    'bool forbidWalls=false',
-    'if(forbidWalls && obstacle!=null &&',
-    '!(obstacle is Building_Door))continue;',
+    'internal static bool IsRescueStructuralBarrier(Thing thing)',
+    'DoorBreachBaseR024+work',
+    'WallBreachBaseR024+work*6',
     'if(building is Building_Door openDoor && openDoor.Open)return 10;',
-    'Math.Max(map.Size.x,map.Size.z),true,true)',
-    'Math.Max(map.Size.x,map.Size.z),true)',
-    'Math.Max(map.Size.x,map.Size.z),false)',
+    'PlanBounded(map,origins,captive,fresh,',
     'RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier)'
 ]: assert token in route,token
+assert 'forbidTurretExposure' not in route
+assert 'bool forbidWalls=false' not in route
 
 # Threat points are committed up-front (not injected after calling vanilla).
 for cp in (35,60,120,250,700):

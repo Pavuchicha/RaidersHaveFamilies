@@ -90,7 +90,8 @@ assert 'op.AssaultAfterObjective=true' in profiles
 # S4.1 delegates vengeance combat to the independent offense planner.
 offense=(r/'RaidersHaveFamilies/Source/RHFOffenseS41.cs').read_text('utf8')
 assert 'bool hunt=op.HuntTarget!=null &&' in offense
-assert 'bool raze=op.AssaultAfterObjective ||' in offense
+assert 'bool raze=(op.Type==(int)RHFOperationType.Vengeance || op.Phase==5) &&' in offense
+assert 'op.AssaultAfterObjective ||' in offense
 assert 'Thing building=raze ?' in offense and 'VisibleObjective(members,map)) : null;' in offense and 'KnownTurrets(board,members[0].Faction,' in offense
 assert 'RHFRoleS41.OffenseHunt' in offense and 'RHFRoleS41.OffenseStrike' in offense
 assert 'LastInfrastructureOrderTick' in ops and 'rhfLastInfrastructureOrderV12' in ops
