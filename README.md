@@ -1,3 +1,9 @@
+## R020 (2026-11-23) — stabilize rescue command and structural-attack authority (SOURCE ONLY)
+
+After field report of R019 squad attacking unrelated walls, the objective commander is held stable per captive, an A* CPU-budget abort can no longer authorize a demolition fallback, intact agreed breaches retain their plan while the breacher works, and stale vanilla structure-attack jobs are interrupted on mission claim. Only source/model checks have passed; C# compilation and real game behavior are UNVERIFIED. Pod construction #16 is unchanged. Details: `docs/NJR_R020_COMMAND_AUTHORITY_AND_BREACH_REGRESSION_RU.md`.
+
+---
+
 ## R017 (2026-11-23) — minimum mission force + coordinated door-first breaching (SOURCE ONLY)
 
 An actual game report showed rescue #01 arriving as **one raider** and breaking unnecessary walls. Root causes: raw storyteller points and equipment costs without a minimum native combat roster; acceptance of any single generated pawn; individual troops independently electing different break targets; route policy that preferred a wall over even a safe door. R017 commits a minimum-sized mission budget before native generation (rescue 5, diversion 3, vengeance 5), fills understrength native pawn lists **before real EdgeWalkIn/CenterDrop arrival and Lord creation**, preserves verified ground spawning, and makes safe doors/doorways take priority over non-essential wall demolition. See `docs/NJR_R017_RESCUE_FORCE_AND_BREACH_ROOT_CAUSE_RU.md`.

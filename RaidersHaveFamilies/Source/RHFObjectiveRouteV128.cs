@@ -16,6 +16,9 @@ namespace RaidersHaveFamilies
     internal sealed class RHFRoutePlanV128
     {
         internal bool Valid;
+        // A capped search is UNKNOWN, not proof that the wall-free route fails.
+        // Never escalate to demolition after a CPU limit interrupted A*.
+        internal bool BudgetExceeded;
         // True only when a full-map safe-first search failed and the second
         // search had to accept a physically unavoidable gun corridor.
         internal bool RiskFallback;
@@ -280,7 +283,8 @@ namespace RaidersHaveFamilies
                 expanded++;
                 if(expanded>MaxRouteExpansionsR019)
                 {
-                    plan.Explanation="CPU budget exhausted: tactical path will retry";
+                    plan.BudgetExceeded=true;
+                    plan.Explanation="CPU budget exhausted: route unknown; demolition forbidden";
                     break;
                 }
                 if(at==finish){reached=true;break;}
@@ -413,13 +417,21 @@ namespace RaidersHaveFamilies
             // otherwise idle pawns can retain a bad initial approach for 900t.
             bool stalled=prior!=null && now-prior.Tick>=300 &&
                 now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>600;
-            if(prior!=null && !stalled && !layoutChanged && prior.Captive==captive &&
+            // An intact authorized barrier is a committed entry decision:
+            // do not re-elect another wall merely because the squad stopped
+            // while its breacher is damaging this one. Replan on destruction,
+            // target/leader change, threat layout change or a hard timeout.
+            bool committedBarrier=prior!=null && prior.FirstBarrier!=null &&
+                prior.FirstBarrier.Spawned &&
+                RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier) &&
+                now-prior.Tick<2700;
+            if(prior!=null && (!stalled || committedBarrier) && !layoutChanged && prior.Captive==captive &&
                // The plan and its cells belong to THIS origin and target.
                // A rescue commander may be replaced mid-assault; borrowing
                // the previous leader's path made other soldiers idle or loop.
                prior.Leader==leader && prior.To==captive.Position &&
                prior.Leader.Spawned && prior.Leader.Map==map && !prior.Leader.Dead &&
-               now-prior.Tick<ReplanTicks &&
+               now-prior.Tick<(committedBarrier?2700:ReplanTicks) &&
                (prior.FirstBarrier==null ||
                 (prior.FirstBarrier.Spawned &&
                  RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier))) &&
@@ -435,14 +447,14 @@ namespace RaidersHaveFamilies
             // AFTER every safe path is exhausted may the route enter gunfire.
             bool safe=PlanBounded(map,leader,captive,fresh,
                 Math.Max(map.Size.x,map.Size.z),true,true);
-            if(!safe)
+            if(!safe && !fresh.BudgetExceeded)
             {
                 fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
                     From=leader.Position,To=captive.Position};
                 safe=PlanBounded(map,leader,captive,fresh,
                     Math.Max(map.Size.x,map.Size.z),true);
             }
-            if(!safe)
+            if(!safe && !fresh.BudgetExceeded)
             {
                 // The ordinary wall penalty already makes an intact wall
                 // drastically more expensive than a door. The fourth full
@@ -482,7 +494,7 @@ namespace RaidersHaveFamilies
                 return cache.Plan;
             bool safe=PlanBounded(map,member,captive,plan,
                 Math.Max(map.Size.x,map.Size.z),true,true);
-            if(!safe)
+            if(!safe && !plan.BudgetExceeded)
             {
                 plan=new RHFRoutePlanV128{Tick=now,Leader=member,
                     Captive=captive,From=member.Position,To=captive.Position};

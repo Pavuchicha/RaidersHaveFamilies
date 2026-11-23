@@ -35,6 +35,17 @@ namespace RaidersHaveFamilies
         }
         private static readonly ConditionalWeakTable<RHFOperation,BarrierEventCache>
             BarrierPulses = new ConditionalWeakTable<RHFOperation,BarrierEventCache>();
+        // R020: a rescue is commanded by a stable leader for each hostage.
+        // Electing the geometrically nearest soldier on EVERY strategy pulse
+        // moved the A* origin between different flanks and changed demolition
+        // targets while a breacher was still working on the first one.
+        private sealed class RescueCommandR020
+        {
+            internal Pawn Target;
+            internal Pawn Leader;
+        }
+        private static readonly ConditionalWeakTable<RHFOperation,RescueCommandR020>
+            RescueLeadsR020 = new ConditionalWeakTable<RHFOperation,RescueCommandR020>();
 
         internal static RHFOperation MissionFor(Map map, Pawn member)
         {
@@ -373,15 +384,30 @@ namespace RaidersHaveFamilies
             Pawn previousTarget=board.RescueTarget;
             board.RescueTarget=captive;
             board.LastKnownCell=captive.Position; // declared hostage location, not enemy omniscience
-            // Choosing the first generated soldier made the squad route from
-            // the farthest stray pawn, leaving nearby fighters idle.
-            Pawn lead=null;int leadCost=int.MaxValue;
-            for(int i=0;i<op.Squad.Count;i++)
+            // Select the nearest available leader ONCE per captive, then keep
+            // that leader until incapacitated or assigned to an earlier VIP.
+            // It is not valid to switch the squad's breach corridor every 180t.
+            RescueCommandR020 command=RescueLeadsR020.GetValue(op,
+                _=>new RescueCommandR020());
+            if(command.Target!=captive)
+            { command.Target=captive;command.Leader=null; }
+            Pawn lead=command.Leader;
+            if(!Active(lead,map) || escortedDuringAssault.Contains(lead) ||
+               !op.Squad.Contains(lead))
             {
-                Pawn candidate=op.Squad[i];
-                if(!Active(candidate,map) || escortedDuringAssault.Contains(candidate))continue;
-                int cost=(candidate.Position-captive.Position).LengthHorizontalSquared;
-                if(cost<leadCost){lead=candidate;leadCost=cost;}
+                lead=null;
+                int leadCost=int.MaxValue;
+                for(int i=0;i<op.Squad.Count;i++)
+                {
+                    Pawn candidate=op.Squad[i];
+                    if(!Active(candidate,map) || escortedDuringAssault.Contains(candidate))continue;
+                    int cost=(candidate.Position-captive.Position).LengthHorizontalSquared;
+                    if(cost<leadCost){lead=candidate;leadCost=cost;}
+                }
+                command.Leader=lead;
+                if(lead!=null && RHFMod.Settings?.VerboseLogging==true)
+                    Log.Message("[NJR][R020] Rescue leader assigned: "+lead.LabelShortCap+
+                        ", target="+captive.LabelShortCap);
             }
             if(lead==null)
             {
@@ -460,6 +486,15 @@ namespace RaidersHaveFamilies
             if(obstacle!=null && (obstacle.Destroyed || !obstacle.Spawned))obstacle=null;
             if (board.Barrier != obstacle)
             {
+                // Record each REAL change of entry rather than printing one
+                // line per pawn/tick. Needed to diagnose unnecessary breaches.
+                if(RHFMod.Settings?.VerboseLogging==true)
+                    Log.Message("[NJR][R020][EntryChoice] captive="+
+                        captive.LabelShortCap+", leader="+lead.LabelShortCap+
+                        ", previous="+(board.Barrier?.LabelShortCap??"none")+
+                        ", next="+(obstacle?.LabelShortCap??"none")+
+                        ", doors="+route.Doors+", walls="+route.Walls+
+                        ", nodes="+route.Expanded+", reason="+route.Explanation);
                 board.Barrier=obstacle;
                 board.Breacher=null;
                 board.LastObstacleHP=obstacle?.HitPoints ?? 0;

@@ -281,6 +281,33 @@ namespace RaidersHaveFamilies
                     job.Focus = focus;
                     missionLord.CurLordToil?.UpdateAllDuties();
                 }
+                // R020: adopting a native raid Lord does not itself abort a
+                // previously issued vanilla attack on a random building.
+                // Cancel ONLY stale structural combat orders, not shooting at
+                // player defenders or turrets. The mission's board may issue
+                // precisely one structural breach (or a field-pod access breach).
+                foreach(Pawn p in members)
+                {
+                    if(!ActivePawn(p,map) || p.GetLord()!=missionLord)continue;
+                    Job running=p.jobs?.curJob;
+                    if(running==null ||
+                       (running.def!=JobDefOf.AttackMelee &&
+                        running.def!=JobDefOf.AttackStatic))continue;
+                    Building structure=running.targetA.Thing as Building;
+                    if(structure==null || RHFCombatPlannerV125.IsTurret(structure))continue;
+                    RHFOrderS41 issued=op.BoardS41?.For(p,false);
+                    bool permitted=op.Phase==1 &&
+                        op.BoardS41?.Barrier==structure &&
+                        op.BoardS41?.Breacher==p;
+                    if(!permitted && (op.Phase==2 || op.Phase==3) && issued!=null)
+                        permitted=(RHFRoleS41)issued.Role==RHFRoleS41.Breach &&
+                            issued.Objective==structure;
+                    if(permitted)continue;
+                    Log.WarningOnce("[NJR][R020] Cancelled stale native structure " +
+                        "attack: "+p.LabelShortCap+" / "+structure.LabelShortCap,
+                        p.thingIDNumber ^ structure.thingIDNumber ^ 2020);
+                    p.jobs.EndCurrentJob(JobCondition.InterruptForced);
+                }
                 // Fail closed: unclaimed rescue members cannot remain in a
                 // vanilla ImmediateAttack/Breaching lord while a mission is live.
                 // If a modded pawn cannot join our Lord, detach it and hold
