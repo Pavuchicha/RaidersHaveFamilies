@@ -409,7 +409,7 @@ namespace RaidersHaveFamilies
                     onMap++;
                     if (fighter.GetLord() != null) lordAttached++;
                 }
-                sb.AppendLine("Операция " + printed + ": фаза=" + op.Phase +
+                sb.AppendLine("Операция с тиком создания " + op.CreatedTick + ": фаза=" + op.Phase +
                     ", жива=" + (!op.Finished) + ", цель=" +
                     (target?.LabelShortCap ?? "не определена") +
                     ", координаты=" + (target != null ? target.Position.ToString() : "-") +
