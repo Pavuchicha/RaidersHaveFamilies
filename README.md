@@ -1,4 +1,12 @@
-﻿## R016 (2026-11-23) — REAL GROUND RESCUE ENTRY HOTFIX (SOURCE ONLY)
+## R017 (2026-11-23) — minimum mission force + coordinated door-first breaching (SOURCE ONLY)
+
+An actual game report showed rescue #01 arriving as **one raider** and breaking unnecessary walls. Root causes: raw storyteller points and equipment costs without a minimum native combat roster; acceptance of any single generated pawn; individual troops independently electing different break targets; route policy that preferred a wall over even a safe door. R017 commits a minimum-sized mission budget before native generation (rescue 5, diversion 3, vengeance 5), fills understrength native pawn lists **before real EdgeWalkIn/CenterDrop arrival and Lord creation**, preserves verified ground spawning, and makes safe doors/doorways take priority over non-essential wall demolition. See `docs/NJR_R017_RESCUE_FORCE_AND_BREACH_ROOT_CAUSE_RU.md`.
+
+**STATIC TESTS ONLY. No .NET build or in-game #01/#16 gameplay pass has been established.** Extremely expensive modded combat kinds can still hit the 15,000-point ceiling; the game logs this explicitly. VIP fortification/build AI remains unverified.
+
+---
+
+## R016 (2026-11-23) — REAL GROUND RESCUE ENTRY HOTFIX (SOURCE ONLY)
 
 The recurring cave/lake rescue #01 screenshot exposed three flaws: an exterior approach scan could accept unrelated terrain anywhere on the map; vanilla `EdgeWalkIn` scattering ignored roof/fog/water after NJR validated only the center; and initially blocked captives left some rescuers without a forward approach order. R016 checks objective-near connectivity and filters *every actual spawned pawn cell* with mission-scoped Harmony hooks. The center is protected against native re-resolution. See `docs/NJR_R016_GROUND_RESCUE_SPAWN_ROOT_CAUSE_AND_RETEST_RU.md`.
 

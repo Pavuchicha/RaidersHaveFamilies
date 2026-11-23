@@ -216,6 +216,14 @@ namespace RaidersHaveFamilies
         [HarmonyPrefix]
         private static bool Prefix(List<Pawn> pawns,IncidentParms parms)
         {
+            // The native combat group is now fully known but has not arrived.
+            // Fill missing members BEFORE native spawn, letters and Lord creation.
+            if(parms?.target is Map incidentMap)
+            {
+                RHFOperation mission=RHFMissionIntegrityV130.ActiveRaidLetterOperation;
+                RHFStrikeParty wing=RHFOperationController.ActiveRaidParty(incidentMap,mission);
+                NJRForceStrengthR017.CompleteGeneratedRoster(mission,wing,pawns);
+            }
             if(!RHFRescueGroundEntryS41.IsGroundRescueIncident(parms))return true;
             Map map=(Map)parms.target;
             List<IntVec3> cells=RHFRescueGroundEntryS41.DeploymentCells(map,parms.spawnCenter);

@@ -302,6 +302,15 @@ namespace RaidersHaveFamilies
             DropCapture = new ConditionalWeakTable<RHFOperation,RHFDropCaptureV136>();
 
         public RHFOperationController(Map map) : base(map) { }
+
+        // Only the active synchronous vanilla incident may alter its generated
+        // roster; delayed or unrelated raids can never inherit this operation.
+        internal static RHFStrikeParty ActiveRaidParty(Map incidentMap,RHFOperation op)
+        {
+            RHFOperationController owner=incidentMap?.GetComponent<RHFOperationController>();
+            return owner!=null && owner.activeOperation==op ? owner.activeParty : null;
+        }
+
         public override void ExposeData()
         {
             base.ExposeData();
@@ -411,7 +420,9 @@ namespace RaidersHaveFamilies
                     RHFStrikeParty party=op.Parties[k];
                     if (party==null) continue;
                     sb.AppendLine("• " + (party.Faction?.Name ?? "?") + ": " +
-                        (RHFStrikeRole)party.Role + ", " + party.Members + " бойцов, " +
+                        (RHFStrikeRole)party.Role + ", " + party.Members + " бойцов " +
+                        "(минимум " + NJRForceStrengthR017.RequiredMembers(party) +
+                        "), очки операции " + Mathf.RoundToInt(party.Points) + ", " +
                         party.BreachKits + " бойцов с проломным оружием, " + party.Medics +
                         " санитаров, без оружия " + party.UnarmedCount + "; бюджет " +
                         Mathf.RoundToInt(party.SupplySpent) + "/" + Mathf.RoundToInt(party.SupplyBudget));
@@ -714,6 +725,9 @@ namespace RaidersHaveFamilies
             {
                 RHFStrikeParty party = op.Parties[i];
                 if (party == null || party.Faction == null || party.Attempted) continue;
+                // R017: minimum viable tactical wing is budgeted BEFORE the
+                // native PawnGroupMaker consumes the faction's raid points.
+                NJRForceStrengthR017.CommitMissionBudget(op,party);
                 party.Attempted = true;
                 activeOperation = op;
                 activeParty = party;
@@ -785,8 +799,28 @@ namespace RaidersHaveFamilies
                         float cost=steel*ThingDefOf.Steel.BaseMarketValue+
                             components*ThingDefOf.ComponentIndustrial.BaseMarketValue+
                             fuel*ThingDefOf.Chemfuel.BaseMarketValue;
+                        // Pod materials must not consume the last four
+                        // rescuers. Commit the mission's missing resources as
+                        // explicit points BEFORE handing the balance to native
+                        // pawn generation. This is not a free installed pod.
+                        float required=cost+Mathf.Max(350f,
+                            NJRForceStrengthR017.HumanCoreFloor(party));
                         if(launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
-                            effectivePoints>=cost+350f)
+                           effectivePoints<required)
+                        {
+                            float additional=required-effectivePoints;
+                            if(party.Points+additional<=15000f)
+                            {
+                                party.Points+=additional;
+                                op.ThreatPoints+=additional;
+                                effectivePoints+=additional;
+                                Log.Message("[NJR][ForceR017] VIP pod materials funded " +
+                                    "without eating the rescue human core: +"+
+                                    additional.ToString("F0")+" committed points.");
+                            }
+                        }
+                        if(launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
+                            effectivePoints>=required)
                         {effectivePoints-=cost;op.PodSupplyCost=cost;op.PodBudgetPaid=true;}
                         else
                         {
@@ -905,6 +939,19 @@ namespace RaidersHaveFamilies
                 RecoverFreshRescueMembers(op, party, presentBeforeRaid);
                 RecoverIncidentBeastsS41(op,party,beastsBeforeRaid);
                 party.Succeeded = accepted || party.Members > 0;
+                // Native raid success only means at least one faction pawn
+                // spawned. Do not mistake a lone elite for an assault squad.
+                if(party.Succeeded && !party.Drop &&
+                   op.Type==(int)RHFOperationType.Rescue &&
+                   party.Role==(int)RHFStrikeRole.Rescue)
+                    NJRForceStrengthR017.CompleteGroundRescue(op,party,map,
+                        parms.spawnCenter);
+                if(party.Succeeded && party.Members<
+                    NJRForceStrengthR017.RequiredMembers(party) && !party.Drop)
+                    Log.Warning("[NJR][ForceR017] Partial native wing "+
+                        party.Faction.Name+": "+party.Members+"/"+
+                        NJRForceStrengthR017.RequiredMembers(party)+
+                        " expected; incident was not a full-strength formation.");
                 if (party.Succeeded) success++;
                 else Log.Warning("[RHF] RaidEnemy declined " + party.Faction.Name +
                     " (role=" + party.Role + ", points=" + party.Points +"). " +

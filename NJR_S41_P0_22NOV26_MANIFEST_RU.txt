@@ -1,0 +1,38 @@
+NJR S4.1 P0 — полное наложение исходников, 22.11.2026
+ИСПОЛЬЗОВАТЬ ТОЛЬКО с папкой GitHub Desktop, НЕ с RimWorld/Mods
+1) GitHub Desktop -> Repository -> Show in Explorer.
+2) Распаковать СОДЕРЖИМОЕ ZIP в открывшийся корень с заменой файлов.
+3) GitHub Desktop -> Summary: NJR S4.1 P0 - Fix terrain spawn, convoy, VIP construction and packaging
+4) Commit to main -> Push origin. Проверить зелёную GitHub Actions сборку.
+5) Скачать ИМЕННО install-ZIP из Actions; удалить RimWorld/Mods/RaidersHaveFamilies.
+6) Распаковать из нового install-ZIP папку NJR-NotJustRaiders в RimWorld/Mods.
+7) Проверить тесты спасения 01 и 16 на отдельном тестовом сохранении.
+
+НЕ является готовой DLL или установочным модом для игры.
+В архиве только полные изменённые файлы, нет .git и никаких bat/ps1.
+Внутренние packageId/assembly/namespace не менялись — совместимость с сохранениями.
+Статические тесты: 61/61 PASS. Компиляция и реальная игра НЕ проверены.
+
+СОДЕРЖИМОЕ:
+.github/workflows/build.yml  sha256:c398de813e6c23cc
+README.md  sha256:01caaac53d976237
+RaidersHaveFamilies/Source/NJRRescueExitS41.cs  sha256:918a75e9ea449a3d
+RaidersHaveFamilies/Source/RHFObjectiveRouteV128.cs  sha256:5054c660a44fb092
+RaidersHaveFamilies/Source/RHFOperations.cs  sha256:2e5af118d0eb2971
+RaidersHaveFamilies/Source/RHFRescueGroundEntryS41.cs  sha256:b7f308758baa2718
+RaidersHaveFamilies/Source/RHFRescuePlannerS41.cs  sha256:5d1832732853522c
+RaidersHaveFamilies/Source/RHFRescueRoleJobGiverS41.cs  sha256:285e6ad280a015b4
+RaidersHaveFamilies/Source/RHFVipEvacS311.cs  sha256:61e0b5b63cbfebfd
+docs/AGENT_A_NJR_S41_P0_REVIEW_INSTRUCTIONS.md  sha256:efede901b7af5452
+docs/NJR_P0_S41_GAMEPLAY_FIX_2026_11_22_RU.md  sha256:a39e3bfe71570a1b
+docs/NJR_P0_STATIC_AUDIT_RESULTS.json  sha256:947522cb66cc8e21
+tests/njr_201_release_zip.py  sha256:42ff7cbbaa9ae583
+tests/njr_202_field_ops_regressions.py  sha256:b567de599eb88663
+tests/njr_204_real_playtest_failures.py  sha256:5dcb73975d267be6
+tests/rhf_080_mercy_and_drops.py  sha256:777016a5f17e9f4d
+tests/rhf_110_family_escort_dialogue.py  sha256:b9b8e1a6a3a999f3
+tests/rhf_130_mission_integrity.py  sha256:39ca420bb0058b5e
+tests/rhf_151_s41_rescue_single_writer.py  sha256:734c29e542e3fedf
+tests/rhf_161_s41_air_vip_lifetime_and_exit_recovery.py  sha256:02108de41bc9c138
+tests/rhf_164_s41_field_breach_pod_entry.py  sha256:875695e82cd00074
+tests/rhf_166_s41_spawn_and_barricade.py  sha256:972144b26341c485

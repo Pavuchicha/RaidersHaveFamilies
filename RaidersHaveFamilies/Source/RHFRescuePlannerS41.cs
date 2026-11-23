@@ -1,4 +1,4 @@
-﻿// RHF S4.1-B: rescue strategy writes saveable role orders, never regular Pawn jobs.
+// RHF S4.1-B: rescue strategy writes saveable role orders, never regular Pawn jobs.
 // The only direct jobs in this class are one-shot native physical carry/ExitMap actions.
 using System;
 using System.Collections.Generic;
@@ -542,15 +542,13 @@ namespace RaidersHaveFamilies
                     if(own.Valid)
                     {
                         way=RHFObjectiveRouteV128.Waypoint(own,soldier,map);
+                        // A soldier's local path is ONLY a movement aid.
+                        // It cannot independently authorize a second demolition
+                        // target while the operation already has a shared
+                        // objective corridor and a single breacher.
                         if(!way.IsValid && own.FirstBarrier!=null &&
-                           own.FirstBarrier.Spawned &&
-                           soldier.CanReach(own.FirstBarrier.Position,
-                               PathEndMode.Touch,Danger.Deadly))
-                        {
-                            board.Assign(soldier,RHFRoleS41.Breach,
-                                own.FirstBarrier,own.FirstBarrier.Position,now);
-                            continue;
-                        }
+                           own.FirstBarrier!=obstacle)
+                            way=IntVec3.Invalid;
                     }
                 }
                 if(obstacle!=null && !firebreakBeforeBreach &&

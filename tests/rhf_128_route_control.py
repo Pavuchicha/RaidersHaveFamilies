@@ -1,4 +1,4 @@
-﻿"""RHF v0.12.8 static integration + deterministic terrain simulations.
+"""RHF v0.12.8 static integration + deterministic terrain simulations.
 This cannot execute C#/RimWorld's actual pathfinder. The game playtest is mandatory.
 """
 from pathlib import Path
@@ -20,7 +20,7 @@ for required in (
     'RHFRouteDiagnosticsV128',
     '31 — Цена маршрута и простреливаемые участки',
     'if(!reached)',
-    'prior.FirstBarrier.Destroyed',
+    'RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier)',
     'ReplanTicks = 900',
     'while(heap.Count>0)',
     'if(!Cache.TryGetValue(op',

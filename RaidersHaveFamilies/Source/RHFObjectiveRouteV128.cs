@@ -1,4 +1,4 @@
-﻿// RHF 0.12.8: one actual costed, threat-aware corridor for walking AND breaching.
+// RHF 0.12.8: one actual costed, threat-aware corridor for walking AND breaching.
 // Unlike the legacy route estimator, the resulting chain is followed by troops.
 // Calculated at most once per 900 ticks per rescue operation (or when invalidated).
 using System;
@@ -219,6 +219,8 @@ namespace RaidersHaveFamilies
             Building building=cell.GetEdifice(map);
             if(building!=null && !building.Destroyed)
             {
+                // Open doors are traversable despite their edifice entry.
+                if(building is Building_Door openDoor && openDoor.Open)return 10;
                 if(RHFCombatPlannerV125.RequiresBreach(building))
                 {
                     obstacle=building;
@@ -235,7 +237,8 @@ namespace RaidersHaveFamilies
             return 10;
         }
         private static bool PlanBounded(Map map,Pawn leader,Pawn captive,
-            RHFRoutePlanV128 plan,int margin,bool forbidTurretExposure)
+            RHFRoutePlanV128 plan,int margin,bool forbidTurretExposure,
+            bool forbidWalls=false)
         {
             IntVec3 start=leader.Position,goal=captive.Position;
             int minX=Math.Max(0,Math.Min(start.x,goal.x)-margin);
@@ -275,6 +278,10 @@ namespace RaidersHaveFamilies
                     Thing obstacle;
                     int step=Step(map,cell,out obstacle);
                     if(step<0)continue;
+                    // R017: an intact wall is NOT an access route while an
+                    // actual door/corridor can reach the prison safely.
+                    if(forbidWalls && obstacle!=null &&
+                       !(obstacle is Building_Door))continue;
                     // No chosen door is automatically safe: look at its NEXT
                     // room's real firing lanes. A safe wall breach may win.
                     if(forbidTurretExposure && ExposedToTurret(map,cell,threats))continue;
@@ -396,7 +403,9 @@ namespace RaidersHaveFamilies
                prior.Leader==leader && prior.To==captive.Position &&
                prior.Leader.Spawned && prior.Leader.Map==map && !prior.Leader.Dead &&
                now-prior.Tick<ReplanTicks &&
-               (prior.FirstBarrier==null || !prior.FirstBarrier.Destroyed) &&
+               (prior.FirstBarrier==null ||
+                (prior.FirstBarrier.Spawned &&
+                 RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier))) &&
                (!prior.Valid || (prior.Cells.Count>0 &&
                                    NearPath(prior,prior.Leader.Position,144))))
                 return prior;
@@ -405,14 +414,30 @@ namespace RaidersHaveFamilies
             // Pass 1: prefer EVERY possible fully unexposed route, even if
             // it requires more demolition. Pass 2: when all routes face guns,
             // minimize exposed firing lanes with the highest actual penalty.
+            // Door/corridor-first, then a safe necessary wall breach. Only
+            // AFTER every safe path is exhausted may the route enter gunfire.
             bool safe=PlanBounded(map,leader,captive,fresh,
-                Math.Max(map.Size.x,map.Size.z),true);
+                Math.Max(map.Size.x,map.Size.z),true,true);
             if(!safe)
             {
                 fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
                     From=leader.Position,To=captive.Position};
-                PlanBounded(map,leader,captive,fresh,
-                    Math.Max(map.Size.x,map.Size.z),false);
+                safe=PlanBounded(map,leader,captive,fresh,
+                    Math.Max(map.Size.x,map.Size.z),true);
+            }
+            if(!safe)
+            {
+                fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
+                    From=leader.Position,To=captive.Position};
+                bool doorOnly=PlanBounded(map,leader,captive,fresh,
+                    Math.Max(map.Size.x,map.Size.z),false,true);
+                if(!doorOnly)
+                {
+                    fresh=new RHFRoutePlanV128 {Tick=now,Leader=leader,Captive=captive,
+                        From=leader.Position,To=captive.Position};
+                    PlanBounded(map,leader,captive,fresh,
+                        Math.Max(map.Size.x,map.Size.z),false);
+                }
             }
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
@@ -434,7 +459,15 @@ namespace RaidersHaveFamilies
                !member.Spawned || !captive.Spawned ||
                member.Map!=map || captive.Map!=map)return plan;
             if(PlanBounded(map,member,captive,plan,
+                Math.Max(map.Size.x,map.Size.z),true,true))return plan;
+            plan=new RHFRoutePlanV128{Tick=now,Leader=member,
+                Captive=captive,From=member.Position,To=captive.Position};
+            if(PlanBounded(map,member,captive,plan,
                 Math.Max(map.Size.x,map.Size.z),true))return plan;
+            plan=new RHFRoutePlanV128{Tick=now,Leader=member,
+                Captive=captive,From=member.Position,To=captive.Position};
+            if(PlanBounded(map,member,captive,plan,
+                Math.Max(map.Size.x,map.Size.z),false,true))return plan;
             plan=new RHFRoutePlanV128{Tick=now,Leader=member,
                 Captive=captive,From=member.Position,To=captive.Position};
             PlanBounded(map,member,captive,plan,
