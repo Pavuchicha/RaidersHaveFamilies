@@ -106,6 +106,64 @@ namespace RaidersHaveFamilies
                 !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction);
         }
 
+        // Ground rescue: retain at least one non-shooter for breaching where
+        // present, but aim for 75% native direct-fire weapons. Generate native
+        // candidates (including CE ammo) before arrival, never rearm by hand.
+        // Replace only non-ranged slots, within the already committed budget.
+        private static void BalanceGroundRescue(RHFOperation op,RHFStrikeParty party,List<Pawn> pawns)
+        {
+            if(party.Drop || party.Role!=(int)RHFStrikeRole.Rescue ||
+               NJRForceCompositionS42.LowTech(party.Faction) ||
+               RHFMod.Settings?.RoleEquipment!=true)return;
+            int humans=0, guns=0;
+            float spent=0f;
+            foreach(Pawn pawn in pawns)
+                if(pawn?.RaceProps?.Humanlike==true && pawn.Faction==party.Faction)
+                { humans++; spent+=Mathf.Max(0f,pawn.kindDef?.combatPower??0f); if(NJRRescueFirebreakR034.DirectGun(pawn))guns++; }
+            int desired=Math.Min(humans,Math.Max(0,(humans*3+3)/4));
+            float remaining=Mathf.Max(0f,party.Points-party.SupplyBudget-party.AnimalBudgetS42-
+                party.LoadoutBudgetS42-spent);
+            List<PawnKindDef> kinds=CombatKinds(party.Faction);
+            int attempts=0;
+            for(int i=0;i<pawns.Count && guns<desired && attempts<24;i++)
+            {
+                Pawn original=pawns[i];
+                if(original?.RaceProps?.Humanlike!=true || original.Faction!=party.Faction ||
+                   original.Spawned || original.IsWorldPawn() || NJRRescueFirebreakR034.DirectGun(original))continue;
+                // Keep actual rescue targets and explicitly recorded family/rescuer
+                // identities intact; do not replace an existing world pawn.
+                if(op.Targets!=null && op.Targets.Contains(original))continue;
+                float cap=original.kindDef?.combatPower??0f;
+                var affordable=new List<PawnKindDef>();
+                foreach(PawnKindDef kind in kinds)if(kind.combatPower<=cap+remaining)affordable.Add(kind);
+                if(affordable.Count==0)continue;
+                for(int trial=0;trial<6 && attempts<24;trial++)
+                {
+                    attempts++;
+                    Pawn candidate=null;
+                    try
+                    {
+                        candidate=PawnGenerator.GeneratePawn(affordable[(attempts-1)%affordable.Count],party.Faction);
+                        if(candidate==null || candidate.Spawned || candidate.IsWorldPawn())continue;
+                        if(!NJRRescueFirebreakR034.DirectGun(candidate))
+                        {Find.WorldPawns.PassToWorld(candidate);continue;}
+                        // Keep the discarded roster member in the world, not dead.
+                        Find.WorldPawns.PassToWorld(original,PawnDiscardDecideMode.KeepForever);
+                        remaining=Mathf.Max(0f,remaining+cap-candidate.kindDef.combatPower);
+                        pawns[i]=candidate;guns++;break;
+                    }
+                    catch(Exception ex)
+                    {
+                        if(candidate!=null && !candidate.Spawned && !candidate.IsWorldPawn() && !pawns.Contains(candidate))
+                            Find.WorldPawns.PassToWorld(candidate);
+                        Log.Message("[NJR][R035][Roster] native candidate unavailable: "+ex.Message);
+                        break;
+                    }
+                }
+            }
+            Log.Message("[NJR][R035][Roster] direct fire="+guns+"/"+humans+" target="+desired+" attempts="+attempts);
+        }
+
         // Called at the native Arrive(List<Pawn>, IncidentParms) boundary,
         // AFTER the native PawnGroupMaker made its choices and BEFORE either
         // spawning or native MakeLords. This is the authoritative roster gate:
@@ -132,7 +190,8 @@ namespace RaidersHaveFamilies
                 foreach(Pawn pawn in pawns)
                     if(QualifiedPodEngineer(pawn,party.Faction))
                     {hasEngineer=true;break;}
-            if(humans>=minimum && (!requiresEngineer || hasEngineer))return;
+            if(humans>=minimum && (!requiresEngineer || hasEngineer))
+            {BalanceGroundRescue(op,party,pawns);return;}
             List<PawnKindDef> kinds=CombatKinds(party.Faction);
             if(kinds.Count==0)
             {
@@ -221,6 +280,7 @@ namespace RaidersHaveFamilies
                         "for funded VIP drop. Air extraction may fall back; "+
                         "check faction's native PawnKind labor tags.");
             }
+            BalanceGroundRescue(op,party,pawns);
             Log.Message("[NJR][ForceR017] Native list before arrival: "+
                 party.Faction.Name+", required="+minimum+", actual="+humans+
                 ", native supplements="+added+", point commitment="+

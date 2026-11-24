@@ -1,0 +1,3 @@
+R035 поверх R034. Распаковать в корень репозитория с заменой.
+Summary: R035: Prioritize ranged rescue squads and stop repeated suppressed charges
+Commit to main -> Push origin. После успешной сборки установить свежий ZIP. Запись тестов baseRevision=R035.

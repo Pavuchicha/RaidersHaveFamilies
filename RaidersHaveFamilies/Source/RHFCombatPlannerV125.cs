@@ -391,7 +391,8 @@ namespace RaidersHaveFamilies
                 name.IndexOf("RunForCover",StringComparison.OrdinalIgnoreCase)>=0 ||
                 name.IndexOf("SeekCover",StringComparison.OrdinalIgnoreCase)>=0 ||
                 name.IndexOf("Flee",StringComparison.OrdinalIgnoreCase)>=0 ||
-                name.IndexOf("Reload",StringComparison.OrdinalIgnoreCase)>=0;
+                name.IndexOf("Reload",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("MaintainPosture",StringComparison.OrdinalIgnoreCase)>=0;
         }
 
         private static bool SafelyEngage(Pawn pawn, Thing enemy, Map map,

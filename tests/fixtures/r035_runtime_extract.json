@@ -1,0 +1,5550 @@
+{
+  "revision": "R034",
+  "events": 8709,
+  "roster": {
+    "36725": "MeleeWeapon_BreachAxe",
+    "36735": "CE_Weapon_GrenadeConcussion",
+    "36743": "MeleeWeapon_BreachAxe",
+    "36749": "MeleeWeapon_Knife",
+    "36754": "Gun_PumpShotgun",
+    "36762": "Gun_Autopistol",
+    "36770": "Gun_MachinePistol"
+  },
+  "jobs": [
+    {
+      "tick": 39040,
+      "pawn": 36770,
+      "job": "AttackMelee",
+      "target": {
+        "id": 19430,
+        "cell": [
+          131,
+          153
+        ]
+      },
+      "source": "RimWorld.JobGiver_AITrashBuildingsDistant"
+    },
+    {
+      "tick": 39040,
+      "pawn": 36762,
+      "job": "Ignite",
+      "target": {
+        "id": 19304,
+        "cell": [
+          129,
+          144
+        ]
+      },
+      "source": "RimWorld.JobGiver_AITrashBuildingsDistant"
+    },
+    {
+      "tick": 39040,
+      "pawn": 36754,
+      "job": "AttackMelee",
+      "target": {
+        "id": 32398,
+        "cell": [
+          110,
+          157
+        ]
+      },
+      "source": "RimWorld.JobGiver_AITrashBuildingsDistant"
+    },
+    {
+      "tick": 39040,
+      "pawn": 36749,
+      "job": "Ignite",
+      "target": {
+        "id": 32396,
+        "cell": [
+          109,
+          151
+        ]
+      },
+      "source": "RimWorld.JobGiver_AITrashBuildingsDistant"
+    },
+    {
+      "tick": 39040,
+      "pawn": 36743,
+      "job": "Ignite",
+      "target": {
+        "id": 19431,
+        "cell": [
+          129,
+          155
+        ]
+      },
+      "source": "RimWorld.JobGiver_AITrashBuildingsDistant"
+    },
+    {
+      "tick": 39040,
+      "pawn": 36735,
+      "job": "UseVerbOnThing",
+      "target": {
+        "id": 19429,
+        "cell": [
+          129,
+          153
+        ]
+      },
+      "source": "RimWorld.JobGiver_AITrashBuildingsDistant"
+    },
+    {
+      "tick": 39040,
+      "pawn": 36725,
+      "job": "Ignite",
+      "target": {
+        "id": 32398,
+        "cell": [
+          110,
+          157
+        ]
+      },
+      "source": "RimWorld.JobGiver_AITrashBuildingsDistant"
+    },
+    {
+      "tick": 39041,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          243
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39042,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          242
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39043,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          243
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39045,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          189,
+          244
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39047,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          189,
+          243
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39047,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          244
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39052,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          189,
+          242
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39131,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          230
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39132,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39132,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39132,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          233
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39132,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          235
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39133,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          227
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39135,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          234
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39283,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          235
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39312,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          236
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39312,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39317,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          233
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39338,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          234
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39356,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          236
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39371,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39402,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39402,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          235
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39402,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          237
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39402,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          217
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39405,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          238
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39429,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          230
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39450,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          227
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39477,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          235
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39484,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          238
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39485,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          237
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39491,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          214
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39492,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39492,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          233
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39493,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          211
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39495,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          234
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39508,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39567,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39574,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          234
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39575,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          233
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39582,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          215
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39582,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          230
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39582,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          232
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39585,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          235
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39604,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          232
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39606,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          235
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39609,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          230
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39672,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          216
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39672,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39675,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39696,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          217
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39702,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39754,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          188,
+          231
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39762,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          218
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39762,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          201
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39765,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          230
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39793,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          230
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39822,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          211
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39853,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          195
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39855,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          217
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39859,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          214
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39907,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          215
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39940,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          216
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39942,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          198
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39942,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          199
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 39944,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          200
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40037,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          218
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40090,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          201
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40118,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          217
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40122,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          202
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40122,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          203
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40123,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          185
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40170,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          195
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40213,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          179
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40240,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          200
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40257,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          199
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40298,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          198
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40301,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          182
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40301,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          183
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40301,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          184
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40398,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          203
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40448,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          185
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40454,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          202
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40481,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          186
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40481,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          187
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40481,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          169
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40530,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          179
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40571,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          163
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40595,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          184
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40615,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          183
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40657,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          182
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40661,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          166
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40661,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          167
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40661,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          168
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40793,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          187
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40806,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          169
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40810,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          186
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40841,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          170
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40841,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          171
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40841,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          184,
+          156
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40888,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          163
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40931,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          152
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40955,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          168
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 40975,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          167
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41017,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          166
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41021,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          155
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41021,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          156
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41021,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          154
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41021,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          183,
+          156
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41128,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          184,
+          156
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41147,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          154
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41153,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          171
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41170,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          187,
+          170
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41201,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          140
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41201,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          185,
+          157
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41201,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          185,
+          158
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41201,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          142
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41269,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          183,
+          156
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41274,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          156
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41291,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41291,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41308,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          155
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41381,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          140
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41381,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          131
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41469,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          185,
+          158
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41471,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          145
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41484,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          185,
+          157
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41501,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          142
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41561,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          144
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41561,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          143
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41574,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41583,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          143
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41607,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41651,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          180,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41651,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          142
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41651,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          147
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41651,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          144
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41671,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          142
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41673,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          144
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41678,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          131
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41739,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          140
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41741,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          179,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41741,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          177,
+          120
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41741,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41741,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41747,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          145
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41768,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          181,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41790,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          147
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41803,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          182,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41831,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          116
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41831,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          177,
+          121
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41831,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          117
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41831,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          118
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41921,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          117
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41921,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          118
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41921,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          177,
+          121
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41953,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          180,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 41989,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          177,
+          120
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42011,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          175,
+          116
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42011,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          169,
+          113
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42069,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          179,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42101,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          175,
+          116
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42101,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          172,
+          114
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42222,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          169,
+          113
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42275,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          177,
+          121
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42281,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          164,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42281,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          170,
+          113
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42305,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          172,
+          114
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42324,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          116
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42357,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          175,
+          116
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42371,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          166,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42371,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          164,
+          106
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42371,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          167,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42400,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          118
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42461,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          169,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42497,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          170,
+          113
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42519,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          176,
+          117
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42536,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          164,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42551,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          150,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42551,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          168,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42551,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          164,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42585,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          167,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42587,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          164,
+          106
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42630,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          166,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42641,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          159,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42641,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          154,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42641,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          160,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42688,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          169,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42731,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          162,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42778,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          168,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42800,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          164,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42821,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          161,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42821,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          151,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42843,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          150,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42855,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          160,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42882,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          154,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42900,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          159,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42911,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          148,
+          101
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42911,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          149,
+          101
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42911,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42911,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          149,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 42958,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          162,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43001,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          151,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43001,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          152,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43013,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43017,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          149,
+          101
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43060,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          161,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43091,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43091,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          136,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43091,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          150,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43101,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          152,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43114,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          149,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43158,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43164,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          148,
+          101
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43181,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          140,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43181,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          137,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43181,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43181,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          147,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43216,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          151,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43258,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43271,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          138,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43271,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43299,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          147,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43318,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          150,
+          100
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43334,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          136,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43361,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          121,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43361,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43361,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          139,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43384,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          102
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43409,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          137,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43426,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          140,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43451,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          133,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43451,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          122,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43451,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          139,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43451,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          134,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43459,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          138,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43468,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          146,
+          103
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43541,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          123,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43541,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          136,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43607,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          133,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43631,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          118,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43639,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          139,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43666,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          121,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43679,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          134,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43721,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          105,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43721,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          125,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43721,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          119,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43753,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          122,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43793,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          136,
+          109
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43811,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          106,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43811,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          121,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43824,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          123,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43901,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          107,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43985,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          118,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 43991,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          102,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44002,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          125,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44034,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          119,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44050,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          105,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44081,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44081,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          110,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44081,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          103,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44127,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          121,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44137,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          106,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44171,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44171,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44171,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          105,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44207,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          107,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44261,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44327,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44347,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          102,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44348,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44351,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44351,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          94,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44351,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          114
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44351,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44386,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          110,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44409,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44418,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          94,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44418,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          103,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44419,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          114
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44441,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44441,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          95,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44441,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44441,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44441,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44441,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44462,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          95,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44479,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44503,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44512,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          105,
+          110
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44531,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          129
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44531,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          128
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44531,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          127
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44531,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44561,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          111
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44621,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          129
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44621,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          124
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44621,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44621,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          96,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44679,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          126
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44711,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          124
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44711,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          123
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44711,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          131
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44711,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          122
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44711,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          129
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44711,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          128
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44711,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          127
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44801,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44801,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          121
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44813,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          123
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44821,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          122
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44891,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44891,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          133
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44891,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          121
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44891,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          119
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44891,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          125
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44919,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          124
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44922,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44943,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          119
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44980,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          125
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44981,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44981,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          132
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44981,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          131
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44981,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          123
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44981,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          135
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 44997,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          121
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45060,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          92,
+          123
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45071,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          132
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45071,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45071,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          133
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45071,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          125
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45071,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45071,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          133
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45153,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          133
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45161,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45161,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          132
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45163,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45163,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          93,
+          125
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45208,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          133
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45251,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          98,
+          135
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45251,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          135
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45298,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45341,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          132
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45368,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          99,
+          135
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45431,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45493,
+      "pawn": 36754,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          97,
+          134
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45521,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45521,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          142
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45521,
+      "pawn": 36743,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          143
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45521,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          144
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45521,
+      "pawn": 36754,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          102,
+          144
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45521,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          102,
+          145
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45521,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          144
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45686,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45701,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          142
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45715,
+      "pawn": 36743,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          143
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45717,
+      "pawn": 36735,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 45717,
+      "pawn": 36754,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 45721,
+      "pawn": 36749,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 45722,
+      "pawn": 36762,
+      "job": "AttackStatic",
+      "target": {
+        "id": 32396,
+        "cell": [
+          109,
+          151
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45731,
+      "pawn": 36762,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 45733,
+      "pawn": 36735,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 45734,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45747,
+      "pawn": 36770,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 45759,
+      "pawn": 36754,
+      "job": "Wait_Downed",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": "Verse.AI.JobGiver_IdleForever"
+    },
+    {
+      "tick": 45795,
+      "pawn": 36762,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 45796,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45797,
+      "pawn": 36749,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 45798,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 45829,
+      "pawn": 36770,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 45830,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46151,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          139
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46151,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          139
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46151,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          138
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46151,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          138
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46151,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          140
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46173,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          140
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46192,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          139
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46205,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          139
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46214,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          100,
+          138
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46214,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          138
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46241,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46241,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          145
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46241,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          102,
+          147
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46245,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          146
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46247,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          102,
+          146
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46295,
+      "pawn": 36725,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46389,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          145
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46398,
+      "pawn": 36770,
+      "job": "AttackStatic",
+      "target": {
+        "id": 32396,
+        "cell": [
+          109,
+          151
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46407,
+      "pawn": 36735,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 46407,
+      "pawn": 36749,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 46416,
+      "pawn": 36770,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 46437,
+      "pawn": 36762,
+      "job": "RunForCover",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 46495,
+      "pawn": 36735,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 46496,
+      "pawn": 36735,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46515,
+      "pawn": 36749,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 46516,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46535,
+      "pawn": 36770,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 46536,
+      "pawn": 36770,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46576,
+      "pawn": 36762,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 46577,
+      "pawn": 36762,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          141
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 46873,
+      "pawn": 36754,
+      "job": "Wait_Downed",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": "Verse.AI.JobGiver_IdleForever"
+    },
+    {
+      "tick": 48686,
+      "pawn": 36725,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          0
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 48690,
+      "pawn": 36762,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          0
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 48692,
+      "pawn": 36749,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          0
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 48712,
+      "pawn": 36770,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          0
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 48722,
+      "pawn": 36735,
+      "job": "Goto",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          0
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 49732,
+      "pawn": 36770,
+      "job": "TendSelf",
+      "target": {
+        "id": 36770,
+        "cell": [
+          92,
+          115
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 50450,
+      "pawn": 36762,
+      "job": "TendSelf",
+      "target": {
+        "id": 36762,
+        "cell": [
+          92,
+          109
+        ]
+      },
+      "source": null
+    },
+    {
+      "tick": 51531,
+      "pawn": 36749,
+      "job": "Wait",
+      "target": {
+        "id": -1,
+        "cell": [
+          101,
+          0
+        ]
+      },
+      "source": "RaidersHaveFamilies.RHFRescueRoleJobGiverS41"
+    },
+    {
+      "tick": 52413,
+      "pawn": 36762,
+      "job": "Wait_Downed",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": "Verse.AI.JobGiver_IdleForever"
+    },
+    {
+      "tick": 52797,
+      "pawn": 36770,
+      "job": "Wait_Downed",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": "Verse.AI.JobGiver_IdleForever"
+    },
+    {
+      "tick": 53337,
+      "pawn": 36770,
+      "job": "Wait_Downed",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": "Verse.AI.JobGiver_IdleForever"
+    },
+    {
+      "tick": 55450,
+      "pawn": 36762,
+      "job": "Wait_MaintainPosture",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": null
+    },
+    {
+      "tick": 55455,
+      "pawn": 36762,
+      "job": "Wait_Downed",
+      "target": {
+        "id": -1,
+        "cell": null
+      },
+      "source": "Verse.AI.JobGiver_IdleForever"
+    }
+  ],
+  "casts": [
+    [
+      45723,
+      36762,
+      32396
+    ],
+    [
+      46399,
+      36770,
+      32396
+    ]
+  ],
+  "console": [
+    {
+      "tick": 39040,
+      "msg": "[NJR][ForceR017] Committed 5-member Rescue wing of Совет Пагла; native combat cost=40; additional allocated points=428; final party budget=470"
+    },
+    {
+      "tick": 39040,
+      "msg": "[NJR][R026][GroundEntry] valid=20 eligible=20 side=3 chosen=(188, 0, 243) score=13181 danger=0"
+    },
+    {
+      "tick": 39040,
+      "msg": "[NJR][GroundEntryR016] Spawned 7 ground rescuers at (188, 0, 243); verified exterior cells=183."
+    },
+    {
+      "tick": 39040,
+      "msg": "[RHF] План операции: штурм тюрьмы и совместный вывод пленных.\r\nПосле основной задачи: отход.\r\nЦЕЛЬ ОПЕРАЦИИ: добраться до удерживаемых пленников, освободить их и вывести. Ударная группа не обязана грабить или разрушать всё поселение.\r\nЦелевых пленников: 1.\r\nСпасатели обязаны создать пары сопровождения и вместе с освобождёнными отойти к доступному краю карты. Отвлекающая группа остаётся под управлением штурмового ИИ.\r\n• Совет Пагла: освобождение, прорыв; сила около 470 очков. Бойцов с проломным оружием: 1, санитары: 1, без основного оружия: 0.\r\n"
+    },
+    {
+      "tick": 39040,
+      "msg": "[NJR — Not Just Raiders][Debug] Рейд вызван СЕЙЧАС: Rescue. Успешных групп: 1/1; спонсоров: 1; суммарный бюджет групп 470. Если использованы капсулы, дождись открытия капсул, не повторяй вызов."
+    },
+    {
+      "tick": 39130,
+      "msg": "[NJR][R033][Rally] gather at (101, 0, 136) before Мини-турель из стали members=7"
+    },
+    {
+      "tick": 45520,
+      "msg": "[NJR][R033][Rally] release ready=7/7 timed=False exposed=0"
+    },
+    {
+      "tick": 45520,
+      "msg": "[NJR][R034][Firebreak] commit members=7 shootingSlots=3 protected=False gun=(109, 0, 151) wave=1"
+    },
+    {
+      "tick": 45717,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Хрёорг"
+    },
+    {
+      "tick": 45717,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Gummy"
+    },
+    {
+      "tick": 45721,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Поиобб"
+    },
+    {
+      "tick": 45731,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Dan"
+    },
+    {
+      "tick": 45747,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Blitz"
+    },
+    {
+      "tick": 46150,
+      "msg": "[NJR][R034][Firebreak] regroup before second attempt"
+    },
+    {
+      "tick": 46240,
+      "msg": "[NJR][R034][Firebreak] commit members=5 shootingSlots=2 protected=False gun=(109, 0, 151) wave=2"
+    },
+    {
+      "tick": 46407,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Хрёорг"
+    },
+    {
+      "tick": 46407,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Поиобб"
+    },
+    {
+      "tick": 46416,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Blitz"
+    },
+    {
+      "tick": 46437,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Dan"
+    },
+    {
+      "tick": 48580,
+      "msg": "[NJR][R034][Firebreak] abort; mobile=5 available=1 noDamageTicks=3060"
+    }
+  ]
+}

@@ -265,7 +265,8 @@ namespace RaidersHaveFamilies
             // A portion of heavy assaults use melee armor and uranium maces
             // (or existing royalty weapons), rather than only assault rifles.
             bool meleePreset=role==RHFCombatRole.Assault &&
-                seed%7==1 && !primitive && points>=1700f;
+                seed%7==1 && !primitive && points>=1700f &&
+                party.Role!=(int)RHFStrikeRole.Rescue;
             if(meleePreset)catalogue=MeleeModern;
             ThingWithComps old=pawn.equipment.Primary;
             float oldValue=old?.MarketValue??0f;

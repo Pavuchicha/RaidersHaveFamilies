@@ -18,6 +18,7 @@ namespace RaidersHaveFamilies
             internal Thing Gun;
             internal int Initial, Progress, HP, InitialCount, WaveStart, Waves;
             internal bool Regrouping;
+            internal bool PushBroken;
             internal IntVec3 Shelter;
             internal RHFOperation Operation;
             internal readonly HashSet<IntVec3> FailedSlots=new HashSet<IntVec3>();
@@ -80,6 +81,13 @@ namespace RaidersHaveFamilies
             if(e.Recovering.Add(p))
             {
                 e.FailedSlots.Add(e.Slots[p]);
+                int disruptedShooters=0;
+                foreach(Pawn shooter in e.Shooters)
+                    if(e.Recovering.Contains(shooter))disruptedShooters++;
+                // One suppressed soldier stops his own advance, not all fire.
+                // Once a majority of the fire wing is disrupted, stop the push.
+                if((e.Shooters.Count>0 && disruptedShooters*2>=e.Shooters.Count) ||
+                   e.Recovering.Count*2>=e.Slots.Count)e.PushBroken=true;
                 Log.Message("[NJR][R034][Firebreak] native cover; no repeat charge: "+p.LabelShortCap);
             }
         }
@@ -103,7 +111,7 @@ namespace RaidersHaveFamilies
             var costs=new Dictionary<IntVec3,int>();
             float range=RHFCombatPlannerV125.WeaponRange(p);
             // Bounded local candidate search; only 24 native path queries.
-            int radius=shooting?10:5;
+            int radius=shooting?(safeOnly?18:10):5;
             for(int x=-radius;x<=radius;x++)for(int z=-radius;z<=radius;z++)
             {
                 IntVec3 c=front+new IntVec3(x,0,z);
@@ -130,7 +138,7 @@ namespace RaidersHaveFamilies
             if(!e.Active)
             {
                 e.Active=true;e.Operation=op;e.Gun=gun;e.Initial=e.Progress=now;e.HP=gun.HitPoints;
-                e.InitialCount=fighters.Count;e.Waves=0;e.FailedSlots.Clear();
+                e.InitialCount=fighters.Count;e.Waves=0;e.FailedSlots.Clear();e.PushBroken=false;
             }
             e.Regrouping=false;e.Waves++;e.WaveStart=now;
             e.Slots.Clear();e.Recovering.Clear();e.Shooters.Clear();
@@ -159,7 +167,7 @@ namespace RaidersHaveFamilies
                 bool gunner=DirectGun(p);
                 IntVec3 slot=gunner&&!protectedFire?Position(p,map,gun,front,used,true,false):IntVec3.Invalid;
                 if(slot.IsValid)e.Shooters.Add(p);
-                else slot=Position(p,map,gun,protectedFire?shelter:front,used,false,protectedFire);
+                else slot=Position(p,map,gun,shelter,used,false,true);
                 if(!slot.IsValid)slot=p.Position;
                 e.Slots[p]=slot;used.Add(slot);
             }
@@ -203,8 +211,8 @@ namespace RaidersHaveFamilies
             // repeatedly sacrifice the same pawns in a CE cover/advance loop.
             int free=0;
             foreach(Pawn p in fighters)if(!e.Recovering.Contains(p))free++;
-            if((fighters.Count*2<=e.InitialCount || now-e.Progress>=3000 ||
-                (!e.Regrouping && e.Waves>=2 && free==0)) && now-e.Initial>=300)
+            if((fighters.Count*2<=e.InitialCount || now-e.Progress>=(e.PushBroken?1200:3000) ||
+                (e.PushBroken && now-e.Progress>=900 && free==0)) && now-e.Initial>=300)
             {
                 End(op);board.Barrier=null;board.Breacher=null;
                 op.Phase=2;op.PhaseStartTick=now;
@@ -213,43 +221,20 @@ namespace RaidersHaveFamilies
                 board.Decision="R034 failed fire encounter; withdrawal";
                 return true;
             }
-            // If the first coordinated attempt has been broken by suppression,
-            // one new group attempt is allowed, from shelter and new slots.
-            // Native emergency jobs still run. No individual instant retry.
-            if(!e.Regrouping && e.Waves<2 && e.Recovering.Count>0 &&
-               (free==0 || (now-e.Progress>=600 && now-e.WaveStart>=600)))
+            // Loss of the fire wing breaks the advance for the entire wing.
+            // Do not treat arrival at a shelter as proof CE suppression ended.
+            // Hold the positions CE actually reached; return fire remains legal.
+            // Never automatically launch another exposed wave at intact guns.
+            if(e.PushBroken)
             {
-                e.Regrouping=true;e.WaveStart=now;e.Slots.Clear();e.Shooters.Clear();
-                var used=new HashSet<IntVec3>();
                 foreach(Pawn p in fighters)
-                {
-                    IntVec3 cell=Position(p,map,e.Gun,e.Shelter,used,false,true,true);
-                    // If the straight retreat leg is blocked, test an actual
-                    // path to a sheltered cell, not an exposed new destination.
-                    if(!cell.IsValid && e.Shelter.InBounds(map) && e.Shelter.Standable(map) &&
-                       !used.Contains(e.Shelter) && !RHFObjectiveRouteV128.StagingExposedToTurret(map,e.Shelter) &&
-                       p.CanReach(e.Shelter,PathEndMode.OnCell,Danger.Deadly))cell=e.Shelter;
-                    if(!cell.IsValid)cell=p.Position;
-                    e.Slots[p]=cell;used.Add(cell);Bind(p,e);
-                }
-                Log.Message("[NJR][R034][Firebreak] regroup before second attempt");
-            }
-            if(e.Regrouping)
-            {
-                int ready=0;
-                foreach(Pawn p in fighters)
-                    if(e.Slots.TryGetValue(p,out IntVec3 slot) &&
-                       (p.Position-slot).LengthHorizontalSquared<=2 &&
-                       !RHFCombatPlannerV125.IsCombatEmergencyJob(p) &&
-                       !RHFObjectiveRouteV128.StagingExposedToTurret(map,p.Position))ready++;
-                if(ready==fighters.Count && beforeBarrier)
-                    Begin(e,op,map,route,e.Gun,fighters,now);
+                    if(e.Slots.ContainsKey(p))e.Slots[p]=p.Position;
             }
             board.Threat=e.Gun;board.Barrier=null;board.Breacher=null;
             foreach(Pawn p in fighters)
             {
                 if(!e.Slots.TryGetValue(p,out IntVec3 cell)){cell=p.Position;e.Slots[p]=cell;Bind(p,e);}
-                bool recovering=!e.Regrouping && e.Recovering.Contains(p);
+                bool recovering=e.PushBroken || e.Recovering.Contains(p);
                 if(recovering)cell=p.Position;
                 board.Assign(p,recovering?RHFRoleS41.Hold:
                     e.Shooters.Contains(p)?RHFRoleS41.SuppressTurret:RHFRoleS41.Advance,
@@ -285,11 +270,11 @@ namespace RaidersHaveFamilies
             if((p.Position-e.Gun.Position).LengthHorizontalSquared<=2 &&
                 p.CanReach(e.Gun,PathEndMode.Touch,Danger.Deadly))
                 return JobFor(JobDefOf.AttackMelee,e.Gun,180);
-            if(!e.Regrouping && e.Recovering.Contains(p))return JobFor(JobDefOf.Wait,p.Position,60);
+            if(e.PushBroken || e.Recovering.Contains(p))return JobFor(JobDefOf.Wait_Combat,p.Position,60);
             IntVec3 slot=order.Cell;
             if(slot.IsValid && slot!=p.Position && p.CanReach(slot,PathEndMode.OnCell,Danger.Deadly))
                 return JobFor(JobDefOf.Goto,slot,600);
-            return JobFor(JobDefOf.Wait,p.Position,60);
+            return JobFor(JobDefOf.Wait_Combat,p.Position,60);
         }
     }
 

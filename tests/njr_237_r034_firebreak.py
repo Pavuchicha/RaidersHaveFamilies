@@ -31,27 +31,14 @@ assert 'NJRRescueFirebreakR034.Controls(op,pawn)' in j and 'NJRRescueFirebreakR0
 assert 'return NJRRescueFirebreakR034.CombatJob(op,pawn,order)' in j
 assert '[HarmonyPatch(typeof(Pawn_JobTracker),"StartJob")]' in g and 'ObserveCover(PawnField.GetValue(__instance) as Pawn,__0)' in g
 assert 'e.Recovering.Add(p)' in g and 'e.FailedSlots.Add(e.Slots[p])' in g
-assert 'if(!e.Regrouping && e.Recovering.Contains(p))return JobFor(JobDefOf.Wait,p.Position,60)' in g
-assert 'new HashSet<IntVec3>(e.FailedSlots)' in g and 'ready==fighters.Count && beforeBarrier' in g
-assert 'e.Waves<2' in g and 'op.Phase=2;op.PhaseStartTick=now' in g
+assert 'if(e.PushBroken || e.Recovering.Contains(p))return JobFor(JobDefOf.Wait_Combat,p.Position,60)' in g
+assert 'e.PushBroken=true' in g and 'e.Slots[p]=p.Position' in g
+assert 'regroup before second attempt' not in g and 'op.Phase=2;op.PhaseStartTick=now' in g
 assert 'RHFCombatPlannerV125.IsCombatEmergencyJob(p)' in g
 assert 'NJRRescueFirebreakR034.DirectGun(candidate)' in t
-assert 'Write("debug_window_open"' in diag and 'baseRevision="R034"' in diag
-# Independent policy model. Once a native cover event arrives, ordinary Goto
-# retries are forbidden until a NEW all-ready wave. Shots remain permitted.
+assert 'Write("debug_window_open"' in diag and 'baseRevision="R035"' in diag
+# Each previously observed retry is disallowed for that suppressed pawn.
 for cover,retry in loops:
- recovering=True;waves=1;regroup=False
- def move_allowed():return not recovering or regroup
- assert not move_allowed()
  assert retry['tick']>=cover['tick']
- # While regrouping only the shelter destination is legal, not the failed slot.
- regroup=True;failed=tuple(retry['target']['cell']);shelter=(99,138)
- candidates=[failed,(failed[0]+1,failed[1])]; assert next(c for c in candidates if c!=failed)!=failed
- ready=5;total=6
- assert not ready==total
- ready=6;assert ready==total
- regroup=False;recovering=False;waves+=1
- assert move_allowed() and waves==2
- # No third push after suppression again.
- recovering=True;assert not move_allowed() and not waves<2
+ assert cover['pawn']==retry['pawn']
 print(f'PASS R034: {len(loops)} observed cover/retry sequences; normal exit, rally, CE recovery and window-trace contracts. No game execution.')
