@@ -27,7 +27,7 @@ need=[
  (native,'(c-wing.Rally).LengthHorizontalSquared>225'),
  (native,'now-wing.LastEnemySeenTick<=900'),
  (offense,'RHFNativeDoctrineS41.TryBeastSupportAnchor(beastWing,'),
- (fire,'MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len)'),
+ (fire,'MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len,from)'),
  (fire,'op.NativeAnimalsS41.Contains(pawn)'),
  (workflow,'python3 tests/rhf_158_s41_beast_incident_and_flank.py'),
 ]
@@ -62,7 +62,7 @@ mutations=[
   (native,'ObserveList(op,map,now,op.NativeAnimalsS41,seenLords);'),
   (native,'GenSight.LineOfSight(beastFront.Position,enemy.Position,map)'),
   (native,'supporter.CanReach(c,PathEndMode.OnCell,Danger.Some)'),
-  (fire,'MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len)'),
+  (fire,'MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len,from)'),
 ]
 for source,required in mutations:
     # Some necessary guards occur in more than one scoped incident path.

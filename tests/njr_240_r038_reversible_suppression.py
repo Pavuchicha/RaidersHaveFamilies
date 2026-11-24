@@ -46,14 +46,14 @@ g=(S/'NJRRescueFirebreakR034.cs').read_text();c=(S/'RHFCombatPlannerV125.cs').re
 assert 'CombatExtended.CompSuppressable' in g and 'AccessTools.Field(comp.GetType(),"isSuppressed")' in g and '.SetValue(' not in g
 assert 'e.Recovering.Remove(p);e.LastCover.Remove(p);' in g
 assert 'now-tick<(suppressed==false?180:480)' in g
-assert 'readyCells.Add(slot)' in g and 'p.Position==slot' in g
-assert 'e.Waves==1 && ready==fighters.Count && ready>=2 && now-e.RegroupStart>=600' in g
-assert 'e.Waves>1?e.FailedSlots:null' in g and '(c-failed).LengthHorizontalSquared<=4' in g
-assert 'now-e.RegroupStart>=2400' in g and 'now-Math.Max(e.Progress,e.WaveStart)>=3000' in g and 'now-e.Progress>=7200' in g
-assert 'e.PushBroken || e.Recovering.Contains(p)' not in g and 'e.Slots[p]=p.Position' not in g
-assert 'if(!e.Regrouping)e.FailedSlots.Add(e.Slots[p]);' in g and 'RecoveredPosture(pawn)' in c
+assert '!occupied.Contains(slot)' in g and 'occupied.Add(slot)' in g
+assert 'localReady>=2 && localReady*2>=localGuns && now-e.LastGroupMove>=600' in g
+assert 'e.FailedSlots' in g and '(c-failed).LengthHorizontalSquared<=4' in g
+assert 'now-e.RegroupStart' not in g and 'now-e.Progress>=7200' in g
+assert 'e.PushBroken' not in g and 'e.FireTargets[p]=target;TrackTarget(e,target);e.Slots[p]=p.Position' in g
+assert 'e.FailedSlots.Add(e.Slots[p]);' in g and 'RecoveredPosture(pawn)' in c
 assert 'if(d<16)score+=' in g and 'cross*cross<=4L*len' in g and 'range*0.8f-distance' in g
 assert 'desiredSupport=(desired+1)/2' in f and 'pass<2 && attempts<24' in f and 'kind.combatPower<=cap+remaining' in f
 assert 'WeaponRange(p)<24f' in f and 'name.IndexOf("Revolver"' in f and 'if(pass==1 && !longGun)' in f
-assert 'baseRevision="R038"' in d
+assert 'baseRevision="R039"' in d
 print('PASS R038: real 6338-event trace, 8 distinct raider cast starts, 7 cover entries, nine frozen snapshots; reversible recovery and bounded retry policy model. No C#/CE execution.')

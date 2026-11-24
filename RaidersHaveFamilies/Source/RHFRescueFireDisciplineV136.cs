@@ -43,22 +43,25 @@ namespace RaidersHaveFamilies
         // friendly mercenaries from a faction still hostile diplomatically.
         // This is NOT a claim to prevent all inaccuracy, ricochets or explosions.
         internal static bool UnsafeLine(RHFOperation op,Pawn shooter,Thing target)
+        {return shooter==null || UnsafeLineFrom(op,shooter,target,shooter.Position);}
+
+        internal static bool UnsafeLineFrom(RHFOperation op,Pawn shooter,Thing target,IntVec3 from)
         {
             if(op==null || shooter==null || target==null)return true;
             if(target is Pawn attacked && IsProtected(op,attacked))return true;
             Map map=shooter.Map;
             if(map==null || target.MapHeld!=map)return true;
-            long dx=target.Position.x-shooter.Position.x;
-            long dz=target.Position.z-shooter.Position.z;
+            long dx=target.Position.x-from.x;
+            long dz=target.Position.z-from.z;
             long len=dx*dx+dz*dz;
             if(len==0)return true;
             // Iterate only the bounded mission roster, not every pawn on a
             // heavily modded map, and never alter global faction relationships.
-            if(MemberInLine(op.Squad,shooter,target,dx,dz,len) ||
-               MemberInLine(op.Diversion,shooter,target,dx,dz,len) ||
-               MemberInLine(op.Targets,shooter,target,dx,dz,len) ||
-               MemberInLine(op.Freed,shooter,target,dx,dz,len) ||
-               MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len))
+            if(MemberInLine(op.Squad,shooter,target,dx,dz,len,from) ||
+               MemberInLine(op.Diversion,shooter,target,dx,dz,len,from) ||
+               MemberInLine(op.Targets,shooter,target,dx,dz,len,from) ||
+               MemberInLine(op.Freed,shooter,target,dx,dz,len,from) ||
+               MemberInLine(op.NativeAnimalsS41,shooter,target,dx,dz,len,from))
                 return true;
             // Doomsday/triple rockets and explosives have a REAL blast radius.
             // A clear shot down a two-cell lane is NOT safe if a VIP, builder,
@@ -101,7 +104,7 @@ namespace RaidersHaveFamilies
         }
 
         private static bool MemberInLine(List<Pawn> members,Pawn shooter,Thing target,
-            long dx,long dz,long len)
+            long dx,long dz,long len,IntVec3 from)
         {
             if(members==null)return false;
             for(int i=0;i<members.Count;i++)
@@ -109,8 +112,8 @@ namespace RaidersHaveFamilies
                 Pawn pawn=members[i];
                 if(pawn==null || pawn==shooter || pawn==target ||
                    !pawn.Spawned || pawn.Dead || pawn.Map!=shooter.Map)continue;
-                long px=pawn.Position.x-shooter.Position.x;
-                long pz=pawn.Position.z-shooter.Position.z;
+                long px=pawn.Position.x-from.x;
+                long pz=pawn.Position.z-from.z;
                 long dot=px*dx+pz*dz;
                 if(dot<=0 || dot>=len)continue;
                 long cross=px*dz-pz*dx;

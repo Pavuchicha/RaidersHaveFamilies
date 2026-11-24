@@ -36,6 +36,7 @@ namespace RaidersHaveFamilies
             IncomingFire.TryGetValue(pawn,out Incoming shot) && now>=shot.Tick && now-shot.Tick<300;
         internal static bool IsGathering(RHFOperation op) => op!=null && op.Phase==1 &&
             States.TryGetValue(op,out State s) && s.Gathering;
+        internal static IntVec3 Anchor(RHFOperation op) => op!=null && States.TryGetValue(op,out State s)?s.Anchor:IntVec3.Invalid;
         internal static void StopGathering(RHFOperation op)
         {
             if(op!=null && States.TryGetValue(op,out State s))s.Gathering=false;

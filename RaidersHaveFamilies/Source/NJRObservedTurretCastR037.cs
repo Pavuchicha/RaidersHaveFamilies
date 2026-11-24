@@ -35,6 +35,7 @@ namespace RaidersHaveFamilies
                turret.Map!=pawn.Map || !RHFCombatPlannerV125.IsTurret(turret))return;
             RHFObjectiveRouteV128.ObserveTurretRangeR037(turret,pawn.Position);
             NJRRescueRallyR033.ObserveIncomingR037(pawn,Find.TickManager.TicksGame);
+            NJRRescueFirebreakR034.ObserveIncoming(pawn,turret,Find.TickManager.TicksGame);
         }
     }
 }

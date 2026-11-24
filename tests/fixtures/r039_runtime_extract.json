@@ -1,0 +1,1826 @@
+{
+  "revision": "R038",
+  "events": 8986,
+  "roster": {
+    "36726": {
+      "name": "Пиуб",
+      "weapon": "Gun_HeavySMG"
+    },
+    "36734": {
+      "name": "Хрускуогг",
+      "weapon": "Gun_MachinePistol"
+    },
+    "36739": {
+      "name": "Sammy",
+      "weapon": "Gun_AssaultRifle"
+    },
+    "36806": {
+      "name": "Swell",
+      "weapon": "Gun_PumpShotgun"
+    },
+    "36990": {
+      "name": "Shuck",
+      "weapon": "Gun_HeavySMG"
+    },
+    "19442": {
+      "name": "Wuggy",
+      "weapon": "MeleeWeapon_BreachAxe"
+    }
+  },
+  "messages": [
+    {
+      "tick": 38668,
+      "msg": "[NJR][ForceR017] Committed 5-member Rescue wing of Совет Пагла; native combat cost=40; additional allocated points=428; final party budget=470"
+    },
+    {
+      "tick": 38668,
+      "msg": "[NJR][R026][GroundEntry] valid=20 eligible=20 side=1 chosen=(243, 0, 167) score=16354 danger=0"
+    },
+    {
+      "tick": 38668,
+      "msg": "[NJR][R035][Roster] direct fire=5/6 target=5 range24=3/3 attempts=20"
+    },
+    {
+      "tick": 38668,
+      "msg": "[NJR][GroundEntryR016] Spawned 6 ground rescuers at (243, 0, 167); verified exterior cells=184."
+    },
+    {
+      "tick": 38668,
+      "msg": "[RHF] План операции: штурм тюрьмы и совместный вывод пленных.\r\nПосле основной задачи: отход.\r\nЦЕЛЬ ОПЕРАЦИИ: добраться до удерживаемых пленников, освободить их и вывести. Ударная группа не обязана грабить или разрушать всё поселение.\r\nЦелевых пленников: 1.\r\nСпасатели обязаны создать пары сопровождения и вместе с освобождёнными отойти к доступному краю карты. Отвлекающая группа остаётся под управлением штурмового ИИ.\r\n• Совет Пагла: освобождение, прорыв; сила около 470 очков. Бойцов с проломным оружием: 1, санитары: 1, без основного оружия: 0.\r\n"
+    },
+    {
+      "tick": 38668,
+      "msg": "[NJR — Not Just Raiders][Debug] Рейд вызван СЕЙЧАС: Rescue. Успешных групп: 1/1; спонсоров: 1; суммарный бюджет групп 470. Если использованы капсулы, дождись открытия капсул, не повторяй вызов."
+    },
+    {
+      "tick": 38758,
+      "msg": "[NJR][R033][Rally] gather at (101, 0, 136) before Мини-турель из стали members=6"
+    },
+    {
+      "tick": 41458,
+      "msg": "[NJR][R037][Rally] independent approach field at (101, 0, 136) for Swell from (167, 0, 110)"
+    },
+    {
+      "tick": 44158,
+      "msg": "[NJR][R037][Rally] independent approach field at (101, 0, 136) for Sammy from (172, 0, 114)"
+    },
+    {
+      "tick": 45328,
+      "msg": "[NJR][R033][Rally] release ready=5/6 timed=True exposed=0"
+    },
+    {
+      "tick": 45328,
+      "msg": "[NJR][R038][Firebreak] commit members=6 shootingSlots=4 protected=False gun=(109, 0, 151) wave=1"
+    },
+    {
+      "tick": 45568,
+      "msg": "[NJR][R038][Firebreak] native suppression/cover: Swell native=True"
+    },
+    {
+      "tick": 45571,
+      "msg": "[NJR][R038][Firebreak] native suppression/cover: Пиуб native=True"
+    },
+    {
+      "tick": 45573,
+      "msg": "[NJR][R038][Firebreak] native suppression/cover: Хрускуогг native=True"
+    },
+    {
+      "tick": 45598,
+      "msg": "[NJR][R038][Firebreak] regroup; suppressed=3/5 wave=1"
+    },
+    {
+      "tick": 45868,
+      "msg": "[NJR][R038][Firebreak] recovered: Swell native=False"
+    },
+    {
+      "tick": 45868,
+      "msg": "[NJR][R038][Firebreak] recovered: Пиуб native=False"
+    },
+    {
+      "tick": 45868,
+      "msg": "[NJR][R038][Firebreak] recovered: Хрускуогг native=False"
+    },
+    {
+      "tick": 45980,
+      "msg": "[NJR][R038][Firebreak] native suppression/cover: Sammy native=True"
+    },
+    {
+      "tick": 46408,
+      "msg": "[NJR][R038][Firebreak] recovered: Sammy native=False"
+    },
+    {
+      "tick": 46694,
+      "msg": "[NJR][R038][Firebreak] native suppression/cover: Sammy native=True"
+    },
+    {
+      "tick": 47308,
+      "msg": "[NJR][R038][Firebreak] recovered: Sammy native=False"
+    },
+    {
+      "tick": 47458,
+      "msg": "[NJR][R038][Firebreak] native suppression/cover: Sammy native=False"
+    },
+    {
+      "tick": 47668,
+      "msg": "[NJR][R038][Firebreak] recovered: Sammy native=False"
+    },
+    {
+      "tick": 47938,
+      "msg": "[NJR][R038][Firebreak] native suppression/cover: Sammy native=True"
+    },
+    {
+      "tick": 48028,
+      "msg": "[NJR][R038][Firebreak] abort; mobile=6 guns=5 suppressed=1 noSecondLine=False noDamageTicks=2700"
+    }
+  ],
+  "samples": [
+    {
+      "tick": 45308,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            134
+          ],
+          "job": "Wait",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            99,
+            133
+          ],
+          "job": "Wait",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            172,
+            114
+          ],
+          "job": "AttackStatic",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            133
+          ],
+          "job": "Wait",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            99,
+            132
+          ],
+          "job": "Wait",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            98,
+            134
+          ],
+          "job": "Wait",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 45428,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            96,
+            137
+          ],
+          "job": "AttackStatic",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            172,
+            114
+          ],
+          "job": "AttackStatic",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            137
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            98,
+            135
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            100,
+            137
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 45548,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            96,
+            137
+          ],
+          "job": "AttackStatic",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            99,
+            144
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            172,
+            114
+          ],
+          "job": "AttackStatic",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            143
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            93,
+            140
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            100,
+            137
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 45668,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            98,
+            136
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            100,
+            142
+          ],
+          "job": "RunForCover",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            170,
+            114
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            93,
+            137
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 45788,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            98,
+            136
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            164,
+            114
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 45908,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            98,
+            136
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            158,
+            114
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            101,
+            140
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46028,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            153,
+            114
+          ],
+          "job": "RunForCover",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46148,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            148,
+            110
+          ],
+          "job": "RunForCover",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46268,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            146,
+            108
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46388,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            146,
+            108
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46508,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            144,
+            111
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46628,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            142,
+            116
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46748,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            139,
+            120
+          ],
+          "job": "RunForCover",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46868,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            142,
+            120
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 46988,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            142,
+            117
+          ],
+          "job": "RunForCover",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47108,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            144,
+            112
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47228,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            144,
+            112
+          ],
+          "job": "ReloadWeapon",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47348,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            144,
+            112
+          ],
+          "job": "ReloadWeapon",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47468,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            144,
+            112
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47588,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            144,
+            112
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47708,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            144,
+            112
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47828,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            141,
+            117
+          ],
+          "job": "Goto",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    },
+    {
+      "tick": 47948,
+      "pawns": [
+        {
+          "id": 36726,
+          "pos": [
+            99,
+            138
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36734,
+          "pos": [
+            101,
+            141
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36739,
+          "pos": [
+            137,
+            121
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36806,
+          "pos": [
+            100,
+            134
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 36990,
+          "pos": [
+            96,
+            133
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        },
+        {
+          "id": 19442,
+          "pos": [
+            103,
+            131
+          ],
+          "job": "Wait_Combat",
+          "downed": false,
+          "dead": false
+        }
+      ]
+    }
+  ],
+  "damage": [
+    {
+      "tick": 48579,
+      "target": 19304,
+      "hp": 100,
+      "amount": 14,
+      "instigator": 36739
+    },
+    {
+      "tick": 48582,
+      "target": 19304,
+      "hp": 97,
+      "amount": 14,
+      "instigator": 36739
+    },
+    {
+      "tick": 48590,
+      "target": 19304,
+      "hp": 94,
+      "amount": 14,
+      "instigator": 36739
+    },
+    {
+      "tick": 48700,
+      "target": 19304,
+      "hp": 90,
+      "amount": 14,
+      "instigator": 36739
+    },
+    {
+      "tick": 49295,
+      "target": 19304,
+      "hp": 86,
+      "amount": 14,
+      "instigator": 36739
+    },
+    {
+      "tick": 49302,
+      "target": 19304,
+      "hp": 83,
+      "amount": 14,
+      "instigator": 36739
+    },
+    {
+      "tick": 49310,
+      "target": 19304,
+      "hp": 79,
+      "amount": 14,
+      "instigator": 36739
+    }
+  ],
+  "casts": [
+    [
+      45415,
+      36726,
+      32396
+    ],
+    [
+      45541,
+      36726,
+      32396
+    ],
+    [
+      45544,
+      36990,
+      32398
+    ],
+    [
+      45552,
+      36990,
+      32396
+    ],
+    [
+      45571,
+      36726,
+      32398
+    ],
+    [
+      45587,
+      36990,
+      32396
+    ],
+    [
+      46180,
+      36739,
+      32404
+    ],
+    [
+      46289,
+      36739,
+      32404
+    ],
+    [
+      46365,
+      36739,
+      32404
+    ],
+    [
+      46783,
+      36739,
+      32406
+    ],
+    [
+      46872,
+      36739,
+      32406
+    ],
+    [
+      47065,
+      36739,
+      32404
+    ],
+    [
+      47164,
+      36739,
+      32404
+    ],
+    [
+      47461,
+      36739,
+      32404
+    ],
+    [
+      47577,
+      36739,
+      32404
+    ],
+    [
+      47636,
+      36739,
+      32404
+    ],
+    [
+      47941,
+      36739,
+      32404
+    ],
+    [
+      48006,
+      36739,
+      32404
+    ],
+    [
+      48362,
+      36739,
+      19304
+    ],
+    [
+      48478,
+      36739,
+      19304
+    ],
+    [
+      48551,
+      36739,
+      19304
+    ],
+    [
+      48610,
+      36739,
+      19304
+    ],
+    [
+      48669,
+      36739,
+      19304
+    ],
+    [
+      48966,
+      36739,
+      19304
+    ],
+    [
+      49082,
+      36739,
+      19304
+    ],
+    [
+      49141,
+      36739,
+      19304
+    ],
+    [
+      49200,
+      36739,
+      19304
+    ],
+    [
+      49263,
+      36739,
+      19304
+    ]
+  ]
+}

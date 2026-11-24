@@ -1,0 +1,16 @@
+.github/workflows/build.yml
+R039_INSTALL_RU.txt
+RaidersHaveFamilies/Source/Diagnostics/NJRTestRecorderR030.cs
+RaidersHaveFamilies/Source/NJRObservedTurretCastR037.cs
+RaidersHaveFamilies/Source/NJRRescueFirebreakR034.cs
+RaidersHaveFamilies/Source/NJRRescueRallyR033.cs
+RaidersHaveFamilies/Source/RHFRescueFireDisciplineV136.cs
+docs/NJR_R039_LOCAL_ENGAGEMENT_RU.md
+tests/fixtures/r039_runtime_extract.json
+tests/njr_237_r034_firebreak.py
+tests/njr_238_r035_firewing.py
+tests/njr_239_r037_rally_deadlock.py
+tests/njr_240_r038_reversible_suppression.py
+tests/njr_241_r039_local_engagement.py
+tests/rhf_158_s41_beast_incident_and_flank.py
+docs/R039_CHANGED_FILES.txt
