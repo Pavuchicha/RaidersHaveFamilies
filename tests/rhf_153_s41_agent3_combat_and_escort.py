@@ -28,7 +28,8 @@ def test(p,g,b,j,w,x):
     assert 'obstacle != null && !firebreakBeforeBreach' in p
     assert 'FirstRouteTurret(route,map)' in p
     assert 'RHFRoleS41.SuppressTurret' in p and 'RHFRoleS41.SuppressTurret' in g
-    assert 'board.Threat=FirstRouteTurret(route,map);' in p
+    assert 'Thing routeGun=FirstRouteTurret(route,map);' in p
+    assert 'route.FirstTurretExposureIndex<=route.FirstBarrierIndex) ? routeGun : null;' in p
     assert 'Scribe_References.Look(ref Threat' in b
     assert 'LastThreatHP' in b and 'board.Threat.HitPoints<board.LastThreatHP' in p
     # No combat role's Hold may suppress native/local self-defense.
@@ -59,7 +60,7 @@ changes=[
  ('g', 'JobDefOf.AttackMelee','JobDefOf.Wait'),
  ('j', 'namespace RaidersHaveFamilies {}','GenExplosion.DoExplosion'),
  ('p', 'obstacle != null && !firebreakBeforeBreach','obstacle != null'),
- ('p', 'board.Threat=FirstRouteTurret(route,map);','board.Threat=null;'),
+ ('p', 'route.FirstTurretExposureIndex<=route.FirstBarrierIndex) ? routeGun : null;', 'route.FirstTurretExposureIndex<=route.FirstBarrierIndex) ? null : null;'),
  ('p', 'RHFRoleS41.SuppressTurret','RHFRoleS41.Screen'),
  ('g', 'Task(JobDefOf.Wait,pawn.Position,90) : null','Task(JobDefOf.Wait,pawn.Position,90) : Task(JobDefOf.Wait,pawn.Position,90)'),
  ('g', 'if(separation>9)','if(separation>81)'),

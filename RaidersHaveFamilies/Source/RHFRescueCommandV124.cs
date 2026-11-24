@@ -326,7 +326,7 @@ namespace RaidersHaveFamilies
                     if(permitted && !RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure))
                         permitted=false;
                     if(permitted)continue;
-                    Log.WarningOnce("[NJR][R020] Cancelled stale native structure " +
+                    NJRRescueRallyR033.NoteOnce(op,"[NJR][R020] Cancelled stale native structure " +
                         "attack: "+p.LabelShortCap+" / "+structure.LabelShortCap,
                         p.thingIDNumber ^ structure.thingIDNumber ^ 2020);
                     p.jobs.EndCurrentJob(JobCondition.InterruptForced);

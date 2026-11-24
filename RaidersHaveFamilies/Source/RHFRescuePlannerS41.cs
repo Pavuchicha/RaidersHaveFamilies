@@ -54,6 +54,10 @@ namespace RaidersHaveFamilies
             Pawn actor=board.Breacher;
             if(state.Target!=obstacle){state.Failed.Clear();state.Target=obstacle;state.Actor=null;}
             if(!Active(actor,map) || obstacle==null)return;
+            RHFOrderS41 actual=board.For(actor,false);
+            if(actual==null || actual.Role!=(int)RHFRoleS41.Breach || actual.Objective!=obstacle ||
+               !actual.Cell.IsValid || actor.Position!=actual.Cell)
+            {state.Actor=actor;state.Changed=now;state.Position=actor.Position;return;}
             if(state.Actor!=actor || state.Position!=actor.Position || state.HP!=obstacle.HitPoints ||
                RHFCombatPlannerV125.IsCombatEmergencyJob(actor))
             {state.Actor=actor;state.Position=actor.Position;state.HP=obstacle.HitPoints;state.Changed=now;return;}
@@ -533,6 +537,15 @@ namespace RaidersHaveFamilies
                     nativeAccess++;
             if(nativeAccess>0)
             {
+                // Native access is not proof of a fire-free route. Use the
+                // rally for a complete exposed corridor without demolition.
+                RHFRoutePlanV128 accessRoute=RHFObjectiveRouteV128.ResolveShared(
+                    op,map,op.Squad,escortedDuringAssault,captive,now);
+                if(accessRoute.Valid && accessRoute.FirstBarrier==null &&
+                   NJRRescueRallyR033.TryGather(op,map,board,accessRoute,
+                       FirstRouteTurret(accessRoute,map),escortedDuringAssault,now))
+                {CancelObsoleteStructureJobs(op,map,board);return;}
+                NJRRescueRallyR033.StopGathering(op);
                 board.Barrier=null;board.Breacher=null;board.Threat=null;
                 int advancing=0;
                 var contactSlots=new HashSet<IntVec3>();
@@ -611,6 +624,12 @@ namespace RaidersHaveFamilies
                 board.LastProgressTick=now;
                 op.LastProgressTick=now;
             }
+            Thing routeGun=FirstRouteTurret(route,map);
+            if(NJRRescueRallyR033.TryGather(op,map,board,route,routeGun,escortedDuringAssault,now))
+            {
+                CancelObsoleteStructureJobs(op,map,board);
+                return;
+            }
             bool firebreakBeforeBreach=route.Valid && !route.RiskFallback &&
                 route.FirstTurretExposureIndex>=0 &&
                 (route.FirstBarrierIndex<0 ||
@@ -636,7 +655,8 @@ namespace RaidersHaveFamilies
                 op.PhaseStartTick=now;
                 return;
             }
-            board.Threat=FirstRouteTurret(route,map);
+            board.Threat=route.Valid && (route.FirstBarrierIndex<0 ||
+                route.FirstTurretExposureIndex<=route.FirstBarrierIndex) ? routeGun : null;
             // Do NOT send a third of the rescue wing after an unrelated
             // visible turret if the hostage route is already clear of guns.
             // Only a failed route triggers a defensive-front recovery.
@@ -659,10 +679,11 @@ namespace RaidersHaveFamilies
             {
                 int maxOperators=Math.Min(3,Math.Max(1,available-2));
                 Pawn actor=board.Breacher;
-                for(int n=0;n<maxOperators && actor!=null;n++)
+                for(int n=0;n<op.Squad.Count && actor!=null && breachSlots.Count<maxOperators;n++)
                 {
                     excludedBreach.Add(actor);
-                    if((actor.Position-obstacle.Position).LengthHorizontalSquared<=144)
+                    if((actor==board.Breacher || actor.equipment?.Primary?.def?.IsMeleeWeapon==true) &&
+                       (actor.Position-obstacle.Position).LengthHorizontalSquared<=144)
                     {
                         RHFOrderS41 previous=board.For(actor,false);
                         IntVec3 priorSlot=previous!=null && previous.Role==(int)RHFRoleS41.Breach &&
@@ -672,9 +693,8 @@ namespace RaidersHaveFamilies
                         if(slot.IsValid){breachSlots.Add(actor,slot);allocated.Add(slot);}
                     }
                     actor=RHFCombatPlannerV125.SelectBreachOperator(op,map,obstacle,excludedBreach);
-                    // Extra operators must have a melee weapon. Keep shooters
-                    // defending the rescue instead of using rifle butts.
-                    if(actor!=null && actor.equipment?.Primary?.def?.IsMeleeWeapon!=true)break;
+                    // A ranged candidate must not terminate the search for a
+                    // second equipped melee specialist farther down the roster.
                 }
                 // Non-breach members cannot camp on the remaining striking cells.
                 foreach(IntVec3 offset in NJRRescueFormationR032.Adjacent)
@@ -796,7 +816,7 @@ namespace RaidersHaveFamilies
             }
             CancelObsoleteStructureJobs(op,map,board);
             if(obstacle!=null && board.Breacher==null)
-                Log.WarningOnce("[NJR][R026] Missing executable breacher: barrier="+
+                NJRRescueRallyR033.NoteOnce(op,"[NJR][R026] Missing executable breacher: barrier="+
                     obstacle.LabelShortCap+" at "+obstacle.Position+
                     ", reason="+route.Explanation,
                     obstacle.thingIDNumber ^ 260027);
@@ -809,7 +829,7 @@ namespace RaidersHaveFamilies
             // Once per stalled mission: evidence of what the real JobGivers
             // were ordered to do. This is intentionally not a per-pawn log.
             if(now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>1200)
-                Log.WarningOnce("[NJR][R026][STALL] phase="+op.Phase+
+                NJRRescueRallyR033.NoteOnce(op,"[NJR][R026][STALL] phase="+op.Phase+
                     " captive="+captive.Position+" available="+available+
                     " route="+route.Valid+" expanded="+route.Expanded+
                     " barrier="+(board.Barrier?.Position.ToString()??"none")+
@@ -835,7 +855,7 @@ namespace RaidersHaveFamilies
                     (op.Phase==2 && board.Barrier==target && board.Breacher==soldier && target is Building_Door)) &&
                    RHFObjectiveRouteV128.IsRescueStructuralBarrier(target))continue;
                 soldier.jobs.EndCurrentJob(JobCondition.InterruptForced);
-                Log.WarningOnce("[NJR][R025] Stopped unauthorized structural attack: "+
+                NJRRescueRallyR033.NoteOnce(op,"[NJR][R025] Stopped unauthorized structural attack: "+
                     soldier.LabelShortCap+" -> "+target.LabelShortCap,
                     soldier.thingIDNumber ^ target.thingIDNumber ^ 250025);
             }

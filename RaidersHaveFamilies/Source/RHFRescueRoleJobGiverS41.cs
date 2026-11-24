@@ -177,7 +177,8 @@ namespace RaidersHaveFamilies
             RHFRoleS41 role=(RHFRoleS41)order.Role;
             if(op.Freed==null || !op.Freed.Contains(pawn))
             {
-                bool maneuver=op.Phase==1 || role==RHFRoleS41.Screen;
+                bool maneuver=(op.Phase==1 && !NJRRescueRallyR033.IsGathering(op)) ||
+                    (role==RHFRoleS41.Screen && !NJRRescueRallyR033.IsGathering(op));
                 IntVec3 anchor=op.Phase==2 && role==RHFRoleS41.Screen &&
                     order.Objective is Pawn pursuer && pursuer.Spawned ?
                     pursuer.Position : order.Cell.IsValid?order.Cell:
@@ -295,7 +296,8 @@ namespace RaidersHaveFamilies
                 case RHFRoleS41.Screen:
                 {
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
-                       (pawn.Position-order.Cell).LengthHorizontalSquared>9)
+                       (op.Phase==1 ? pawn.Position!=order.Cell :
+                           (pawn.Position-order.Cell).LengthHorizontalSquared>9))
                     {
                         if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
                             return Task(JobDefOf.Goto,order.Cell,240);

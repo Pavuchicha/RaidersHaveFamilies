@@ -1,0 +1,1474 @@
+[
+  {
+    "file": "20261124_184923_682_d34be8ce.zip",
+    "revision": "R032",
+    "events": 9918,
+    "members": {
+      "28087": {
+        "label": "Lynx",
+        "weapon": "MeleeWeapon_BreachAxe",
+        "first_pos": [
+          37,
+          243
+        ],
+        "initial_stationary_ticks": 2640,
+        "ever_downed": false,
+        "roles": {
+          "Hold": 2,
+          "Advance": 2,
+          "Withdraw": 1
+        }
+      },
+      "28108": {
+        "label": "Melon",
+        "weapon": "Gun_ChainShotgun",
+        "first_pos": [
+          40,
+          241
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 20,
+          "Screen": 8,
+          "Withdraw": 1
+        }
+      },
+      "28118": {
+        "label": "Dennis",
+        "weapon": "MeleeWeapon_BreachAxe",
+        "first_pos": [
+          39,
+          241
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 22,
+          "Breach": 2,
+          "Withdraw": 1
+        }
+      },
+      "28127": {
+        "label": "Hayball",
+        "weapon": "CE_Weapon_GrenadeConcussion",
+        "first_pos": [
+          38,
+          241
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 22,
+          "Screen": 9,
+          "Withdraw": 1
+        }
+      },
+      "28135": {
+        "label": "Gammon",
+        "weapon": "MeleeWeapon_Knife",
+        "first_pos": [
+          40,
+          240
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 30,
+          "Hold": 1,
+          "Breach": 1,
+          "Escort": 1
+        }
+      },
+      "28144": {
+        "label": "Hog",
+        "weapon": "Gun_PumpShotgun",
+        "first_pos": [
+          38,
+          241
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 32,
+          "Screen": 3,
+          "Hold": 1,
+          "Withdraw": 1
+        }
+      },
+      "28152": {
+        "label": "Vector",
+        "weapon": "Weapon_GrenadeMolotov",
+        "first_pos": [
+          39,
+          242
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 29,
+          "Hold": 1,
+          "Withdraw": 1
+        }
+      }
+    },
+    "routes": [
+      {
+        "tick": 33629,
+        "Valid": true,
+        "FirstBarrierIndex": 174,
+        "FirstTurretExposureIndex": -1,
+        "ExposedTurretCells": 0,
+        "DangerCost": 0
+      },
+      {
+        "tick": 36329,
+        "Valid": true,
+        "FirstBarrierIndex": 21,
+        "FirstTurretExposureIndex": -1,
+        "ExposedTurretCells": 0,
+        "DangerCost": 0
+      },
+      {
+        "tick": 37499,
+        "Valid": true,
+        "FirstBarrierIndex": 18,
+        "FirstTurretExposureIndex": -1,
+        "ExposedTurretCells": 0,
+        "DangerCost": 0
+      }
+    ],
+    "breach_assignments": [
+      {
+        "tick": 36509,
+        "pawn": 28135,
+        "cell": [
+          125,
+          156
+        ],
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 36779,
+        "pawn": 28118,
+        "cell": [
+          125,
+          156
+        ],
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 37769,
+        "pawn": 28118,
+        "cell": [
+          114,
+          150
+        ],
+        "target": [
+          114,
+          151
+        ]
+      }
+    ],
+    "wall_hits": [
+      {
+        "tick": 36710,
+        "pawn": 28135,
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 36929,
+        "pawn": 28118,
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 37089,
+        "pawn": 28118,
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 37251,
+        "pawn": 28118,
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 37411,
+        "pawn": 28118,
+        "target": [
+          125,
+          155
+        ]
+      }
+    ],
+    "warnings": [
+      {
+        "tick": 36779,
+        "level": "WarningOnce",
+        "message": "[NJR][R025] Stopped unauthorized structural attack: Gammon -> Стена из стали (98%)"
+      },
+      {
+        "tick": 36779,
+        "level": "Warning",
+        "message": "[NJR][R025] Stopped unauthorized structural attack: Gammon -> Стена из стали (98%)"
+      }
+    ],
+    "suppression_assignments": []
+  },
+  {
+    "file": "20261124_185000_761_8e368ec4.zip",
+    "revision": "R032",
+    "events": 9513,
+    "members": {
+      "28087": {
+        "label": "Меуб",
+        "weapon": "MeleeWeapon_BreachAxe",
+        "first_pos": [
+          71,
+          6
+        ],
+        "initial_stationary_ticks": 2640,
+        "ever_downed": false,
+        "roles": {
+          "Hold": 3,
+          "Advance": 2,
+          "Withdraw": 1
+        }
+      },
+      "28098": {
+        "label": "Bulge",
+        "weapon": "Gun_ChainShotgun",
+        "first_pos": [
+          73,
+          10
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 21,
+          "Screen": 10,
+          "Escort": 2
+        }
+      },
+      "28106": {
+        "label": "Roly",
+        "weapon": "MeleeWeapon_BreachAxe",
+        "first_pos": [
+          71,
+          10
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 26,
+          "Breach": 2,
+          "Withdraw": 1
+        }
+      },
+      "28113": {
+        "label": "Хрыаг",
+        "weapon": "CE_Weapon_GrenadeConcussion",
+        "first_pos": [
+          71,
+          10
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 23,
+          "Screen": 8,
+          "Withdraw": 1
+        }
+      },
+      "28122": {
+        "label": "Lissa",
+        "weapon": "Weapon_GrenadeMolotov",
+        "first_pos": [
+          70,
+          8
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 37,
+          "Screen": 1,
+          "Hold": 1,
+          "Withdraw": 1
+        }
+      },
+      "28133": {
+        "label": "Stumpy",
+        "weapon": "Gun_HeavySMG",
+        "first_pos": [
+          71,
+          10
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Advance": 28,
+          "Hold": 1,
+          "Withdraw": 1
+        }
+      }
+    },
+    "routes": [
+      {
+        "tick": 33199,
+        "Valid": true,
+        "FirstBarrierIndex": 207,
+        "FirstTurretExposureIndex": -1,
+        "ExposedTurretCells": 0,
+        "DangerCost": 0
+      },
+      {
+        "tick": 35899,
+        "Valid": true,
+        "FirstBarrierIndex": 71,
+        "FirstTurretExposureIndex": -1,
+        "ExposedTurretCells": 0,
+        "DangerCost": 0
+      },
+      {
+        "tick": 38059,
+        "Valid": true,
+        "FirstBarrierIndex": 18,
+        "FirstTurretExposureIndex": -1,
+        "ExposedTurretCells": 0,
+        "DangerCost": 0
+      }
+    ],
+    "breach_assignments": [
+      {
+        "tick": 37609,
+        "pawn": 28106,
+        "cell": [
+          125,
+          156
+        ],
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 38329,
+        "pawn": 28106,
+        "cell": [
+          114,
+          150
+        ],
+        "target": [
+          114,
+          151
+        ]
+      }
+    ],
+    "wall_hits": [
+      {
+        "tick": 37681,
+        "pawn": 28106,
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 37840,
+        "pawn": 28106,
+        "target": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 37999,
+        "pawn": 28106,
+        "target": [
+          125,
+          155
+        ]
+      }
+    ],
+    "warnings": [],
+    "suppression_assignments": []
+  },
+  {
+    "file": "20261124_185213_225_03e2db4b.zip",
+    "revision": "R032",
+    "events": 6450,
+    "members": {
+      "36725": {
+        "label": "Хроаг",
+        "weapon": "MeleeWeapon_BreachAxe",
+        "first_pos": [
+          159,
+          6
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Hold": 8,
+          "Advance": 64
+        }
+      },
+      "36737": {
+        "label": "Lissa",
+        "weapon": "Gun_ChainShotgun",
+        "first_pos": [
+          160,
+          6
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": true,
+        "roles": {
+          "Hold": 1,
+          "SuppressTurret": 52
+        }
+      },
+      "36744": {
+        "label": "Пигорк",
+        "weapon": "MeleeWeapon_BreachAxe",
+        "first_pos": [
+          158,
+          6
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": false,
+        "roles": {
+          "Hold": 5,
+          "Advance": 60
+        }
+      },
+      "36753": {
+        "label": "Slather",
+        "weapon": "Weapon_GrenadeFrag",
+        "first_pos": [
+          159,
+          7
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": true,
+        "roles": {
+          "Hold": 1,
+          "SuppressTurret": 46
+        }
+      },
+      "36761": {
+        "label": "Сквоен",
+        "weapon": "CE_Weapon_GrenadeConcussion",
+        "first_pos": [
+          159,
+          5
+        ],
+        "initial_stationary_ticks": 2640,
+        "ever_downed": false,
+        "roles": {
+          "Hold": 5,
+          "Advance": 3,
+          "SuppressTurret": 34
+        }
+      },
+      "36770": {
+        "label": "Rotund",
+        "weapon": "Gun_Revolver",
+        "first_pos": [
+          160,
+          7
+        ],
+        "initial_stationary_ticks": 0,
+        "ever_downed": true,
+        "roles": {
+          "Hold": 7,
+          "Advance": 26,
+          "SuppressTurret": 23
+        }
+      }
+    },
+    "routes": [
+      {
+        "tick": 39685,
+        "Valid": false,
+        "FirstBarrierIndex": -1,
+        "FirstTurretExposureIndex": -1,
+        "ExposedTurretCells": 0,
+        "DangerCost": 0
+      },
+      {
+        "tick": 39775,
+        "Valid": true,
+        "FirstBarrierIndex": 228,
+        "FirstTurretExposureIndex": 211,
+        "ExposedTurretCells": 17,
+        "DangerCost": 29440
+      },
+      {
+        "tick": 42475,
+        "Valid": true,
+        "FirstBarrierIndex": 78,
+        "FirstTurretExposureIndex": 61,
+        "ExposedTurretCells": 17,
+        "DangerCost": 29440
+      },
+      {
+        "tick": 44365,
+        "Valid": true,
+        "FirstBarrierIndex": 33,
+        "FirstTurretExposureIndex": 16,
+        "ExposedTurretCells": 17,
+        "DangerCost": 23040
+      },
+      {
+        "tick": 45265,
+        "Valid": true,
+        "FirstBarrierIndex": 77,
+        "FirstTurretExposureIndex": 60,
+        "ExposedTurretCells": 17,
+        "DangerCost": 23040
+      }
+    ],
+    "breach_assignments": [],
+    "wall_hits": [
+      {
+        "tick": 44287,
+        "pawn": 36753,
+        "target": [
+          111,
+          151
+        ]
+      },
+      {
+        "tick": 44287,
+        "pawn": 36753,
+        "target": [
+          111,
+          150
+        ]
+      },
+      {
+        "tick": 44287,
+        "pawn": 36753,
+        "target": [
+          111,
+          152
+        ]
+      },
+      {
+        "tick": 44288,
+        "pawn": 36753,
+        "target": [
+          111,
+          149
+        ]
+      },
+      {
+        "tick": 44288,
+        "pawn": 36753,
+        "target": [
+          111,
+          153
+        ]
+      },
+      {
+        "tick": 44340,
+        "pawn": 36753,
+        "target": [
+          111,
+          150
+        ]
+      },
+      {
+        "tick": 44401,
+        "pawn": 36753,
+        "target": [
+          111,
+          151
+        ]
+      },
+      {
+        "tick": 44520,
+        "pawn": 36753,
+        "target": [
+          111,
+          149
+        ]
+      },
+      {
+        "tick": 44563,
+        "pawn": 36753,
+        "target": [
+          111,
+          151
+        ]
+      },
+      {
+        "tick": 44636,
+        "pawn": 36753,
+        "target": [
+          111,
+          150
+        ]
+      },
+      {
+        "tick": 44667,
+        "pawn": 36753,
+        "target": [
+          111,
+          153
+        ]
+      },
+      {
+        "tick": 44997,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 44997,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 44997,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 44997,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45184,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45218,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45218,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45218,
+        "pawn": 36737,
+        "target": [
+          111,
+          156
+        ]
+      },
+      {
+        "tick": 45219,
+        "pawn": 36737,
+        "target": [
+          111,
+          157
+        ]
+      }
+    ],
+    "warnings": [
+      {
+        "tick": 46525,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 46525,
+        "level": "Warning",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 46615,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 46705,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 46795,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(115, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 46885,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(115, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 46975,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(115, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47065,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47155,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47245,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47335,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(114, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47425,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(115, 0, 152) available=4 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=2 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47515,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(115, 0, 152) available=3 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=1 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47605,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(115, 0, 152) available=3 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=1 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      },
+      {
+        "tick": 47695,
+        "level": "WarningOnce",
+        "message": "[NJR][R026][STALL] phase=1 captive=(115, 0, 152) available=3 route=True expanded=1100 barrier=(113, 0, 147) breacher=Хроаг decision=breach=Стена из стали owner=Хроаг; operators=0 screen=0 suppress=1 (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)"
+      }
+    ],
+    "suppression_assignments": [
+      {
+        "tick": 39775,
+        "pawn": 36737
+      },
+      {
+        "tick": 39775,
+        "pawn": 36753
+      },
+      {
+        "tick": 39865,
+        "pawn": 36737
+      },
+      {
+        "tick": 39865,
+        "pawn": 36753
+      },
+      {
+        "tick": 39955,
+        "pawn": 36737
+      },
+      {
+        "tick": 39955,
+        "pawn": 36753
+      },
+      {
+        "tick": 40045,
+        "pawn": 36737
+      },
+      {
+        "tick": 40045,
+        "pawn": 36753
+      },
+      {
+        "tick": 40135,
+        "pawn": 36737
+      },
+      {
+        "tick": 40135,
+        "pawn": 36753
+      },
+      {
+        "tick": 40225,
+        "pawn": 36737
+      },
+      {
+        "tick": 40225,
+        "pawn": 36753
+      },
+      {
+        "tick": 40315,
+        "pawn": 36737
+      },
+      {
+        "tick": 40315,
+        "pawn": 36753
+      },
+      {
+        "tick": 40405,
+        "pawn": 36737
+      },
+      {
+        "tick": 40405,
+        "pawn": 36753
+      },
+      {
+        "tick": 40495,
+        "pawn": 36737
+      },
+      {
+        "tick": 40495,
+        "pawn": 36753
+      },
+      {
+        "tick": 40585,
+        "pawn": 36737
+      },
+      {
+        "tick": 40585,
+        "pawn": 36753
+      },
+      {
+        "tick": 40675,
+        "pawn": 36737
+      },
+      {
+        "tick": 40675,
+        "pawn": 36753
+      },
+      {
+        "tick": 40765,
+        "pawn": 36737
+      },
+      {
+        "tick": 40765,
+        "pawn": 36753
+      },
+      {
+        "tick": 40855,
+        "pawn": 36737
+      },
+      {
+        "tick": 40855,
+        "pawn": 36753
+      },
+      {
+        "tick": 40945,
+        "pawn": 36737
+      },
+      {
+        "tick": 40945,
+        "pawn": 36753
+      },
+      {
+        "tick": 41035,
+        "pawn": 36737
+      },
+      {
+        "tick": 41035,
+        "pawn": 36753
+      },
+      {
+        "tick": 41125,
+        "pawn": 36737
+      },
+      {
+        "tick": 41125,
+        "pawn": 36753
+      },
+      {
+        "tick": 41215,
+        "pawn": 36737
+      },
+      {
+        "tick": 41215,
+        "pawn": 36753
+      },
+      {
+        "tick": 41305,
+        "pawn": 36737
+      },
+      {
+        "tick": 41305,
+        "pawn": 36753
+      },
+      {
+        "tick": 41395,
+        "pawn": 36737
+      },
+      {
+        "tick": 41395,
+        "pawn": 36753
+      },
+      {
+        "tick": 41485,
+        "pawn": 36737
+      },
+      {
+        "tick": 41485,
+        "pawn": 36753
+      },
+      {
+        "tick": 41575,
+        "pawn": 36737
+      },
+      {
+        "tick": 41575,
+        "pawn": 36753
+      },
+      {
+        "tick": 41665,
+        "pawn": 36737
+      },
+      {
+        "tick": 41665,
+        "pawn": 36753
+      },
+      {
+        "tick": 41755,
+        "pawn": 36737
+      },
+      {
+        "tick": 41755,
+        "pawn": 36753
+      },
+      {
+        "tick": 41845,
+        "pawn": 36737
+      },
+      {
+        "tick": 41845,
+        "pawn": 36753
+      },
+      {
+        "tick": 41935,
+        "pawn": 36737
+      },
+      {
+        "tick": 41935,
+        "pawn": 36753
+      },
+      {
+        "tick": 42025,
+        "pawn": 36737
+      },
+      {
+        "tick": 42025,
+        "pawn": 36753
+      },
+      {
+        "tick": 42115,
+        "pawn": 36737
+      },
+      {
+        "tick": 42115,
+        "pawn": 36753
+      },
+      {
+        "tick": 42205,
+        "pawn": 36737
+      },
+      {
+        "tick": 42205,
+        "pawn": 36753
+      },
+      {
+        "tick": 42295,
+        "pawn": 36737
+      },
+      {
+        "tick": 42295,
+        "pawn": 36753
+      },
+      {
+        "tick": 42385,
+        "pawn": 36737
+      },
+      {
+        "tick": 42385,
+        "pawn": 36753
+      },
+      {
+        "tick": 42475,
+        "pawn": 36737
+      },
+      {
+        "tick": 42475,
+        "pawn": 36753
+      },
+      {
+        "tick": 42565,
+        "pawn": 36737
+      },
+      {
+        "tick": 42565,
+        "pawn": 36753
+      },
+      {
+        "tick": 42655,
+        "pawn": 36737
+      },
+      {
+        "tick": 42655,
+        "pawn": 36753
+      },
+      {
+        "tick": 42745,
+        "pawn": 36737
+      },
+      {
+        "tick": 42745,
+        "pawn": 36753
+      },
+      {
+        "tick": 42835,
+        "pawn": 36737
+      },
+      {
+        "tick": 42835,
+        "pawn": 36753
+      },
+      {
+        "tick": 42925,
+        "pawn": 36737
+      },
+      {
+        "tick": 42925,
+        "pawn": 36753
+      },
+      {
+        "tick": 43015,
+        "pawn": 36737
+      },
+      {
+        "tick": 43015,
+        "pawn": 36753
+      },
+      {
+        "tick": 43105,
+        "pawn": 36737
+      },
+      {
+        "tick": 43105,
+        "pawn": 36753
+      },
+      {
+        "tick": 43195,
+        "pawn": 36753
+      },
+      {
+        "tick": 43285,
+        "pawn": 36737
+      },
+      {
+        "tick": 43285,
+        "pawn": 36753
+      },
+      {
+        "tick": 43375,
+        "pawn": 36737
+      },
+      {
+        "tick": 43375,
+        "pawn": 36753
+      },
+      {
+        "tick": 43465,
+        "pawn": 36737
+      },
+      {
+        "tick": 43465,
+        "pawn": 36753
+      },
+      {
+        "tick": 43555,
+        "pawn": 36737
+      },
+      {
+        "tick": 43555,
+        "pawn": 36753
+      },
+      {
+        "tick": 43645,
+        "pawn": 36737
+      },
+      {
+        "tick": 43645,
+        "pawn": 36753
+      },
+      {
+        "tick": 43735,
+        "pawn": 36737
+      },
+      {
+        "tick": 43825,
+        "pawn": 36737
+      },
+      {
+        "tick": 43915,
+        "pawn": 36737
+      },
+      {
+        "tick": 43915,
+        "pawn": 36753
+      },
+      {
+        "tick": 44005,
+        "pawn": 36737
+      },
+      {
+        "tick": 44005,
+        "pawn": 36753
+      },
+      {
+        "tick": 44095,
+        "pawn": 36737
+      },
+      {
+        "tick": 44275,
+        "pawn": 36761
+      },
+      {
+        "tick": 44365,
+        "pawn": 36737
+      },
+      {
+        "tick": 44365,
+        "pawn": 36761
+      },
+      {
+        "tick": 44455,
+        "pawn": 36761
+      },
+      {
+        "tick": 44545,
+        "pawn": 36761
+      },
+      {
+        "tick": 44635,
+        "pawn": 36761
+      },
+      {
+        "tick": 44725,
+        "pawn": 36761
+      },
+      {
+        "tick": 44815,
+        "pawn": 36761
+      },
+      {
+        "tick": 44905,
+        "pawn": 36761
+      },
+      {
+        "tick": 44995,
+        "pawn": 36737
+      },
+      {
+        "tick": 44995,
+        "pawn": 36761
+      },
+      {
+        "tick": 45085,
+        "pawn": 36737
+      },
+      {
+        "tick": 45085,
+        "pawn": 36761
+      },
+      {
+        "tick": 45175,
+        "pawn": 36737
+      },
+      {
+        "tick": 45175,
+        "pawn": 36761
+      },
+      {
+        "tick": 45265,
+        "pawn": 36761
+      },
+      {
+        "tick": 45265,
+        "pawn": 36770
+      },
+      {
+        "tick": 45355,
+        "pawn": 36761
+      },
+      {
+        "tick": 45355,
+        "pawn": 36770
+      },
+      {
+        "tick": 45445,
+        "pawn": 36761
+      },
+      {
+        "tick": 45445,
+        "pawn": 36770
+      },
+      {
+        "tick": 45535,
+        "pawn": 36761
+      },
+      {
+        "tick": 45535,
+        "pawn": 36770
+      },
+      {
+        "tick": 45625,
+        "pawn": 36761
+      },
+      {
+        "tick": 45625,
+        "pawn": 36770
+      },
+      {
+        "tick": 45715,
+        "pawn": 36761
+      },
+      {
+        "tick": 45715,
+        "pawn": 36770
+      },
+      {
+        "tick": 45805,
+        "pawn": 36761
+      },
+      {
+        "tick": 45805,
+        "pawn": 36770
+      },
+      {
+        "tick": 45895,
+        "pawn": 36761
+      },
+      {
+        "tick": 45895,
+        "pawn": 36770
+      },
+      {
+        "tick": 45985,
+        "pawn": 36761
+      },
+      {
+        "tick": 45985,
+        "pawn": 36770
+      },
+      {
+        "tick": 46075,
+        "pawn": 36761
+      },
+      {
+        "tick": 46075,
+        "pawn": 36770
+      },
+      {
+        "tick": 46165,
+        "pawn": 36761
+      },
+      {
+        "tick": 46165,
+        "pawn": 36770
+      },
+      {
+        "tick": 46255,
+        "pawn": 36761
+      },
+      {
+        "tick": 46255,
+        "pawn": 36770
+      },
+      {
+        "tick": 46345,
+        "pawn": 36761
+      },
+      {
+        "tick": 46345,
+        "pawn": 36770
+      },
+      {
+        "tick": 46435,
+        "pawn": 36761
+      },
+      {
+        "tick": 46435,
+        "pawn": 36770
+      },
+      {
+        "tick": 46525,
+        "pawn": 36770
+      },
+      {
+        "tick": 46615,
+        "pawn": 36761
+      },
+      {
+        "tick": 46615,
+        "pawn": 36770
+      },
+      {
+        "tick": 46705,
+        "pawn": 36770
+      },
+      {
+        "tick": 46795,
+        "pawn": 36761
+      },
+      {
+        "tick": 46795,
+        "pawn": 36770
+      },
+      {
+        "tick": 46885,
+        "pawn": 36761
+      },
+      {
+        "tick": 46885,
+        "pawn": 36770
+      },
+      {
+        "tick": 46975,
+        "pawn": 36761
+      },
+      {
+        "tick": 46975,
+        "pawn": 36770
+      },
+      {
+        "tick": 47065,
+        "pawn": 36761
+      },
+      {
+        "tick": 47065,
+        "pawn": 36770
+      },
+      {
+        "tick": 47155,
+        "pawn": 36761
+      },
+      {
+        "tick": 47155,
+        "pawn": 36770
+      },
+      {
+        "tick": 47245,
+        "pawn": 36761
+      },
+      {
+        "tick": 47335,
+        "pawn": 36761
+      },
+      {
+        "tick": 47335,
+        "pawn": 36770
+      },
+      {
+        "tick": 47605,
+        "pawn": 36761
+      }
+    ]
+  }
+]

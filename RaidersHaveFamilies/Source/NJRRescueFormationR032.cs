@@ -24,9 +24,17 @@ namespace RaidersHaveFamilies
         {
             try
             {
-                Type type=AccessTools.TypeByName("Verse.AI.ReachabilityImmediate");
-                MethodInfo method=type==null?null:AccessTools.Method(type,"CanReachImmediate",new Type[]{
-                    typeof(IntVec3),typeof(LocalTargetInfo),typeof(Map),typeof(PathEndMode),typeof(Pawn)});
+                // Namespace differs between reference builds. Resolve both, not just Verse.AI.
+                MethodInfo method=null;
+                foreach(string name in new[]{"Verse.ReachabilityImmediate","Verse.AI.ReachabilityImmediate"})
+                {
+                    Type type=AccessTools.TypeByName(name);
+                    if(type==null)continue;
+                    method=AccessTools.Method(type,"CanReachImmediate",new Type[]{
+                        typeof(IntVec3),typeof(LocalTargetInfo),typeof(Map),typeof(PathEndMode),typeof(Pawn)});
+                    if(method!=null && method.IsStatic)break;
+                    method=null;
+                }
                 Log.Message("[NJR][R032][Formation] diagonal native Touch="+(method!=null?"available":"conservative fallback"));
                 return method;
             }
@@ -54,8 +62,11 @@ namespace RaidersHaveFamilies
                 // Native AttackMelee remains responsible for the actual hit.
                 IntVec3 x=barrier.Position+new IntVec3(delta.x,0,0);
                 IntVec3 z=barrier.Position+new IntVec3(0,0,delta.z);
+                // A wall FACE has one closed orthogonal neighbour and one open
+                // neighbour. Reject only a completely sealed corner. The real
+                // AttackMelee driver, not this estimate, decides whether it hits.
                 if(!x.InBounds(map) || !z.InBounds(map) ||
-                   !x.Standable(map) || !z.Standable(map))return false;
+                   (!x.Standable(map) && !z.Standable(map)))return false;
             }
             return true;
         }

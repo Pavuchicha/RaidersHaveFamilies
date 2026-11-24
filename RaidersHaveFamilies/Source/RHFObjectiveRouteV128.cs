@@ -791,12 +791,22 @@ namespace RaidersHaveFamilies
         internal static IntVec3 FormationWaypoint(RHFRoutePlanV128 route,Pawn pawn,Map map,
             HashSet<IntVec3> allocated,IntVec3 nominal)
         {
-            if(route==null || !route.Valid || !nominal.IsValid)return IntVec3.Invalid;
+            if(route==null || !route.Valid)return IntVec3.Invalid;
             int limit=SafeAdvanceLimit(route), nearest=0, nearestDistance=int.MaxValue;
+            if(limit<0)return IntVec3.Invalid;
             for(int i=0;i<=limit;i++)
             {
                 int d=(pawn.Position-route.Cells[i]).LengthHorizontalSquared;
                 if(d<nearestDistance){nearestDistance=d;nearest=i;}
+            }
+            // A rejected nominal leg is not a reason to park a specialist at
+            // spawn. Try a different forward join before giving Hold.
+            if(!nominal.IsValid || allocated.Contains(nominal))
+            {
+                IntVec3 recovered=RecoveryWaypointR033(route,pawn,map,allocated,limit,nearest,
+                    route.RiskFallback);
+                if(recovered.IsValid)return recovered;
+                if(!nominal.IsValid)return IntVec3.Invalid;
             }
             // Keep a valid existing forward leg rather than replacing it every
             // 90t. This also prevents two soldiers swapping destinations.
@@ -855,7 +865,61 @@ namespace RaidersHaveFamilies
             // offsets were unavailable. Never duplicate a destination.
             if(!allocated.Contains(nominal) && nominal!=pawn.Position &&
                nominal.GetFirstPawn(map)==null)return nominal;
+            return RecoveryWaypointR033(route,pawn,map,allocated,limit,nearest,route.RiskFallback);
+        }
+
+        // A bounded, collision-free alternative to an invalid or occupied nominal.
+        // Try nearby forward cells first; not a separate wall-capable A*.
+        internal static IntVec3 RecoveryWaypointR033(RHFRoutePlanV128 route,Pawn pawn,Map map,
+            HashSet<IntVec3> allocated,int limit,int nearest,bool risk)
+        {
+            if(limit<0)return IntVec3.Invalid;
+            int upper=Math.Min(limit,nearest+16),lower=Math.Max(0,nearest-4);
+            int probes=0;
+            for(int i=upper;i>=lower;i--)
+            {
+                IntVec3 cell=route.Cells[i];
+                if(cell==pawn.Position || allocated.Contains(cell) || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null || cell.GetFirstPawn(map)!=null ||
+                   !FormationLegSafe(pawn.Position,cell,map,risk))continue;
+                if(++probes>12)break;
+                if(pawn.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))return cell;
+            }
+            // Join a reachable route cell around a terrain bend when the direct
+            // leg fails. Never do this through a known firing lane before rally.
+            probes=0;
+            for(int i=upper;i>=lower;i--)
+            {
+                IntVec3 cell=route.Cells[i];
+                if(cell==pawn.Position || allocated.Contains(cell) || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null || cell.GetFirstPawn(map)!=null ||
+                   (!risk && LateralExposed(map,pawn.Position,cell)))continue;
+                if(++probes>8)break;
+                if(pawn.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))return cell;
+            }
             return IntVec3.Invalid;
+        }
+
+        internal static IntVec3 RallyWaypointR033(RHFRoutePlanV128 route,Pawn pawn,Map map,
+            HashSet<IntVec3> allocated,IntVec3 anchor)
+        {
+            if(route==null || !route.Valid || route.Cells.Count==0)return IntVec3.Invalid;
+            int limit=0, nearest=0, dist=int.MaxValue, anchorDist=int.MaxValue;
+            int end=SafeAdvanceLimit(route);
+            if(route.FirstTurretExposureIndex>=0)
+                end=Math.Min(end,route.FirstTurretExposureIndex-1);
+            if(end<0)return IntVec3.Invalid;
+            for(int i=0;i<=end;i++)
+            {
+                int d=(route.Cells[i]-anchor).LengthHorizontalSquared;
+                if(d<anchorDist){anchorDist=d;limit=i;}
+            }
+            for(int i=0;i<=limit;i++)
+            {
+                int d=(route.Cells[i]-pawn.Position).LengthHorizontalSquared;
+                if(d<dist){dist=d;nearest=i;}
+            }
+            return RecoveryWaypointR033(route,pawn,map,allocated,limit,nearest,false);
         }
 
         // Physically accessible rendezvous on the SAME shared corridor.

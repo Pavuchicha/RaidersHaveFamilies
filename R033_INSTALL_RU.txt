@@ -1,0 +1,5 @@
+R033 — поверх R032. Распаковать в корень репозитория с заменой.
+Summary: R033: Rally rescue squads before turret fire and recover lagging breachers
+Commit to main -> Push origin. Дождаться успешной сборки и установить свежий ZIP.
+В тестах включить NJR - ЗАПИСЬ ТЕСТОВ до вызова. baseRevision=R033.
+91 проверка исходников и моделей; DLL/игра не проверены. Отчёт в docs/NJR_R033_RALLY_AND_LAGGARDS_RU.md.
