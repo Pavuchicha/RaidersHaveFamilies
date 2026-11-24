@@ -251,6 +251,10 @@ namespace RaidersHaveFamilies
                         existing.MissionKey == key) missionLord = l;
                 }
                 if (members.Count == 0) continue;
+                var newlyClaimedR031 = new HashSet<Pawn>();
+                foreach(Pawn p in members)
+                    if(!(p.GetLord()?.LordJob is RHFRescueLordJobV124 priorMission) ||
+                       priorMission.MissionKey!=key)newlyClaimedR031.Add(p);
                 if (missionLord == null)
                 {
                     foreach (Pawn p in members) RelinquishVanilla(p);
@@ -290,6 +294,16 @@ namespace RaidersHaveFamilies
                 {
                     if(!ActivePawn(p,map) || p.GetLord()!=missionLord)continue;
                     Job running=p.jobs?.curJob;
+                    if(running!=null && !RHFCombatPlannerV125.IsCombatEmergencyJob(p) &&
+                       (newlyClaimedR031.Contains(p) ||
+                        running.def.defName=="GotoWander" || running.def.defName=="Wait_Wander" ||
+                        running.def.defName=="Ignite" ||
+                        (running.def.defName=="UseVerbOnThing" &&
+                         running.targetA.Thing is Building b && !RHFCombatPlannerV125.IsTurret(b))))
+                    {
+                        p.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
+                        continue;
+                    }
                     if(running==null ||
                        (running.def!=JobDefOf.AttackMelee &&
                         running.def!=JobDefOf.AttackStatic))continue;

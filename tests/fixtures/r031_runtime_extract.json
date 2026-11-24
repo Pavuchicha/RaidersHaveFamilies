@@ -1,0 +1,1165 @@
+[
+  {
+    "session": "20261124_175851_695_cb72513e",
+    "count": 10117,
+    "spawn": 33224,
+    "release": 37454,
+    "exit": [
+      40154
+    ],
+    "initial_jobs": [
+      {
+        "tick": 33224,
+        "pawn": 19439,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          129,
+          153
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28135,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          129,
+          144
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28129,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          153
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28122,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          155
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28113,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          155
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28105,
+        "job": "Ignite",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          155
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28095,
+        "job": "Goto",
+        "source": "RimWorld.JobGiver_AIGotoNearestHostile",
+        "dest": [
+          129,
+          144
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28086,
+        "job": "UseVerbOnThing",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          153
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28113,
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": [
+          244,
+          116
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28122,
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": [
+          243,
+          115
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 28129,
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": [
+          244,
+          115
+        ]
+      },
+      {
+        "tick": 33224,
+        "pawn": 19439,
+        "job": "Wait_Wander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": null
+      }
+    ],
+    "return_jobs": [
+      {
+        "tick": 41277,
+        "pawn": "Хряорк",
+        "position": [
+          88,
+          247
+        ],
+        "dest": [
+          235,
+          126
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      }
+    ]
+  },
+  {
+    "session": "20261124_180028_014_01d1e9fa",
+    "count": 14588,
+    "spawn": 33251,
+    "release": 45221,
+    "exit": [
+      48551
+    ],
+    "initial_jobs": [
+      {
+        "tick": 33251,
+        "pawn": 19440,
+        "job": "Ignite",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          128,
+          153
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28154,
+        "job": "Ignite",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          125,
+          144
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28124,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          153
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28117,
+        "job": "Ignite",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          125,
+          144
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28105,
+        "job": "UseVerbOnThing",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          155
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28096,
+        "job": "Ignite",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          129,
+          155
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28086,
+        "job": "UseVerbOnThing",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          155
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28086,
+        "job": "Goto",
+        "source": "RimWorld.JobGiver_AIGotoNearestHostile",
+        "dest": [
+          125,
+          144
+        ]
+      },
+      {
+        "tick": 33251,
+        "pawn": 28124,
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": [
+          6,
+          193
+        ]
+      }
+    ],
+    "return_jobs": [
+      {
+        "tick": 47370,
+        "pawn": "Пойнкогг",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          19,
+          188
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 47494,
+        "pawn": "Скваап",
+        "position": [
+          89,
+          249
+        ],
+        "dest": [
+          125,
+          153
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 47564,
+        "pawn": "Hoink",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          125,
+          154
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 47590,
+        "pawn": "Пикап",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          125,
+          152
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 47745,
+        "pawn": "Пиг-Мойнуг",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          117,
+          150
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 47944,
+        "pawn": "Bishop",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          118,
+          150
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      }
+    ],
+    "stuck_breach": [
+      {
+        "tick": 36318,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 36438,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 36558,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 36678,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 36798,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 36918,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37038,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37158,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37278,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37398,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37518,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37638,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37758,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37878,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 37998,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38118,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38238,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38358,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38478,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38598,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38718,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38838,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 38958,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39078,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39198,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39318,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39438,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39558,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39678,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39798,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 39918,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40038,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40158,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40278,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40398,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40518,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40638,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40758,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40878,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 40998,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41118,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41238,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41358,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41478,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41598,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41718,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41838,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 41958,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42078,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42198,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42318,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42438,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42558,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42678,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42798,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 42918,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43038,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43158,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43278,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43398,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43518,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43638,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43758,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43878,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      },
+      {
+        "tick": 43998,
+        "pos": [
+          124,
+          156
+        ],
+        "hp": 300,
+        "job": "AttackMelee",
+        "job_id": 62741734
+      }
+    ]
+  },
+  {
+    "session": "20261124_180108_708_5307fb5d",
+    "count": 9214,
+    "spawn": 33180,
+    "release": 36420,
+    "exit": [
+      38850
+    ],
+    "initial_jobs": [
+      {
+        "tick": 33180,
+        "pawn": 28159,
+        "job": "Ignite",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          155
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28149,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          155
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28124,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          129,
+          153
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28114,
+        "job": "UseVerbOnThing",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          129,
+          153
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28104,
+        "job": "UseVerbOnThing",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          153
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28094,
+        "job": "Ignite",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          131,
+          153
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28087,
+        "job": "AttackMelee",
+        "source": "RimWorld.JobGiver_AITrashBuildingsDistant",
+        "dest": [
+          129,
+          155
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28087,
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": [
+          170,
+          243
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28124,
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": [
+          170,
+          242
+        ]
+      },
+      {
+        "tick": 33180,
+        "pawn": 28149,
+        "job": "Wait_Wander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation",
+        "dest": null
+      }
+    ],
+    "return_jobs": [
+      {
+        "tick": 38375,
+        "pawn": "Roly",
+        "position": [
+          88,
+          248
+        ],
+        "dest": [
+          163,
+          224
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 38386,
+        "pawn": "Молов",
+        "position": [
+          88,
+          248
+        ],
+        "dest": [
+          163,
+          228
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 38573,
+        "pawn": "Моап",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          127,
+          155
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 38740,
+        "pawn": "Скволаап",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          125,
+          157
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      },
+      {
+        "tick": 38910,
+        "pawn": "Сква-Пвууг",
+        "position": [
+          90,
+          249
+        ],
+        "dest": [
+          127,
+          157
+        ],
+        "job": "GotoWander",
+        "source": "Verse.AI.JobGiver_WanderNearDutyLocation"
+      }
+    ]
+  }
+]

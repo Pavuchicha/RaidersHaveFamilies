@@ -1,0 +1,7 @@
+R031 — патч поверх R030.
+Распаковать в корень репозитория GitHub Desktop с заменой.
+Summary: R031: Fix rescue job handoff, breach stalls and retreat backtracking
+Commit to main → Push origin.
+После успешной сборки установить новый ZIP из Actions.
+В записи R030 поле baseRevision=R031.
+89 проверок исходников прошли; компиляция и игра не проверены.

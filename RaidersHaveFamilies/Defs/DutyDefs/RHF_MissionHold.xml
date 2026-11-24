@@ -12,9 +12,7 @@
              a long mission movement job is assigned. Never fire at VIPs. -->
         <li Class="RaidersHaveFamilies.RHFJobGiverMissionDefenseV136" />
         <li Class="RaidersHaveFamilies.RHFRescueRoleJobGiverS41" />
-        <li Class="JobGiver_WanderNearDutyLocation">
-          <wanderRadius>1</wanderRadius>
-        </li>
+        <!-- R031: the role giver returns a local Wait, never wander to a stale duty focus. -->
       </subNodes>
     </thinkNode>
   </DutyDef>

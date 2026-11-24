@@ -36,6 +36,44 @@ namespace RaidersHaveFamilies
         }
         private static readonly ConditionalWeakTable<RHFOperation,BarrierEventCache>
             BarrierPulses = new ConditionalWeakTable<RHFOperation,BarrierEventCache>();
+        private sealed class BreachProgressR031
+        {
+            internal Pawn Actor;
+            internal Thing Target;
+            internal IntVec3 Position;
+            internal int HP, Changed;
+            internal readonly Dictionary<Pawn,int> Failed = new Dictionary<Pawn,int>();
+        }
+        private static readonly ConditionalWeakTable<RHFOperation,BreachProgressR031> BreachProgress =
+            new ConditionalWeakTable<RHFOperation,BreachProgressR031>();
+
+        private static void CheckBreachProgressR031(RHFOperation op,Map map,
+            RHFTacticalBoardS41 board,Thing obstacle,HashSet<Pawn> reserved,int now)
+        {
+            var state=BreachProgress.GetValue(op,_=>new BreachProgressR031());
+            Pawn actor=board.Breacher;
+            if(state.Target!=obstacle){state.Failed.Clear();state.Target=obstacle;state.Actor=null;}
+            if(!Active(actor,map) || obstacle==null)return;
+            if(state.Actor!=actor || state.Position!=actor.Position || state.HP!=obstacle.HitPoints ||
+               RHFCombatPlannerV125.IsCombatEmergencyJob(actor))
+            {state.Actor=actor;state.Position=actor.Position;state.HP=obstacle.HitPoints;state.Changed=now;return;}
+            if(now-state.Changed<600)return;
+            // A job existing is not proof of a hit. Do not wait 2700+ ticks
+            // for a stuck AttackMelee. Rotate operators, not arbitrary walls.
+            state.Failed[actor]=now+1800;
+            var excluded=new HashSet<Pawn>(reserved);
+            foreach(var failure in state.Failed)
+                if(failure.Value>now)excluded.Add(failure.Key);
+            Pawn replacement=RHFCombatPlannerV125.SelectBreachOperator(op,map,obstacle,excluded);
+            Job running=actor.jobs?.curJob;
+            if(running!=null && (running.targetA.Thing==obstacle || running.def==JobDefOf.Goto))
+                actor.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
+            board.Breacher=replacement??actor;
+            state.Actor=board.Breacher;state.Position=board.Breacher.Position;
+            state.HP=obstacle.HitPoints;state.Changed=now;
+            Log.Message("[NJR][R031][BreachWatch] no motion/damage; actor="+actor.LabelShortCap+
+                " replacement="+board.Breacher.LabelShortCap+" target="+obstacle.Position);
+        }
         // R021: NO squad leader. The tactical board holds the shared objective
         // and at most one demolition permit; fighters retain personal combat AI.
         // The route solver accepts all available fighter positions as sources.
@@ -580,6 +618,8 @@ namespace RaidersHaveFamilies
                         obstacle,escortedDuringAssault);
             }
             else board.Breacher=null;
+            if(obstacle!=null && board.Breacher!=null)
+                CheckBreachProgressR031(op,map,board,obstacle,escortedDuringAssault,now);
             // A long stalemate is a failed mission, never an endless "Wait".
             if(now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>27000)
             {
@@ -610,7 +650,16 @@ namespace RaidersHaveFamilies
                 if(!Active(soldier,map) || escortedDuringAssault.Contains(soldier))continue;
                 if(soldier==board.Breacher && obstacle!=null)
                 {
-                    board.Assign(soldier,RHFRoleS41.Breach,obstacle,obstacle.Position,now);
+                    // The breacher is a member of the advance wing, not a
+                    // direct map-wide AttackMelee path to a wall through fire.
+                    if((soldier.Position-obstacle.Position).LengthHorizontalSquared>36)
+                    {
+                        IntVec3 approach=RHFObjectiveRouteV128.Waypoint(route,soldier,map);
+                        if(approach.IsValid)
+                            board.Assign(soldier,RHFRoleS41.Advance,null,approach,now);
+                        else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
+                    }
+                    else board.Assign(soldier,RHFRoleS41.Breach,obstacle,obstacle.Position,now);
                     continue;
                 }
                 if(board.Threat!=null && shooters<supportBudget)
@@ -630,6 +679,7 @@ namespace RaidersHaveFamilies
                 // reachability. Never build per-pawn alternative A* corridors
                 // and NEVER authorize demolition outside the shared permit.
                 if(obstacle!=null && !firebreakBeforeBreach &&
+                   (soldier.Position-obstacle.Position).LengthHorizontalSquared<=144 &&
                    screened<Math.Max(2,op.Squad.Count/4))
                 {
                     IntVec3 screen=ScreenCell(soldier,obstacle.Position,map,allocated);
@@ -915,24 +965,31 @@ namespace RaidersHaveFamilies
         private static IntVec3 ScreenCell(Pawn soldier,IntVec3 barrier,Map map,
             HashSet<IntVec3> occupied)
         {
-            // Disperse instead of sending the entire wing to a single door cell.
-            IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
-            // A screen occupies nearby physical cover, not any cell on map.
-            for(int x=Math.Max(0,soldier.Position.x-16);x<=Math.Min(map.Size.x-1,soldier.Position.x+16);x++)
-            for(int z=Math.Max(0,soldier.Position.z-16);z<=Math.Min(map.Size.z-1,soldier.Position.z+16);z++)
+            // Only screen near the selected breach. Far fighters advance on
+            // the corridor instead of inventing independent staging paths.
+            var candidates=new List<IntVec3>();
+            for(int x=Math.Max(0,barrier.x-8);x<=Math.Min(map.Size.x-1,barrier.x+8);x++)
+            for(int z=Math.Max(0,barrier.z-8);z<=Math.Min(map.Size.z-1,barrier.z+8);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
-                if(!cell.InBounds(map)||!cell.Standable(map)||
+                int range=(cell-barrier).LengthHorizontalSquared;
+                if(range<9 || range>64 || !cell.Standable(map) ||
                    cell.GetEdifice(map)!=null || occupied.Contains(cell) ||
-                   (cell-barrier).LengthHorizontalSquared<9 ||
-                   cell.GetRoom(map)!=soldier.Position.GetRoom(map) ||
-                   !soldier.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
-                int value=(soldier.Position-cell).LengthHorizontalSquared+
-                    (cell-barrier).LengthHorizontalSquared;
-                if(value<score){score=value;best=cell;}
+                   (cell.GetFirstPawn(map)!=null && cell.GetFirstPawn(map)!=soldier) ||
+                   cell.GetRoom(map)!=soldier.Position.GetRoom(map))continue;
+                candidates.Add(cell);
             }
-            if(best.IsValid)occupied.Add(best);
-            return best;
+            candidates.Sort((a,b)=>((soldier.Position-a).LengthHorizontalSquared+
+                (a-barrier).LengthHorizontalSquared).CompareTo(
+                (soldier.Position-b).LengthHorizontalSquared+(b-barrier).LengthHorizontalSquared));
+            for(int i=0;i<candidates.Count && i<12;i++)
+            {
+                IntVec3 cell=candidates[i];
+                if(CrossesTurretLane(map,soldier.Position,cell) ||
+                   !soldier.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                occupied.Add(cell);return cell;
+            }
+            return IntVec3.Invalid;
         }
 
         private static Map MapFor(RHFOperation op)

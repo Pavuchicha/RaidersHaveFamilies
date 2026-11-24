@@ -64,6 +64,7 @@ namespace RaidersHaveFamilies
         static RHFObjectiveRouteV128()
         {
             Log.Message("[NJR][R028] Resumable reverse route and rescue job/lord repair loaded.");
+            Log.Message("[NJR][R031] Runtime trace repairs: local wait, handoff, breach watchdog, corridor execution.");
         }
         private const int ReplanTicks = 900;
         // Finite per-decision CPU budget. A failed tactical search must
@@ -678,10 +679,11 @@ namespace RaidersHaveFamilies
                 if(!IsTurret(turret))continue;
                 float range=WeaponRange(turret.def?.building?.turretGunDef,30f);
                 float r2=range*range;
-                for(int k=1;k<=4;k++)
+                int steps=Math.Max(1,Math.Max(Math.Abs(to.x-from.x),Math.Abs(to.z-from.z)));
+                for(int k=1;k<=steps;k++)
                 {
-                    IntVec3 sample=new IntVec3(from.x+(to.x-from.x)*k/4,0,
-                        from.z+(to.z-from.z)*k/4);
+                    IntVec3 sample=new IntVec3(from.x+(to.x-from.x)*k/steps,0,
+                        from.z+(to.z-from.z)*k/steps);
                     if((sample-turret.Position).LengthHorizontalSquared>r2)continue;
                     if(GenSight.LineOfSight(turret.Position,sample,map))return true;
                 }
@@ -713,6 +715,7 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 join=route.Cells[nearest];
                 if(join!=soldier.Position && soldier.CanReach(join,PathEndMode.OnCell,Danger.Deadly) &&
+                   GenSight.LineOfSight(soldier.Position,join,map) &&
                    (route.RiskFallback || !LateralExposed(map,soldier.Position,join)))return join;
                 return JoinCommonCorridor(route,soldier,map,limit);
             }
@@ -741,7 +744,7 @@ namespace RaidersHaveFamilies
             for(int i=head;i>nearest;i--)
             {
                 IntVec3 destination=route.Cells[i];
-                if(!destination.InBounds(map) || !destination.Standable(map))continue;
+                if(destination==soldier.Position || !destination.InBounds(map) || !destination.Standable(map))continue;
                 if(soldier.CanReach(destination,PathEndMode.OnCell,Danger.Deadly) &&
                    !CrossesKnownFire(route,soldier.Position,destination,map))
                 {
@@ -773,24 +776,25 @@ namespace RaidersHaveFamilies
         private static IntVec3 JoinCommonCorridor(RHFRoutePlanV128 route,
             Pawn pawn,Map map,int limit)
         {
-            int probes=0;
-            for(int radius=8;radius<=32 && probes<8;radius+=8)
+            // Try distinct join cells, not the same nearest point at four
+            // radii. A laggard farther than 32 cells still has an assignment.
+            var candidates=new List<IntVec3>();
+            for(int i=0;i<=limit;i++)
             {
-                int nearest=int.MaxValue;
-                IntVec3 candidate=IntVec3.Invalid;
-                for(int i=0;i<=limit;i+=Math.Max(1,limit/32))
-                {
-                    IntVec3 cell=route.Cells[i];
-                    int d=(pawn.Position-cell).LengthHorizontalSquared;
-                    if(d<=radius*radius && d<nearest && cell.Standable(map) &&
-                       cell.GetEdifice(map)==null)
-                    {candidate=cell;nearest=d;}
-                }
-                if(!candidate.IsValid || candidate==pawn.Position)continue;
-                probes++;
-                if((route.RiskFallback || !LateralExposed(map,pawn.Position,candidate)) &&
-                   pawn.CanReach(candidate,PathEndMode.OnCell,Danger.Deadly))
-                    return candidate;
+                IntVec3 cell=route.Cells[i];
+                if(cell!=pawn.Position && cell.Standable(map) && cell.GetEdifice(map)==null)
+                    candidates.Add(cell);
+            }
+            candidates.Sort((a,b)=>(pawn.Position-a).LengthHorizontalSquared.CompareTo(
+                (pawn.Position-b).LengthHorizontalSquared));
+            int probes=0, inspected=0;
+            foreach(IntVec3 candidate in candidates)
+            {
+                if(++inspected>48)break;
+                if(!GenSight.LineOfSight(pawn.Position,candidate,map) ||
+                   (!route.RiskFallback && LateralExposed(map,pawn.Position,candidate)))continue;
+                if(++probes>12)break;
+                if(pawn.CanReach(candidate,PathEndMode.OnCell,Danger.Deadly))return candidate;
             }
             return IntVec3.Invalid;
         }

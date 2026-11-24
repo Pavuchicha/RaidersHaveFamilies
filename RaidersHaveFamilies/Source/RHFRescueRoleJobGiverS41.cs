@@ -19,7 +19,17 @@ namespace RaidersHaveFamilies
         {
             if(pawn==null)return null;
             Job job=MissionJob(pawn);
-            if(job==null)return null;
+            if(job==null)
+            {
+                // A completed waypoint/exit order must not fall through to a
+                // vanilla wander job at the old duty focus. Keep CE emergencies.
+                if(pawn.Spawned && !pawn.Dead && !pawn.Downed && !pawn.InMentalState &&
+                   pawn.Map!=null && pawn.GetLord()?.LordJob is RHFRescueLordJobV124 &&
+                   !RHFCombatPlannerV125.IsCombatEmergencyJob(pawn) &&
+                   RHFRescuePlannerS41.MissionFor(pawn.Map,pawn)!=null)
+                    return Task(JobDefOf.Wait,pawn.Position,30);
+                return null;
+            }
             // JobDriver_Goto can finish immediately (already at target, or a
             // Thing target interpreted as a cell). Never issue another Goto in
             // the same tick: that caused the engine's 10-jobs recovery loop.
@@ -211,10 +221,10 @@ namespace RaidersHaveFamilies
                             // job that leaves the only sapper standing still.
                             // Move to an actual TOUCH-accessible tile on the
                             // friendly side of the wall before attacking.
-                            if((pawn.Position-obstacle.Position).LengthHorizontalSquared>5)
+                            if((pawn.Position-obstacle.Position).LengthHorizontalSquared!=1)
                             {
                                 Job approach=ApproachBarrier(pawn,obstacle);
-                                if(approach!=null)return approach;
+                                return approach;
                             }
                             // Rifle butt / unarmed attack: no CE explosive fire
                             // near protected VIP, and no blind ranged shots.
@@ -223,6 +233,9 @@ namespace RaidersHaveFamilies
                             return null;
                         }
                     }
+                    if(strike==JobDefOf.AttackMelee &&
+                       (pawn.Position-obstacle.Position).LengthHorizontalSquared!=1)
+                        return ApproachBarrier(pawn,obstacle);
                     return Task(strike,obstacle,900);
                 }
                 case RHFRoleS41.SuppressTurret:
@@ -255,7 +268,7 @@ namespace RaidersHaveFamilies
                        order.Objective.Map==pawn.Map)
                         return ApproachPawn(pawn,order.Objective as Pawn,90);
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
-                       (pawn.Position-order.Cell).LengthHorizontalSquared>2)
+                       pawn.Position!=order.Cell)
                     {
                         if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
                             return Task(JobDefOf.Goto,order.Cell,240);
@@ -435,10 +448,9 @@ namespace RaidersHaveFamilies
             Map map=pawn?.Map;
             if(map==null || barrier==null || barrier.Map!=map)return null;
             IntVec3 origin=barrier.Position;
-            IntVec3[] offsets={IntVec3.North,IntVec3.South,IntVec3.East,
-                IntVec3.West,IntVec3.North+IntVec3.East,
-                IntVec3.North+IntVec3.West,IntVec3.South+IntVec3.East,
-                IntVec3.South+IntVec3.West};
+            // R031: Bishop's Touch path ended diagonally at (124,156),
+            // but his melee job never damaged wall (125,155). Use a face tile.
+            IntVec3[] offsets={IntVec3.North,IntVec3.South,IntVec3.East,IntVec3.West};
             IntVec3 best=IntVec3.Invalid;
             int score=int.MaxValue;
             foreach(IntVec3 offset in offsets)
@@ -446,6 +458,7 @@ namespace RaidersHaveFamilies
                 IntVec3 site=origin+offset;
                 if(!site.InBounds(map) || !site.Standable(map) ||
                    site.GetEdifice(map)!=null ||
+                   (site.GetFirstPawn(map)!=null && site.GetFirstPawn(map)!=pawn) ||
                    !pawn.CanReach(site,PathEndMode.OnCell,Danger.Deadly))continue;
                 int distance=(pawn.Position-site).LengthHorizontalSquared;
                 if(distance<score){best=site;score=distance;}
