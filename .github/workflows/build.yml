@@ -122,6 +122,7 @@ jobs:
           python3 tests/njr_236_r033_rally_and_laggards.py
           python3 tests/njr_237_r034_firebreak.py
           python3 tests/njr_238_r035_firewing.py
+          python3 tests/njr_239_r037_rally_deadlock.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)

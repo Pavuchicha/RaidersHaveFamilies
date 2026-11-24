@@ -316,6 +316,115 @@ namespace RaidersHaveFamilies
             }
             if(count==0)HookResults.Add("MISSING "+type.FullName+"."+name);
         }
+        // Verse.Log prefixes alone can miss an already-buffered/native error.
+        // Snapshot the live engine queue and raw log on opening the actual log
+        // window; never close it, suppress errors or clear the engine queue.
+        private static readonly BindingFlags LogMembers=BindingFlags.Public|BindingFlags.NonPublic|
+            BindingFlags.Instance|BindingFlags.Static;
+        private static object ReadLogMember(object instance,string name)
+        {
+            if(instance==null)return null;
+            try
+            {
+                Type t=instance.GetType();
+                FieldInfo f=t.GetField(name,LogMembers);
+                if(f!=null && !f.IsStatic)return f.GetValue(instance);
+                PropertyInfo p=t.GetProperty(name,LogMembers);
+                if(p!=null && p.GetIndexParameters().Length==0 && p.GetMethod?.IsStatic==false)return p.GetValue(instance);
+            }
+            catch(Exception){ }
+            return null;
+        }
+        private static string LogText(object value,int limit=32000)
+        {
+            string t=value?.ToString();
+            return t==null || t.Length<=limit?t:t.Substring(0,limit)+" [truncated]";
+        }
+        private static bool SnapshotLogItems(string source,object collection,List<object> output,List<string> notes)
+        {
+            if(!(collection is IEnumerable items) || collection is string)return false;
+            var tail=new Queue<object>();int count=0;
+            try
+            {
+                foreach(object item in items)
+                {
+                    if(item==null)continue;
+                    if(++count>20000){notes.Add(source+": enumeration limit");break;}
+                    tail.Enqueue(new { source, type=LogText(ReadLogMember(item,"type")??ReadLogMember(item,"Type"),100),
+                        text=LogText(ReadLogMember(item,"text")??ReadLogMember(item,"Text")??
+                            ReadLogMember(item,"message")??ReadLogMember(item,"Message")??item),
+                        stack=LogText(ReadLogMember(item,"stackTrace")??ReadLogMember(item,"StackTrace")),
+                        repeats=LogText(ReadLogMember(item,"repeatCount")??ReadLogMember(item,"RepeatCount"),100) });
+                    if(tail.Count>250)tail.Dequeue();
+                }
+                output.AddRange(tail);notes.Add(source+": "+count+" entries inspected");return true;
+            }
+            catch(Exception e){notes.Add(source+": "+e.GetBaseException().Message);return false;}
+        }
+        private static void SnapshotEngineLog(string trigger)
+        {
+            var entries=new List<object>();var notes=new List<string>();
+            string[] nested={"Messages","messages","AllMessages","allMessages","Queue","queue","messageQueue","LogMessages","logMessages","Entries","entries","GetMessages"};
+            Type type=typeof(Verse.Log);
+            foreach(MemberInfo m in type.GetMembers(BindingFlags.Public|BindingFlags.NonPublic|BindingFlags.Static))
+            {
+                string name=m.Name;
+                if(name.IndexOf("message",StringComparison.OrdinalIgnoreCase)<0 &&
+                   name.IndexOf("queue",StringComparison.OrdinalIgnoreCase)<0)continue;
+                try
+                {
+                    object value=null;
+                    if(m is FieldInfo f && f.IsStatic)value=f.GetValue(null);
+                    else if(m is PropertyInfo prop && prop.GetMethod?.IsStatic==true && prop.GetIndexParameters().Length==0)value=prop.GetValue(null);
+                    else if(m is MethodInfo method && method.IsStatic && !method.ContainsGenericParameters &&
+                        method.Name.StartsWith("Get",StringComparison.Ordinal) && method.GetParameters().Length==0 &&
+                        typeof(IEnumerable).IsAssignableFrom(method.ReturnType))value=method.Invoke(null,null);
+                    else continue;
+                    if(value==null || value is string)continue;
+                    notes.Add(name+": "+value.GetType().FullName);
+                    if(SnapshotLogItems(name,value,entries,notes))continue;
+                    foreach(string child in nested)
+                    {
+                        object childValue=ReadLogMember(value,child);
+                        if(childValue!=null && SnapshotLogItems(name+"."+child,childValue,entries,notes))break;
+                    }
+                }
+                catch(Exception e){notes.Add(name+": "+e.GetBaseException().Message);}
+                if(entries.Count>=500)break;
+            }
+            Write("engine_log_snapshot",new { trigger, notes, entries },true);
+        }
+        private static string CopyPlayerLog(string suffix)
+        {
+            if(Folder==null)return "no session folder";
+            string root=GenFilePaths.SaveDataFolderPath;
+            foreach(string source in new[]{Path.Combine(root,"Logs","Player.log"),Path.Combine(root,"Player.log")})
+            {
+                if(!File.Exists(source))continue;
+                try
+                {
+                    string dest=Path.Combine(Folder,"Player-"+suffix+".log");
+                    if(suffix=="console" && File.Exists(dest))return "first console log retained: "+Path.GetFileName(dest);
+                    const long limit=16L*1024*1024;
+                    using(var input=new FileStream(source,FileMode.Open,FileAccess.Read,FileShare.ReadWrite|FileShare.Delete))
+                    using(var output=new FileStream(dest,FileMode.Create,FileAccess.Write,FileShare.Read))
+                    {
+                        long length=input.Length,start=Math.Max(0,length-limit);
+                        input.Seek(start,SeekOrigin.Begin);
+                        byte[] buffer=new byte[65536];long left=length-start;
+                        while(left>0)
+                        {
+                            int n=input.Read(buffer,0,(int)Math.Min(left,buffer.Length));
+                            if(n==0)break;
+                            output.Write(buffer,0,n);left-=n;
+                        }
+                        return Path.GetFileName(dest)+" originalBytes="+length+" startOffset="+start+" copied="+(length-start-left);
+                    }
+                }
+                catch(Exception e){return "Player.log copy failed: "+e.GetBaseException().Message;}
+            }
+            return "Player.log not found in Logs/ or save-data root";
+        }
         private static void WindowPrefix(MethodBase __originalMethod,object[] __args)
         {
             if(!Recording)return;
@@ -326,6 +435,11 @@ namespace RaidersHaveFamilies
                    name.IndexOf("Debug",StringComparison.OrdinalIgnoreCase)<0)return;
                 Write("debug_window_open",new { window=name,method=__originalMethod.Name,
                     stack=Environment.StackTrace },true);
+                if(name.IndexOf("EditWindow_Log",StringComparison.OrdinalIgnoreCase)>=0)
+                {
+                    SnapshotEngineLog("console opening");
+                    Write("raw_log_snapshot",new { trigger="console opening", result=CopyPlayerLog("console") },true);
+                }
             });
         }
         private static void Install()
@@ -440,9 +554,10 @@ namespace RaidersHaveFamilies
                 catch(Exception e){StopLocked("start failed: "+e.Message);return Status();}
             }
             try{Install();}catch(Exception e){HookResults.Add("INSTALL FAILED: "+e);}
-            Write("session_start",new { revision="R030", baseRevision="R036", tick=LastTick, hooks=HookResults.ToArray(),
+            Write("session_start",new { revision="R030", baseRevision="R037", tick=LastTick, hooks=HookResults.ToArray(),
                 jobTrackerPawnField=TrackerPawn!=null,pathPawnField=PathPawn!=null,pathCurrentField=PathCurrent!=null, sampleTicks=120, objectTicks=600, byteLimit=SessionLimit,
                 note="All Verse console calls; selected engine and NJR events; snapshots. No claim of every internal game action." },true);
+            MainObserve(()=>SnapshotEngineLog("session start"));
             Sample(Find.CurrentMap,true);return Status();
         }
         internal static string Status()
@@ -456,7 +571,12 @@ namespace RaidersHaveFamilies
         {if(Recording){Write("tester_marker",new { map=MapId(Find.CurrentMap),label="manual checkpoint" },true);Sample(Find.CurrentMap,true);}return Status();}
         internal static string Export()
         {
-            if(Recording){Write("session_stop",new { reason="tester export" },true);lock(Gate)StopLocked("tester export");}
+            if(Recording)
+            {
+                MainObserve(()=>SnapshotEngineLog("export"));
+                Write("raw_log_snapshot",new { trigger="export", result=CopyPlayerLog("export") },true);
+                Write("session_stop",new { reason="tester export" },true);lock(Gate)StopLocked("tester export");
+            }
             if(Folder==null)return Status();
             try{if(LastZip==null){string zip=Folder+".zip",temp=zip+".tmp";
                     if(File.Exists(temp))File.Delete(temp);

@@ -996,8 +996,7 @@ namespace RaidersHaveFamilies
                 if(building==null || building.Destroyed || !building.Spawned ||
                    !RHFCombatPlannerV125.IsTurret(building))continue;
                 int distance=(building.Position-exposure).LengthHorizontalSquared;
-                if(distance>4900 || distance>=score ||
-                   !GenSight.LineOfSight(building.Position,exposure,map))continue;
+                if(distance>=score || !RHFObjectiveRouteV128.TurretCoversR037(building,map,exposure))continue;
                 score=distance;chosen=building;
             }
             return chosen;

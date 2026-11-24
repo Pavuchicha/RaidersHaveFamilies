@@ -1,0 +1,10 @@
+NJR R037 (поверх R036)
+
+1. Распаковать ZIP патча в корень локального репозитория RaidersHaveFamilies с заменой файлов.
+2. GitHub Desktop: Summary: R037: Recover stalled rally approach and capture engine console
+3. Commit to main -> Push origin. Дождаться успешной сборки и скачать установочный архив GitHub Actions.
+4. Заменить установленную папку NJR, не оставлять старые DLL.
+5. Начать запись перед вызовом рейда, проверить baseRevision=R037.
+6. При консоли не скрывать ошибки. По окончании отправить ZIP NJR Diagnostics, он пытается сохранить Player-console.log и Player-export.log.
+
+94/94 предварительных проверок. Компиляция и игра не подтверждены.

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Reflection;
 using LudeonTK;
 using RimWorld;
 using UnityEngine;
@@ -158,12 +159,56 @@ namespace RaidersHaveFamilies
                 if(verb!=null && verb.range>range)range=verb.range;
             return range>0f ? range : fallback;
         }
+        private static readonly PropertyInfo LiveTurretVerbR037=typeof(Building_TurretGun).GetProperty("AttackVerb",
+            BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic);
+        private static readonly FieldInfo LiveVerbPropsR037=typeof(Verb).GetField("verbProps",
+            BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic);
+        private static readonly PropertyInfo LiveVerbPropsPropertyR037=typeof(Verb).GetProperty("VerbProps",
+            BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic);
+        private sealed class TurretRangeCacheR037 {internal int Tick=-1;internal float Range, ObservedRange;}
+        internal static void ObserveTurretRangeR037(Building turret,IntVec3 target)
+        {
+            if(!IsTurret(turret) || !target.IsValid)return;
+            TurretRangeCacheR037 cached=TurretRangesR037.GetValue(turret,_=>new TurretRangeCacheR037());
+            float observed=(float)Math.Ceiling(Math.Sqrt((target-turret.Position).LengthHorizontalSquared));
+            if(observed<=cached.ObservedRange)return;
+            cached.ObservedRange=observed;
+            cached.Range=Math.Max(cached.Range,observed);
+        }
+        private static readonly ConditionalWeakTable<Building,TurretRangeCacheR037> TurretRangesR037=
+            new ConditionalWeakTable<Building,TurretRangeCacheR037>();
+        internal static float TurretRangeR037(Building turret)
+        {
+            TurretRangeCacheR037 cached=TurretRangesR037.GetValue(turret,_=>new TurretRangeCacheR037());
+            int now=Find.TickManager?.TicksGame??0;
+            if(cached.Tick>=0 && now>=cached.Tick && now-cached.Tick<300)return cached.Range;
+            float range=WeaponRange(turret.def?.building?.turretGunDef,30f);
+            try
+            {
+                if(turret is Building_TurretGun && LiveTurretVerbR037?.GetValue(turret) is Verb verb)
+                {
+                    var props=(LiveVerbPropsR037?.GetValue(verb)??LiveVerbPropsPropertyR037?.GetValue(verb)) as VerbProperties;
+                    if(props!=null && props.range>range)range=props.range;
+                }
+            }
+            catch(Exception){ /* optional API: static definition remains the fallback */ }
+            cached.Tick=now;cached.Range=Math.Max(range,cached.ObservedRange);return cached.Range;
+        }
         private static bool IsTurret(Building b)
         {
             if(b==null || b.Destroyed || !b.Spawned || b.Faction!=Faction.OfPlayer)return false;
             // Prefer built-in combat APIs; optional modded turret class fallback.
             if(b is Building_TurretGun || b.def?.building?.turretGunDef!=null)return true;
             return b.GetType().Name.IndexOf("Turret",StringComparison.OrdinalIgnoreCase)>=0;
+        }
+        internal static bool TurretCoversR037(Building turret,Map map,IntVec3 cell)
+        {
+            if(!IsTurret(turret))return false;
+            float range=TurretRangeR037(turret);
+            if((cell-turret.Position).LengthHorizontalSquared>range*range)return false;
+            Room room=turret.Position.GetRoom(map);
+            return (room!=null && !room.PsychologicallyOutdoors && room==cell.GetRoom(map)) ||
+                GenSight.LineOfSight(turret.Position,cell,map);
         }
         private static List<Emitter> Threats(Map map,IntVec3 a,IntVec3 b)
         {
@@ -176,8 +221,7 @@ namespace RaidersHaveFamilies
             foreach(Building building in map.listerBuildings.allBuildingsColonist)
             {
                 if(!IsTurret(building))continue;
-                ThingDef gun=building.def?.building?.turretGunDef;
-                float range=WeaponRange(gun,30f);
+                float range=TurretRangeR037(building);
                 threat.Add(new Emitter(building.Position,range,2,
                     DistanceToCorridor(building.Position,a,b)));
             }
@@ -479,6 +523,7 @@ namespace RaidersHaveFamilies
                     count++;
                     signature=signature*31 + turret.Position.GetHashCode();
                     signature=signature*31 + turret.GetHashCode();
+                    signature=signature*31 + (int)Math.Ceiling(TurretRangeR037(turret));
                 }
                 return signature*31+count;
             }
@@ -677,15 +722,17 @@ namespace RaidersHaveFamilies
             foreach(Building turret in map.listerBuildings.allBuildingsColonist)
             {
                 if(!IsTurret(turret))continue;
-                float range=WeaponRange(turret.def?.building?.turretGunDef,30f);
+                float range=TurretRangeR037(turret);
                 float r2=range*range;
+                Room room=turret.Position.GetRoom(map);
                 int steps=Math.Max(1,Math.Max(Math.Abs(to.x-from.x),Math.Abs(to.z-from.z)));
                 for(int k=1;k<=steps;k++)
                 {
                     IntVec3 sample=new IntVec3(from.x+(to.x-from.x)*k/steps,0,
                         from.z+(to.z-from.z)*k/steps);
                     if((sample-turret.Position).LengthHorizontalSquared>r2)continue;
-                    if(GenSight.LineOfSight(turret.Position,sample,map))return true;
+                    if((room!=null && !room.PsychologicallyOutdoors && room==sample.GetRoom(map)) ||
+                       GenSight.LineOfSight(turret.Position,sample,map))return true;
                 }
             }
             return false;
@@ -694,6 +741,13 @@ namespace RaidersHaveFamilies
         // Public to the mission planner, read-only and bounded to RHF ops.
         internal static bool StagingExposedToTurret(Map map,IntVec3 cell)
         {return LateralExposed(map,cell,cell);}
+
+        internal static Func<IntVec3,bool> RallySafetySnapshotR037(Map map,IntVec3 anchor)
+        {
+            List<Emitter> guns=Threats(map,anchor,anchor);
+            guns.RemoveAll(t=>t.Importance<2);
+            return cell=>ExposedToTurret(map,cell,guns);
+        }
 
         internal static IntVec3 Waypoint(RHFRoutePlanV128 route,Pawn soldier,Map map)
         {
