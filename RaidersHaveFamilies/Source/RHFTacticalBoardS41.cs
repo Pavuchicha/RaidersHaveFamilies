@@ -1,4 +1,4 @@
-﻿// RHF S4.1-A — persistent mission blackboard. This does NOT issue Pawn jobs.
+// RHF S4.1-A — persistent mission blackboard. This does NOT issue Pawn jobs.
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -109,6 +109,15 @@ namespace RaidersHaveFamilies
             order.Objective = objective;
             order.Cell = cell;
             order.ChangedTick = now;
+        }
+
+        // R032: a permit is a current role targeting the ONE board barrier.
+        // Phase 2 still has a single door operator, phase 3 is unchanged.
+        internal bool PermitsAssaultBreach(Pawn pawn, Thing barrier)
+        {
+            RHFOrderS41 order=For(pawn,false);
+            return barrier!=null && Barrier==barrier && order!=null &&
+                order.Role==(int)RHFRoleS41.Breach && order.Objective==barrier;
         }
 
         internal void Prune(Map map)

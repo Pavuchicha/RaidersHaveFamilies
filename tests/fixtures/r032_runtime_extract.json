@@ -1,0 +1,292 @@
+[
+  {
+    "archive": "20261124_182032_700_b68c6711.zip",
+    "count": 16932,
+    "revision": "R031",
+    "members": {
+      "19434": [
+        "Shoat",
+        null
+      ],
+      "28087": [
+        "Anarchist",
+        "MeleeWeapon_BreachAxe"
+      ],
+      "28095": [
+        "Пихрюк",
+        "Gun_Autopistol"
+      ],
+      "28103": [
+        "Lissa",
+        "MeleeWeapon_BreachAxe"
+      ],
+      "28115": [
+        "Пойкер",
+        "Gun_ChainShotgun"
+      ],
+      "28122": [
+        "Пвуов",
+        "Gun_Revolver"
+      ],
+      "28129": [
+        "Глеер",
+        "Gun_MachinePistol"
+      ],
+      "28137": [
+        "Zach",
+        "MeleeWeapon_Knife"
+      ],
+      "28143": [
+        "Shuck",
+        "Gun_Revolver"
+      ]
+    },
+    "max_duplicate": 8,
+    "worst": {
+      "tick": 36209,
+      "cell": [
+        83,
+        175
+      ],
+      "members": [
+        28087,
+        28095,
+        28103,
+        28115,
+        28122,
+        28129,
+        28137,
+        28143
+      ]
+    },
+    "wall_hits_by_weapon": {
+      "MeleeWeapon_Knife": 36
+    },
+    "breach_assignments": [
+      {
+        "tick": 39359,
+        "pawn": 28103,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 39989,
+        "pawn": 28087,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 40619,
+        "pawn": 28137,
+        "weapon": "MeleeWeapon_Knife",
+        "cell": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 43679,
+        "pawn": 28087,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          114,
+          151
+        ]
+      }
+    ],
+    "watch": [
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Anarchist replacement=Lissa target=(125, 0, 155)",
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Lissa replacement=Anarchist target=(125, 0, 155)",
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Anarchist replacement=Zach target=(125, 0, 155)"
+    ]
+  },
+  {
+    "archive": "20261124_182152_138_2119f7d8.zip",
+    "count": 19037,
+    "revision": "R031",
+    "members": {
+      "19434": [
+        "Shoat",
+        null
+      ],
+      "28086": [
+        "Гукаг",
+        "MeleeWeapon_BreachAxe"
+      ],
+      "28097": [
+        "Toni",
+        "Gun_Autopistol"
+      ],
+      "28105": [
+        "Mastic",
+        "MeleeWeapon_BreachAxe"
+      ],
+      "28112": [
+        "Георк",
+        "Gun_Autopistol"
+      ],
+      "28120": [
+        "Гевелобб",
+        "MeleeWeapon_Knife"
+      ],
+      "28130": [
+        "Rotund",
+        "Gun_MachinePistol"
+      ],
+      "28138": [
+        "Dumpy",
+        "Gun_MachinePistol"
+      ]
+    },
+    "max_duplicate": 6,
+    "worst": {
+      "tick": 35846,
+      "cell": [
+        77,
+        183
+      ],
+      "members": [
+        28097,
+        28105,
+        28120,
+        28130,
+        28138,
+        28086
+      ]
+    },
+    "wall_hits_by_weapon": {
+      "MeleeWeapon_Knife": 54
+    },
+    "breach_assignments": [
+      {
+        "tick": 39266,
+        "pawn": 28105,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 39896,
+        "pawn": 28086,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 40526,
+        "pawn": 28120,
+        "weapon": "MeleeWeapon_Knife",
+        "cell": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 46196,
+        "pawn": 28105,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          114,
+          151
+        ]
+      },
+      {
+        "tick": 46826,
+        "pawn": 28120,
+        "weapon": "MeleeWeapon_Knife",
+        "cell": [
+          114,
+          151
+        ]
+      }
+    ],
+    "watch": [
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Гукаг replacement=Mastic target=(125, 0, 155)",
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Mastic replacement=Гукаг target=(125, 0, 155)",
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Гукаг replacement=Гевелобб target=(125, 0, 155)",
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Гукаг replacement=Mastic target=(114, 0, 151)",
+      "[NJR][R031][BreachWatch] no motion/damage; actor=Mastic replacement=Гевелобб target=(114, 0, 151)"
+    ]
+  },
+  {
+    "archive": "20261124_182229_344_2236b160.zip",
+    "count": 12572,
+    "revision": "R031",
+    "members": {
+      "19434": [
+        "Shoat",
+        null
+      ],
+      "28086": [
+        "Луобб",
+        "MeleeWeapon_BreachAxe"
+      ],
+      "28096": [
+        "Вехрюк",
+        "Gun_MachinePistol"
+      ],
+      "28105": [
+        "Хриуг",
+        "MeleeWeapon_BreachAxe"
+      ],
+      "28116": [
+        "Гауг",
+        "Gun_ChainShotgun"
+      ],
+      "28124": [
+        "Махряк",
+        "Weapon_GrenadeFrag"
+      ],
+      "28134": [
+        "Гвоап",
+        "Weapon_GrenadeMolotov"
+      ]
+    },
+    "max_duplicate": 2,
+    "worst": {
+      "tick": 33183,
+      "cell": [
+        101,
+        12
+      ],
+      "members": [
+        28086,
+        28116
+      ]
+    },
+    "wall_hits_by_weapon": {
+      "MeleeWeapon_BreachAxe": 4
+    },
+    "breach_assignments": [
+      {
+        "tick": 38943,
+        "pawn": 28086,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          125,
+          155
+        ]
+      },
+      {
+        "tick": 40113,
+        "pawn": 28086,
+        "weapon": "MeleeWeapon_BreachAxe",
+        "cell": [
+          114,
+          151
+        ]
+      }
+    ],
+    "watch": []
+  }
+]

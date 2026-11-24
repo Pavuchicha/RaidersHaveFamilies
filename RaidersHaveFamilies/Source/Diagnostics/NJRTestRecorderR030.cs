@@ -427,7 +427,7 @@ namespace RaidersHaveFamilies
                 catch(Exception e){StopLocked("start failed: "+e.Message);return Status();}
             }
             try{Install();}catch(Exception e){HookResults.Add("INSTALL FAILED: "+e);}
-            Write("session_start",new { revision="R030", baseRevision="R031", tick=LastTick, hooks=HookResults.ToArray(),
+            Write("session_start",new { revision="R030", baseRevision="R032", tick=LastTick, hooks=HookResults.ToArray(),
                 jobTrackerPawnField=TrackerPawn!=null,pathPawnField=PathPawn!=null,pathCurrentField=PathCurrent!=null, sampleTicks=120, objectTicks=600, byteLimit=SessionLimit,
                 note="All Verse console calls; selected engine and NJR events; snapshots. No claim of every internal game action." },true);
             Sample(Find.CurrentMap,true);return Status();

@@ -535,11 +535,19 @@ namespace RaidersHaveFamilies
             {
                 board.Barrier=null;board.Breacher=null;board.Threat=null;
                 int advancing=0;
+                var contactSlots=new HashSet<IntVec3>();
                 foreach(Pawn soldier in op.Squad)
                 {
                     if(!Active(soldier,map) || escortedDuringAssault.Contains(soldier))continue;
                     if(soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
-                    {board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);advancing++;}
+                    {
+                        IntVec3 contact=NJRRescueFormationR032.ContactSlot(soldier,captive,map,contactSlots);
+                        if(contact.IsValid)
+                        {contactSlots.Add(contact);board.Assign(soldier,RHFRoleS41.Advance,null,contact,now);advancing++;}
+                        else if(advancing==0)
+                        {board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);advancing++;}
+                        else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
+                    }
                     else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
                 }
                 CancelObsoleteStructureJobs(op,map,board);
@@ -643,23 +651,70 @@ namespace RaidersHaveFamilies
             int shooters=0;
             int supportBudget=board.Threat==null?0:Math.Max(2,op.Squad.Count/3);
             var allocated=new HashSet<IntVec3>();
-            int screened=0;
-            for(int i=0;i<op.Squad.Count;i++)
+            // Reserve attack positions BEFORE assigning any screening or transit.
+            // The primary is a watchdog reference, not a commander.
+            var breachSlots=new Dictionary<Pawn,IntVec3>();
+            var excludedBreach=new HashSet<Pawn>(escortedDuringAssault);
+            if(obstacle!=null && !firebreakBeforeBreach && Active(board.Breacher,map))
             {
-                Pawn soldier=op.Squad[i];
+                int maxOperators=Math.Min(3,Math.Max(1,available-2));
+                Pawn actor=board.Breacher;
+                for(int n=0;n<maxOperators && actor!=null;n++)
+                {
+                    excludedBreach.Add(actor);
+                    if((actor.Position-obstacle.Position).LengthHorizontalSquared<=144)
+                    {
+                        RHFOrderS41 previous=board.For(actor,false);
+                        IntVec3 priorSlot=previous!=null && previous.Role==(int)RHFRoleS41.Breach &&
+                            previous.Objective==obstacle ? previous.Cell : IntVec3.Invalid;
+                        IntVec3 slot=NJRRescueFormationR032.BreachSlot(actor,obstacle,map,
+                            allocated,op.Squad,route.RiskFallback,priorSlot);
+                        if(slot.IsValid){breachSlots.Add(actor,slot);allocated.Add(slot);}
+                    }
+                    actor=RHFCombatPlannerV125.SelectBreachOperator(op,map,obstacle,excludedBreach);
+                    // Extra operators must have a melee weapon. Keep shooters
+                    // defending the rescue instead of using rifle butts.
+                    if(actor!=null && actor.equipment?.Primary?.def?.IsMeleeWeapon!=true)break;
+                }
+                // Non-breach members cannot camp on the remaining striking cells.
+                foreach(IntVec3 offset in NJRRescueFormationR032.Adjacent)
+                {
+                    IntVec3 cell=obstacle.Position+offset;
+                    if(NJRRescueFormationR032.StrikeCell(map,obstacle,cell,board.Breacher))allocated.Add(cell);
+                }
+            }
+            int screened=0;
+            // Process primary and assigned helpers before the rest, reserving
+            // their movement destinations as well as the actual strike cells.
+            var formation=new List<Pawn>();
+            foreach(Pawn member in op.Squad)
+                if(Active(member,map) && !escortedDuringAssault.Contains(member))formation.Add(member);
+            formation.Sort((a,b)=> (a==board.Breacher?0:breachSlots.ContainsKey(a)?1:2).CompareTo(
+                b==board.Breacher?0:breachSlots.ContainsKey(b)?1:2));
+            for(int i=0;i<formation.Count;i++)
+            {
+                Pawn soldier=formation[i];
                 if(!Active(soldier,map) || escortedDuringAssault.Contains(soldier))continue;
+                if(breachSlots.TryGetValue(soldier,out IntVec3 strikeCell))
+                {
+                    board.Assign(soldier,RHFRoleS41.Breach,obstacle,strikeCell,now);
+                    continue;
+                }
                 if(soldier==board.Breacher && obstacle!=null)
                 {
-                    // The breacher is a member of the advance wing, not a
-                    // direct map-wide AttackMelee path to a wall through fire.
-                    if((soldier.Position-obstacle.Position).LengthHorizontalSquared>36)
+                    IntVec3 approach=RHFObjectiveRouteV128.Waypoint(route,soldier,map);
+                    approach=RHFObjectiveRouteV128.FormationWaypoint(route,soldier,map,allocated,approach);
+                    if(approach.IsValid)
+                    {allocated.Add(approach);board.Assign(soldier,RHFRoleS41.Advance,null,approach,now);}
+                    else if((soldier.Position-obstacle.Position).LengthHorizontalSquared<=144)
                     {
-                        IntVec3 approach=RHFObjectiveRouteV128.Waypoint(route,soldier,map);
-                        if(approach.IsValid)
-                            board.Assign(soldier,RHFRoleS41.Advance,null,approach,now);
+                        IntVec3 staging=NJRRescueFormationR032.SpreadNear(soldier,obstacle.Position,map,
+                            allocated,9,8,route.RiskFallback);
+                        if(staging.IsValid)
+                        {allocated.Add(staging);board.Assign(soldier,RHFRoleS41.Advance,null,staging,now);}
                         else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
                     }
-                    else board.Assign(soldier,RHFRoleS41.Breach,obstacle,obstacle.Position,now);
+                    else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
                     continue;
                 }
                 if(board.Threat!=null && shooters<supportBudget)
@@ -675,6 +730,7 @@ namespace RaidersHaveFamilies
                     }
                 }
                 IntVec3 way=route.Valid ? RHFObjectiveRouteV128.Waypoint(route,soldier,map) : IntVec3.Invalid;
+                way=RHFObjectiveRouteV128.FormationWaypoint(route,soldier,map,allocated,way);
                 // R021: rejoin the SAME common corridor using native
                 // reachability. Never build per-pawn alternative A* corridors
                 // and NEVER authorize demolition outside the shared permit.
@@ -690,23 +746,54 @@ namespace RaidersHaveFamilies
                         continue;
                     }
                 }
+                // At the breach, clear its actual attack cells and spread
+                // the waiting fighters into reachable local positions.
+                if(!way.IsValid && obstacle!=null && !firebreakBeforeBreach &&
+                   (soldier.Position-obstacle.Position).LengthHorizontalSquared<=144)
+                    way=NJRRescueFormationR032.SpreadNear(soldier,obstacle.Position,map,
+                        allocated,9,8,route.RiskFallback);
                 if(way.IsValid)
+                {
+                    allocated.Add(way);
                     board.Assign(soldier,RHFRoleS41.Advance,null,way,now);
+                }
                 else if(obstacle==null && !route.Valid &&
                     soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
                     // A real vanilla route to the prisoner outranks a FAILED
                     // strategic scan AND the fallback staging position.
                     board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);
                 else if(!route.Valid && obstacle==null && fallback.IsValid &&
-                    !CrossesTurretLane(map,soldier.Position,fallback) &&
+                    !allocated.Contains(fallback) && !CrossesTurretLane(map,soldier.Position,fallback) &&
                     soldier.CanReach(fallback,PathEndMode.OnCell,Danger.Some) &&
                     (soldier.Position-fallback).LengthHorizontalSquared>4)
-                    board.Assign(soldier,RHFRoleS41.Advance,null,fallback,now);
+                    {allocated.Add(fallback);board.Assign(soldier,RHFRoleS41.Advance,null,fallback,now);}
                 else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
             }
             // JobGivers do not run while a long-lived native Attack job
             // continues. An obsolete target must therefore be interrupted
             // during the mission replan, not only on the next ThinkTree job.
+            // Free assigned striking cells immediately, rather than let a
+            // previous Goto/Wait occupy them for a full job lifetime.
+            foreach(Pawn soldier in formation)
+            {
+                if(!Active(soldier,map) || escortedDuringAssault.Contains(soldier))continue;
+                RHFOrderS41 order=board.For(soldier,false);
+                Job running=soldier.jobs.curJob;
+                if(order==null || running==null || RHFCombatPlannerV125.IsCombatEmergencyJob(soldier))continue;
+                bool move=running.def==JobDefOf.Goto || running.def==JobDefOf.Wait;
+                if(!move)continue;
+                bool breachMove=breachSlots.ContainsKey(soldier) &&
+                    soldier.Position!=order.Cell && running.targetA.Cell!=order.Cell;
+                bool blocking=false;
+                foreach(var pair in breachSlots)
+                    if(pair.Key!=soldier && (soldier.Position==pair.Value ||
+                       running.targetA.Cell==pair.Value)){blocking=true;break;}
+                bool obsoleteDestination=running.def==JobDefOf.Goto &&
+                    allocated.Contains(running.targetA.Cell) && running.targetA.Cell!=order.Cell;
+                if((breachMove || blocking || obsoleteDestination) && order.Cell.IsValid && order.Cell!=soldier.Position &&
+                   running.targetA.Cell!=order.Cell)
+                    soldier.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
+            }
             CancelObsoleteStructureJobs(op,map,board);
             if(obstacle!=null && board.Breacher==null)
                 Log.WarningOnce("[NJR][R026] Missing executable breacher: barrier="+
@@ -715,7 +802,7 @@ namespace RaidersHaveFamilies
                     obstacle.thingIDNumber ^ 260027);
             board.Decision=obstacle!=null ?
                 "breach="+obstacle.LabelShortCap+" owner="+(board.Breacher?.LabelShortCap??"MISSING")+
-                "; screen="+screened+" suppress="+shooters+
+                "; operators="+breachSlots.Count+" screen="+screened+" suppress="+shooters+
                 (board.Threat!=null && shooters==0?" / NO VIABLE TURRET FIRE POSITION":"") :
                 route.Valid?"advance via cached corridor; suppress="+shooters:
                 "no valid route: "+route.Explanation;
@@ -744,8 +831,8 @@ namespace RaidersHaveFamilies
                    current.def!=JobDefOf.AttackMelee))continue;
                 Building target=current.targetA.Thing as Building;
                 if(target==null || RHFCombatPlannerV125.IsTurret(target))continue;
-                if(op.Phase==1 && board.Barrier==target &&
-                   board.Breacher==soldier &&
+                if(((op.Phase==1 && board.PermitsAssaultBreach(soldier,target)) ||
+                    (op.Phase==2 && board.Barrier==target && board.Breacher==soldier && target is Building_Door)) &&
                    RHFObjectiveRouteV128.IsRescueStructuralBarrier(target))continue;
                 soldier.jobs.EndCurrentJob(JobCondition.InterruptForced);
                 Log.WarningOnce("[NJR][R025] Stopped unauthorized structural attack: "+

@@ -191,19 +191,34 @@ namespace RaidersHaveFamilies
                 case RHFRoleS41.Breach:
                 {
                     // A stale saved/order assignment is not a demolition permit.
-                    // The CURRENT rescue blackboard owns exactly one barrier
-                    // and exactly one authorized operator.
+                    // The CURRENT rescue blackboard owns exactly one barrier.
+                    // Assault permits are explicit per-pawn; exit remains single-operator.
                     // Assault: one board-owned structural breach. Withdrawal:
                     // ONLY a physically verified CLOSED DOOR leading to an exit.
                     // Never treat arbitrary wall attacks as a valid escape job.
-                    if(op.BoardS41?.Breacher!=pawn ||
-                       op.BoardS41?.Barrier!=order.Objective ||
-                       (op.Phase!=1 && op.Phase!=2))return null;
+                    if(op.Phase==1)
+                    {
+                        if(op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true)return null;
+                    }
+                    else if(op.BoardS41?.Breacher!=pawn ||
+                       op.BoardS41?.Barrier!=order.Objective || op.Phase!=2)return null;
                     Thing obstacle=order.Objective;
                     if(op.Phase==2 && !(obstacle is Building_Door))return null;
                     if(obstacle==null || obstacle.Destroyed || !obstacle.Spawned ||
                        obstacle.Map!=pawn.Map ||
                        !RHFObjectiveRouteV128.IsRescueStructuralBarrier(obstacle))return null;
+                    // R032: assault operators first occupy their separately
+                    // allocated, reachable strike cells. Native melee may use
+                    // a clear diagonal, but never an obstructed corner.
+                    if(op.Phase==1)
+                    {
+                        if(!NJRRescueFormationR032.StrikeCell(pawn.Map,obstacle,order.Cell,pawn))return null;
+                        if(pawn.Position!=order.Cell)
+                            return pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly) ?
+                                Task(JobDefOf.Goto,order.Cell,360) : null;
+                        return Task(JobDefOf.AttackMelee,obstacle,900);
+                    }
+                    // Phase 2 keeps its original single door access permit.
                     JobDef strike=RHFCombatPlannerV125.BreachAttack(pawn);
                     // No instant damage/charges: only ordinary weapon attack jobs.
                     if(strike==null)return null;
@@ -271,7 +286,7 @@ namespace RaidersHaveFamilies
                        pawn.Position!=order.Cell)
                     {
                         if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
-                            return Task(JobDefOf.Goto,order.Cell,240);
+                            return Task(JobDefOf.Goto,order.Cell,480);
                         Job breach=NJRCombatContactS44.BreachToward(pawn,op,order.Cell);
                         if(breach!=null)return breach;
                     }

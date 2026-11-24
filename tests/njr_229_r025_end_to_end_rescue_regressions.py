@@ -39,7 +39,7 @@ assert '(c.Center-history.Last).LengthHorizontalSquared>=225' in entry
 assert 'System.Random debugRandom=op.DebugForced ?' in entry
 assert 'RecentEntries.GetValue(map' in entry
 assert 'if(op?.Type==(int)RHFOperationType.Rescue)return null;' in combat
-assert 'if(op.BoardS41?.Breacher!=pawn ||' in ops
+assert 'else if(op.BoardS41?.Breacher!=pawn ||' in ops
 nodes=[n.attrib.get('Class') for n in duty.findall('.//li')]
 assert nodes.index('RaidersHaveFamilies.RHFJobGiverMissionDefenseV136') < nodes.index('RaidersHaveFamilies.RHFRescueRoleJobGiverS41')
 

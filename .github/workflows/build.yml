@@ -118,6 +118,7 @@ jobs:
           python3 tests/njr_232_r029_single_rescue_extraction.py
           python3 tests/njr_233_r030_diagnostic_recorder.py
           python3 tests/njr_234_r031_runtime_trace.py
+          python3 tests/njr_235_r032_formation_and_breach.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)

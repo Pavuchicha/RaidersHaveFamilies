@@ -1,0 +1,5 @@
+R032 — поверх R031. Распаковать в корень репозитория с заменой.
+Summary: R032: Disperse rescue squads and coordinate multiple breachers
+Commit to main -> Push origin. Дождаться успешной сборки и установить свежий ZIP.
+В тестах включить NJR - ЗАПИСЬ ТЕСТОВ, до рейда. baseRevision=R032.
+90 проверок исходников и моделей; DLL/игра не проверены. Отчёт в docs/NJR_R032_FORMATION_AND_BREACH_RU.md.

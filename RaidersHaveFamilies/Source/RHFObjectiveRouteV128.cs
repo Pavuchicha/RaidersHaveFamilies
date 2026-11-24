@@ -771,6 +771,93 @@ namespace RaidersHaveFamilies
             }
             return IntVec3.Invalid;
         }
+        // R032: lateral legs may leave the centreline but never cross a wall
+        // or an unapproved firing lane. Native pathing still executes Goto.
+        internal static bool FormationLegSafe(IntVec3 from,IntVec3 to,Map map,bool risk)
+        {
+            if(!from.InBounds(map) || !to.InBounds(map))return false;
+            if(from==to)return true;
+            if(!GenSight.LineOfSight(from,to,map) || (!risk && LateralExposed(map,from,to)))return false;
+            int dx=to.x-from.x,dz=to.z-from.z;
+            int steps=Math.Max(Math.Abs(dx),Math.Abs(dz));
+            for(int i=1;i<=steps;i++)
+            {
+                IntVec3 c=new IntVec3(from.x+dx*i/steps,0,from.z+dz*i/steps);
+                if(!c.Standable(map))return false;
+            }
+            return true;
+        }
+
+        internal static IntVec3 FormationWaypoint(RHFRoutePlanV128 route,Pawn pawn,Map map,
+            HashSet<IntVec3> allocated,IntVec3 nominal)
+        {
+            if(route==null || !route.Valid || !nominal.IsValid)return IntVec3.Invalid;
+            int limit=SafeAdvanceLimit(route), nearest=0, nearestDistance=int.MaxValue;
+            for(int i=0;i<=limit;i++)
+            {
+                int d=(pawn.Position-route.Cells[i]).LengthHorizontalSquared;
+                if(d<nearestDistance){nearestDistance=d;nearest=i;}
+            }
+            // Keep a valid existing forward leg rather than replacing it every
+            // 90t. This also prevents two soldiers swapping destinations.
+            Job running=pawn.jobs?.curJob;
+            if(running?.def==JobDefOf.Goto && running.targetA.Thing==null)
+            {
+                IntVec3 target=running.targetA.Cell;
+                if(target.IsValid && target.InBounds(map) && target!=pawn.Position && !allocated.Contains(target) &&
+                   (target-nominal).LengthHorizontalSquared<=144 && IsAllowedWaypoint(route,target) &&
+                   (target.GetFirstPawn(map)==null || target.GetFirstPawn(map)==pawn) &&
+                   FormationLegSafe(pawn.Position,target,map,false) &&
+                   pawn.CanReach(target,PathEndMode.OnCell,Danger.Deadly))
+                {
+                    IntVec3 forward=nominal-pawn.Position, travel=target-pawn.Position;
+                    if(forward.x*travel.x+forward.z*travel.z>0)return target;
+                }
+            }
+            // Smooth open-ground stair-step routes. At most five candidate
+            // legs; never cross a blocked cell or known fire merely to skip a turn.
+            if(nearestDistance<=25 && !route.RiskFallback)
+                for(int i=Math.Min(limit,nearest+18);i>nearest+3;i-=3)
+                {
+                    IntVec3 candidate=route.Cells[i];
+                    if(allocated.Contains(candidate) || candidate.GetFirstPawn(map)!=null ||
+                       candidate==pawn.Position || !FormationLegSafe(pawn.Position,candidate,map,false))continue;
+                    if(pawn.CanReach(candidate,PathEndMode.OnCell,Danger.Deadly))
+                    {nominal=candidate;break;}
+                }
+            // Try several lateral cells, rather than everybody selecting the
+            // same centreline cell. Short legs near a bend keep their safety.
+            var candidates=new List<IntVec3>();
+            for(int dx=-3;dx<=3;dx++)for(int dz=-3;dz<=3;dz++)
+            {
+                if(dx*dx+dz*dz>9)continue;
+                IntVec3 cell=nominal+new IntVec3(dx,0,dz);
+                IntVec3 direction=nominal-pawn.Position, progress=cell-pawn.Position;
+                if(direction.x*progress.x+direction.z*progress.z<=0 ||
+                   allocated.Contains(cell) || !cell.InBounds(map) ||
+                   !cell.Standable(map) || cell.GetEdifice(map)!=null ||
+                   cell.GetFirstPawn(map)!=null || !IsAllowedWaypoint(route,cell))continue;
+                candidates.Add(cell);
+            }
+            // Prefer the soldier's own lane, not the centre shared by everyone.
+            candidates.Sort((a,b)=>((a-pawn.Position).LengthHorizontalSquared+
+                (a-nominal).LengthHorizontalSquared*5).CompareTo(
+                (b-pawn.Position).LengthHorizontalSquared+(b-nominal).LengthHorizontalSquared*5));
+            int probes=0;
+            foreach(IntVec3 cell in candidates)
+            {
+                if(++probes>12)break;
+                if(!FormationLegSafe(pawn.Position,cell,map,route.RiskFallback && cell==nominal) ||
+                   !pawn.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                return cell;
+            }
+            // Preserve native valid nominal joins around a corner when safe
+            // offsets were unavailable. Never duplicate a destination.
+            if(!allocated.Contains(nominal) && nominal!=pawn.Position &&
+               nominal.GetFirstPawn(map)==null)return nominal;
+            return IntVec3.Invalid;
+        }
+
         // Physically accessible rendezvous on the SAME shared corridor.
         // Native CanReach disallows magic wall traversal; no private breach.
         private static IntVec3 JoinCommonCorridor(RHFRoutePlanV128 route,

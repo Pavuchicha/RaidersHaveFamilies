@@ -1,4 +1,4 @@
-﻿// RHF v0.12.5: objective-aware threat response, bounded flanking and deliberate breaching.
+// RHF v0.12.5: objective-aware threat response, bounded flanking and deliberate breaching.
 // This AI only acts on members of an existing RHF operation. It never patches every pawn tick.
 using System;
 using System.Collections.Generic;
@@ -836,8 +836,12 @@ namespace RaidersHaveFamilies
                 // Launchers/rifles with an unsafe firing lane use native
                 // AttackMelee (weapon butt/fists); no grenades into the VIP.
                 int skill=pawn.skills?.GetSkill(SkillDefOf.Melee)?.Level ?? 0;
-                int score=(specialist && melee?2000:0)+(melee?800:0)+(safeRifle?200:0)+
-                    skill*7-(pawn.Position-barrier.Position).LengthHorizontalSquared/3;
+                // Equipment, not the old nominal specialist role, decides priority.
+                // Distance remains relevant among equally suitable weapons.
+                int score=(RHFTactical.IsBreachAxe(pawn)?10000:0)+
+                    (weapon?.IsMeleeWeapon==true?1200:0)+(specialist && melee?300:0)+
+                    (safeRifle?200:0)+skill*15-
+                    Math.Min(2000,(pawn.Position-barrier.Position).LengthHorizontalSquared/3);
                 if(score>bestScore){best=pawn;bestScore=score;}
             }
             return best;

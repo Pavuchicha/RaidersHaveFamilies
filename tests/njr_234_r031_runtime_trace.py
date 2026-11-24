@@ -25,6 +25,6 @@ assert 'if(now-state.Changed<600)return;' in p and 'state.Failed[actor]=now+1800
 assert 'board.Breacher=replacement??actor;' in p
 assert 'LengthHorizontalSquared!=1' in j and 'IntVec3[] offsets={IntVec3.North,IntVec3.South,IntVec3.East,IntVec3.West};' in j
 assert 'pawn.Position!=order.Cell' in j
-assert 'LengthHorizontalSquared>36' in p and 'IntVec3 approach=RHFObjectiveRouteV128.Waypoint(route,soldier,map);' in p
+assert 'IntVec3 approach=RHFObjectiveRouteV128.Waypoint(route,soldier,map);' in p and 'FormationWaypoint(route,soldier,map,allocated,approach)' in p
 assert 'if(++inspected>48)break;' in route and 'if(++probes>12)break;' in route
 print('PASS R031: three actual log extracts, watchdog replay and job/route source constraints; NOT gameplay.')

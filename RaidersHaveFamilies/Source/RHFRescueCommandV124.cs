@@ -311,8 +311,7 @@ namespace RaidersHaveFamilies
                     if(structure==null || RHFCombatPlannerV125.IsTurret(structure))continue;
                     RHFOrderS41 issued=op.BoardS41?.For(p,false);
                     bool permitted=op.Phase==1 &&
-                        op.BoardS41?.Barrier==structure &&
-                        op.BoardS41?.Breacher==p;
+                        op.BoardS41?.PermitsAssaultBreach(p,structure)==true;
                     if(!permitted && op.Phase==2 && issued!=null)
                         permitted=(RHFRoleS41)issued.Role==RHFRoleS41.Breach &&
                             issued.Objective==structure &&
