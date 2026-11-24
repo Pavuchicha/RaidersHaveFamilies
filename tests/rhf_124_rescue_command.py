@@ -12,7 +12,7 @@ for marker in (
     'RHFRescueDeploymentV124', 'RHFRescueOwnershipV124',
     'RHFRescueInfiltrationV124', 'RHFRescueExtractionV124',
     'RHFRescueExitV124', 'RHFRescueDiagnosticsV124',
-    '29 — Групповой командир и эвакуация RHF',
+    '29 — Диагностика спасения S41 и эвакуации',
     'AuthorizedExits.Contains', 'MissionExit(captive)',
     'MissionExit(escort)', 'MissionExit(rescuer)',
     'op.EscapedWithEscort++',

@@ -453,6 +453,29 @@ namespace RaidersHaveFamilies
             if(now<board.NextReplanTick && board.LastPlanTick>0)return;
             board.NextReplanTick=now+PlanCadence;
             board.LastPlanTick=now;
+            // If the native RimWorld pathfinder already has an actual route to
+            // the prisoner, do not let the tactical A* invent a wall breach.
+            // This is evaluated once per strategy pulse, not per pawn tick.
+            int nativeAccess=0;
+            foreach(Pawn fighter in op.Squad)
+                if(Active(fighter,map) && !escortedDuringAssault.Contains(fighter) &&
+                   fighter.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
+                    nativeAccess++;
+            if(nativeAccess>0)
+            {
+                board.Barrier=null;board.Breacher=null;board.Threat=null;
+                int advancing=0;
+                foreach(Pawn soldier in op.Squad)
+                {
+                    if(!Active(soldier,map) || escortedDuringAssault.Contains(soldier))continue;
+                    if(soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly))
+                    {board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);advancing++;}
+                    else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
+                }
+                CancelObsoleteStructureJobs(op,map,board);
+                board.Decision="R026: native reachable prisoner; assault advance="+advancing;
+                return;
+            }
             RHFRoutePlanV128 route=RHFObjectiveRouteV128.ResolveShared(
                 op,map,op.Squad,escortedDuringAssault,captive,now);
             // One trace per NEW plan, never one message per pawn or game tick.
@@ -464,6 +487,18 @@ namespace RaidersHaveFamilies
                     ", walls="+route.Walls+", expanded="+route.Expanded+
                     ", cost="+route.TotalCost+", result="+route.Explanation);
             Thing obstacle=route.Valid ? route.FirstBarrier : null;
+            // A perfectly costed route is useless if its first demolition
+            // cannot be executed by any soldier. Try ONE alternative plan
+            // excluding this barrier instead of waiting 27,000 ticks.
+            if(obstacle!=null &&
+               RHFCombatPlannerV125.SelectBreachOperator(op,map,obstacle,
+                   escortedDuringAssault)==null)
+            {
+                RHFObjectiveRouteV128.RejectUnworkableBarrier(op,obstacle,now);
+                route=RHFObjectiveRouteV128.ResolveShared(
+                    op,map,op.Squad,escortedDuringAssault,captive,now);
+                obstacle=route.Valid?route.FirstBarrier:null;
+            }
             // If the expensive route solver cannot establish a corridor,
             // rally toward an actually reachable objective approach instead
             // of giving every soldier Hold for 27,000 ticks.
@@ -591,12 +626,28 @@ namespace RaidersHaveFamilies
             // continues. An obsolete target must therefore be interrupted
             // during the mission replan, not only on the next ThinkTree job.
             CancelObsoleteStructureJobs(op,map,board);
+            if(obstacle!=null && board.Breacher==null)
+                Log.WarningOnce("[NJR][R026] Missing executable breacher: barrier="+
+                    obstacle.LabelShortCap+" at "+obstacle.Position+
+                    ", reason="+route.Explanation,
+                    obstacle.thingIDNumber ^ 260027);
             board.Decision=obstacle!=null ?
                 "breach="+obstacle.LabelShortCap+" owner="+(board.Breacher?.LabelShortCap??"MISSING")+
                 "; screen="+screened+" suppress="+shooters+
                 (board.Threat!=null && shooters==0?" / NO VIABLE TURRET FIRE POSITION":"") :
                 route.Valid?"advance via cached corridor; suppress="+shooters:
                 "no valid route: "+route.Explanation;
+            // Once per stalled mission: evidence of what the real JobGivers
+            // were ordered to do. This is intentionally not a per-pawn log.
+            if(now-Math.Max(op.LastProgressTick,op.PhaseStartTick)>1200)
+                Log.WarningOnce("[NJR][R026][STALL] phase="+op.Phase+
+                    " captive="+captive.Position+" available="+available+
+                    " route="+route.Valid+" expanded="+route.Expanded+
+                    " barrier="+(board.Barrier?.Position.ToString()??"none")+
+                    " breacher="+(board.Breacher?.LabelShortCap??"none")+
+                    " decision="+board.Decision+
+                    " (developer actions: NJR - ТЕСТЫ | ДИАГНОСТИКА / 29)",
+                    op.GetHashCode() ^ 260026);
         }
 
         private static void CancelObsoleteStructureJobs(RHFOperation op,Map map,

@@ -1174,6 +1174,12 @@ namespace RaidersHaveFamilies
                     ", задачи Goto="+exits+", вывезено="+op.EscapedWithEscort+
                     ", сопровождающих="+op.Escorts.Count);
                 sb.AppendLine("Текущий план: "+state.LastDecision);
+                RHFTacticalBoardS41 board=op.BoardS41;
+                sb.AppendLine("R026 S41: "+(board?.Decision??"нет решения")+
+                    "; пролом="+(board?.Barrier?.LabelShortCap??"нет")+
+                    "; взломщик="+(board?.Breacher?.LabelShortCap??"нет")+
+                    "; последний план="+(board?.LastPlanTick??-1)+
+                    "; следующее решение="+(board?.NextReplanTick??-1));
                 sb.AppendLine("Вход: "+(state.CurrentBarrier?.LabelShortCap??"не выбран")+
                     "; выход: "+op.ExitCell+"; успех/пролом/подход="+
                     state.Escorted+"/"+state.OrderedBreach+"/"+state.OrderedApproach+
@@ -1183,8 +1189,12 @@ namespace RaidersHaveFamilies
                 {
                     Pawn p=op.Squad[j];
                     if(!ActivePawn(p,map))continue;
+                    RHFOrderS41 order=board?.For(p,false);
                     sb.AppendLine("  "+p.LabelShortCap+": "+
                         (p.jobs?.curJob?.def?.defName??"нет задачи")+
+                        ", роль="+(order==null?"нет":((RHFRoleS41)order.Role).ToString())+
+                        ", цель="+(order?.Objective?.LabelShortCap??"нет")+
+                        ", точка="+(order?.Cell.ToString()??"нет")+
                         ", позиция="+p.Position+", Lord="+
                         (p.GetLord()?.LordJob?.GetType().Name??"нет"));
                     shown++;
@@ -1237,7 +1247,7 @@ namespace RaidersHaveFamilies
 
     public static class RHFRescueDiagnosticsV124
     {
-        [DebugAction("NJR - ТЕСТЫ | ДИАГНОСТИКА", "29 — Групповой командир и эвакуация RHF",
+        [DebugAction("NJR - ТЕСТЫ | ДИАГНОСТИКА", "29 — Диагностика спасения S41 и эвакуации",
             actionType=DebugActionType.Action,allowedGameStates=AllowedGameStates.PlayingOnMap)]
         public static void Show()
         {

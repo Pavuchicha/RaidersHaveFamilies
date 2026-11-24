@@ -34,8 +34,9 @@ assert 'distance>range*range' in combat
 assert 'enemyJob.targetA.Thing==soldier' in combat
 assert 'FriendlyFiringLane(op,soldier,enemy,cell)' in combat
 assert '!RHFRescueFireDisciplineV136.UnsafeLine(op,soldier,enemy)' in combat
-assert 'int tolerance=Math.Max(5000,valid[0].Score/3);' in entry
-assert 'valid[choice].Center==history.Last' in entry
+assert 'int scoreCeiling=valid[0].Score+Math.Max(40000,valid[0].Score/2);' in entry
+assert '(c.Center-history.Last).LengthHorizontalSquared>=225' in entry
+assert 'System.Random debugRandom=op.DebugForced ?' in entry
 assert 'RecentEntries.GetValue(map' in entry
 assert 'if(op?.Type==(int)RHFOperationType.Rescue)return null;' in combat
 assert 'if(op.BoardS41?.Breacher!=pawn ||' in ops

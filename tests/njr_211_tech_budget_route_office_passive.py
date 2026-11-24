@@ -39,7 +39,7 @@ assert 'OrbitalTargeterPowerBeam' in orb and 'VerbTracker' in orb
 assert 'TryStartCastOn' in orb and 'FriendlyNear(op,map' in orb
 assert 'njrAnimalBudgetS42' in ops and 'njrLoadoutBudgetS42' in ops
 assert 'njrWeaponPresetS42' in member and 'njrOrbitalItemS42' in member
-assert 'Math.Max(map.Size.x,map.Size.z));' in route
+assert 'new HashSet<Thing>(holder.UnworkableBarriers.Keys));' in route
 assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
 assert 'forbidTurretExposure' not in route
 assert 't.Origin.GetRoom(map)==cell.GetRoom(map)' in route

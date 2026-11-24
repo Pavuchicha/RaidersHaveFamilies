@@ -30,7 +30,7 @@ for name,(text,forbidden) in blocks.items():
  for token in forbidden:assert token not in text,(name,token)
 expected={
  'combat': (combat,['while(queue.Count>0)','for(int x=0;x<map.Size.x;x++)','exposureCache','remaining>=initialRemaining']),
- 'route': (route,['while(heap.Count>0)','Math.Max(map.Size.x,map.Size.z));']),
+ 'route': (route,['while(heap.Count>0)','new HashSet<Thing>(holder.UnworkableBarriers.Keys));']),
  'rescuer': (rescue,['for(int i=0;i<operations.Count;i++)','int[] radii={2,4,6,9,12,16};']),
  'pod': (pod,['private static bool InFootprint','private static bool ValidGuardCell','private static IntVec3 GuardCell','radius<=12']),
  'entry': (entry,['for(int t=5;t<span-5;t++)','ReachableExterior(map,center,captive)']),

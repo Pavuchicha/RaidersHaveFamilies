@@ -1,0 +1,17 @@
+{
+  ".github/workflows/build.yml": "88300ae0131b5f0c307da1575ff79159d85ff0e2129d6dfb1c0c93869bb6cbf3",
+  "RaidersHaveFamilies/Source/RHFCombatPlannerV125.cs": "5fbae135e9edc447256267cc64deed1fd9dcf5bfef06eed677ff2092efe3097b",
+  "RaidersHaveFamilies/Source/RHFObjectiveRouteV128.cs": "ad07205f7598b7c7eebe28aeaef00a7afdddc4233f44f43348ec0894c8c6f911",
+  "RaidersHaveFamilies/Source/RHFRescuePlannerS41.cs": "76c5ee6bac06081a7a817b0eaf31f4149158656b26740a6f318729c1e071a467",
+  "RaidersHaveFamilies/Source/RHFRescueGroundEntryS41.cs": "6d750337f5f773e5b5034b26f00c7a112b9238382c4d9363c895685602217898",
+  "RaidersHaveFamilies/Source/RHFRescueCommandV124.cs": "2d5dbc76e1f6000be6a88844e1cac604455e1e96a6dc8d1e87d7fc2ab7d9613e",
+  "tests/njr_211_tech_budget_route_office_passive.py": "8815f064d11da4d90b9ae45ecd725b5aea09c937104d86d237f59a289788f261",
+  "tests/njr_216_unbounded_combat_doctrine.py": "cc660dee34ca7ce0d6d4ef8e4e5d21a8827132d8267a5be83b9bee874a6caee8",
+  "tests/njr_227_r023_rescue_priority_spawn_authority.py": "8ebb2a7ab60a6fa4668687a03effa336866bd645a760ccf14be5956a15130eff",
+  "tests/njr_229_r025_end_to_end_rescue_regressions.py": "0d942905756dff191b0476df15fcacc0a3e8f5f98f04b0a0371071e86d16d542",
+  "tests/njr_230_r026_real_rescue_anti_stall.py": "53d215f85c7e4bcce1b988220a12ee7e31a8aee9ac540dcb9d40fd912e8bf440",
+  "tests/rhf_124_rescue_command.py": "f284556ebe89e9bae9a853abc87c1ce9acdb18dcff11439b17007a8c54d50251",
+  "docs/NJR_R026_RESCUE_STALL_AND_ENTRY_FORENSIC_RU.md": "55b7f7e0e38ec1bb921e62582d1ba4f47205cc5e51d05881de709bbbea07c37a",
+  "docs/R026_CHANGED_FILES.txt": "4ef577589241976134817730955a0cfa5e906cd7b2d9bc78a13fb813dede765a",
+  "R026_INSTALL_AND_TEST_RU.txt": "ba866f284f138558dd0a8613d19f50a8535fe123f1db1c2a343cd34e5f1b20ac"
+}

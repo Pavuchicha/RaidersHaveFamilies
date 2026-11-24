@@ -50,6 +50,11 @@ namespace RaidersHaveFamilies
         internal Map LayoutMap;
         internal int TurretLayoutSignature;
         internal int NextLayoutCheckTick;
+        // A corridor may nominate a wall that no active soldier can touch.
+        // Temporarily forbid THAT precise edifice and search a different real
+        // corridor instead of assigning Hold to the entire rescue squad.
+        internal readonly Dictionary<Thing,int> UnworkableBarriers =
+            new Dictionary<Thing,int>();
     }
 
     [StaticConstructorOnStartup]
@@ -57,7 +62,7 @@ namespace RaidersHaveFamilies
     {
         static RHFObjectiveRouteV128()
         {
-            Log.Message("[RHF] v0.12.8 route mission controller loaded (HP + threat corridor).");
+            Log.Message("[NJR][R026] Route/mission authority loaded; check this line in Player.log to verify installed DLL.");
         }
         private const int ReplanTicks = 900;
         // Finite per-decision CPU budget. A failed tactical search must
@@ -266,7 +271,7 @@ namespace RaidersHaveFamilies
         // wing. No selected pawn owns the mission's path or demolition target.
         // All active start positions are genuine standable map cells.
         private static bool PlanBounded(Map map,IList<IntVec3> origins,Pawn captive,
-            RHFRoutePlanV128 plan,int margin)
+            RHFRoutePlanV128 plan,int margin,HashSet<Thing> rejectedBarriers)
         {
             if(origins==null || origins.Count==0 || map==null || captive==null)
                 return false;
@@ -328,7 +333,8 @@ namespace RaidersHaveFamilies
                     IntVec3 cell=new IntVec3(nx,0,nz);
                     Thing obstacle;
                     int step=Step(map,cell,out obstacle);
-                    if(step<0)continue;
+                    if(step<0 || (obstacle!=null &&
+                       rejectedBarriers!=null && rejectedBarriers.Contains(obstacle)))continue;
                     // Do not disqualify an otherwise sensible doorway just
                     // because one turret covers a short part of the route.
                     // Threats enter the SAME whole-path cost calculation.
@@ -452,6 +458,30 @@ namespace RaidersHaveFamilies
             return ResolveFromSources(op,map,sources,captive,now);
         }
 
+        // A breach which no member can physically execute is NOT a route.
+        // Only this single obstacle is excluded for 1800 ticks; other doors
+        // and walls remain costed by the normal full-route planner.
+        internal static void RejectUnworkableBarrier(RHFOperation op,Thing barrier,int now)
+        {
+            if(op==null || barrier==null)return;
+            RHFRouteStoreV128 holder=Cache.GetValue(op,_=>new RHFRouteStoreV128());
+            // Several sequential obstructions can be unworkable. A single
+            // rejected-wall slot oscillated between A/B every 180 ticks.
+            if(!holder.UnworkableBarriers.ContainsKey(barrier) &&
+               holder.UnworkableBarriers.Count>=8)
+            {
+                Thing oldest=null;int earliest=int.MaxValue;
+                foreach(KeyValuePair<Thing,int> pair in holder.UnworkableBarriers)
+                    if(pair.Value<earliest){earliest=pair.Value;oldest=pair.Key;}
+                if(oldest!=null)holder.UnworkableBarriers.Remove(oldest);
+            }
+            holder.UnworkableBarriers[barrier]=now+1800;
+            holder.Plan=null;
+            Log.WarningOnce("[NJR][R026] Unreachable breach at "+barrier.Position+
+                "; retrying weighted route without this obstacle",
+                barrier.thingIDNumber ^ 260026);
+        }
+
         private static RHFRoutePlanV128 ResolveFromSources(RHFOperation op,Map map,
             List<IntVec3> origins,Pawn captive,int now)
         {
@@ -468,6 +498,15 @@ namespace RaidersHaveFamilies
                 holder.LayoutMap=map;
                 holder.TurretLayoutSignature=layout;
                 holder.NextLayoutCheckTick=now+120;
+            }
+            if(holder.UnworkableBarriers.Count>0)
+            {
+                var expired=new List<Thing>();
+                foreach(KeyValuePair<Thing,int> pair in holder.UnworkableBarriers)
+                    if(pair.Key==null || pair.Key.Destroyed ||
+                       !pair.Key.Spawned || now>=pair.Value)expired.Add(pair.Key);
+                foreach(Thing old in expired)holder.UnworkableBarriers.Remove(old);
+                if(expired.Count>0)holder.Plan=null;
             }
             RHFRoutePlanV128 prior=holder.Plan;
             // A corridor with no actual forward progress must expire sooner;
@@ -498,7 +537,8 @@ namespace RaidersHaveFamilies
             // entirely turret-covered colony it still finds a route, pays
             // for the real exposure, and allows actual combat on approach.
             PlanBounded(map,origins,captive,fresh,
-                Math.Max(map.Size.x,map.Size.z));
+                Math.Max(map.Size.x,map.Size.z),
+                new HashSet<Thing>(holder.UnworkableBarriers.Keys));
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
                     " sources="+origins.Count+" target="+captive.Position);

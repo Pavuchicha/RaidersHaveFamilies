@@ -113,6 +113,7 @@ jobs:
           python3 tests/njr_227_r023_rescue_priority_spawn_authority.py
           python3 tests/njr_228_r024_old_beta2_weighted_rescue.py
           python3 tests/njr_229_r025_end_to_end_rescue_regressions.py
+          python3 tests/njr_230_r026_real_rescue_anti_stall.py
       - name: Restore RimWorld 1.7 / Harmony 3 references
         run: dotnet restore RaidersHaveFamilies/Source/RaidersHaveFamilies.csproj
       - name: Compile mod DLL (fail on errors)

@@ -831,7 +831,10 @@ namespace RaidersHaveFamilies
                     weapon.defName.IndexOf("Launcher",StringComparison.OrdinalIgnoreCase)<0 &&
                     weapon.defName.IndexOf("Rocket",StringComparison.OrdinalIgnoreCase)<0 &&
                     !RHFRescueFireDisciplineV136.UnsafeLine(op,pawn,barrier);
-                if(!melee && !safeRifle)continue;
+                // A safe rifle shot is preferred, never a prerequisite for
+                // carrying out the ONLY physically reachable rescue breach.
+                // Launchers/rifles with an unsafe firing lane use native
+                // AttackMelee (weapon butt/fists); no grenades into the VIP.
                 int skill=pawn.skills?.GetSkill(SkillDefOf.Melee)?.Level ?? 0;
                 int score=(specialist && melee?2000:0)+(melee?800:0)+(safeRifle?200:0)+
                     skill*7-(pawn.Position-barrier.Position).LengthHorizontalSquared/3;
@@ -850,7 +853,9 @@ namespace RaidersHaveFamilies
                 weapon.defName.IndexOf("Launcher",StringComparison.OrdinalIgnoreCase)<0 &&
                 weapon.defName.IndexOf("Rocket",StringComparison.OrdinalIgnoreCase)<0)
                 return JobDefOf.AttackStatic;
-            return null;
+            // Explosive-only weapons must NEVER disqualify an otherwise valid
+            // breacher: melee against the barrier remains physically legal.
+            return JobDefOf.AttackMelee;
         }
 
         // Removed: damage is dealt only by the native attack JobDriver.

@@ -173,6 +173,14 @@ namespace RaidersHaveFamilies
             {
                 if(validPerSide[proposed.Side]>=8)continue;
                 IntVec3 edge=proposed.Edge,center=proposed.Center;
+                // Do not collect eight virtually identical tiles on one
+                // map edge. Sample separated, viable insertion sectors.
+                bool overlaps=false;
+                foreach(EntryCandidate existing in valid)
+                    if(existing.Side==proposed.Side &&
+                       (existing.Center-center).LengthHorizontalSquared<225)
+                    {overlaps=true;break;}
+                if(overlaps)continue;
                 if(!GroundEntryClusterSafe(map,center))continue;
                 if(!map.reachability.CanReach(edge,center,PathEndMode.OnCell,
                     TraverseMode.PassDoors,Danger.Deadly))continue;
@@ -211,26 +219,55 @@ namespace RaidersHaveFamilies
             }
             if(valid.Count==0)return IntVec3.Invalid;
             valid.Sort((a,b)=>a.Score.CompareTo(b.Score));
-            // An actual raid must not reuse a single hardcoded best cell on
-            // every test. Randomize ONLY between comparably safe/near entries.
-            int eligible=1;
-            // Allow a modest difference in threat and distance instead of
-            // requiring EXACTLY the same danger score as the first entry.
-            // Entries were already validated for safe physical deployment.
-            int tolerance=Math.Max(5000,valid[0].Score/3);
-            while(eligible<valid.Count && eligible<16 &&
-                valid[eligible].Danger<=valid[0].Danger+12000 &&
-                valid[eligible].Score-valid[0].Score<=tolerance)
-                eligible++;
+            // The former 5000-point window retained only one tiny cluster on
+            // most maps. Select a viable SIDE first, then a dispersed site.
+            // The safety gate still rejects caves, water, disconnected pockets,
+            // and substantially more dangerous enemy fire approaches.
+            int minimumDanger=int.MaxValue;
+            foreach(EntryCandidate c in valid)minimumDanger=Math.Min(minimumDanger,c.Danger);
+            var eligible=new List<EntryCandidate>(valid.Count);
+            int scoreCeiling=valid[0].Score+Math.Max(40000,valid[0].Score/2);
+            foreach(EntryCandidate c in valid)
+                if(c.Danger<=minimumDanger+12000 && c.Score<=scoreCeiling)
+                    eligible.Add(c);
+            if(eligible.Count==0)eligible.Add(valid[0]);
             EntryHistory history=RecentEntries.GetValue(map,_=>new EntryHistory());
-            int choice=eligible>1 ? Rand.Range(0,eligible) : 0;
-            if(eligible>1 && valid[choice].Center==history.Last)
-                choice=(choice+1+Rand.Range(0,eligible-1))%eligible;
-            IntVec3 selected=valid[choice].Center;
+            // Developer-forced repeated tests often reload the same saved RNG
+            // state: vary ONLY DEBUG spawn outcomes independently of that seed.
+            // Ordinary storyteller incidents continue to use RimWorld Rand.
+            System.Random debugRandom=op.DebugForced ?
+                new System.Random(Guid.NewGuid().GetHashCode()) : null;
+            int roll=debugRandom!=null ? debugRandom.Next(4) : Rand.Range(0,4);
+            int side=-1;
+            for(int i=0;i<4;i++)
+            {
+                int candidateSide=(roll+i)%4;
+                bool available=false;
+                foreach(EntryCandidate c in eligible)
+                    if(c.Side==candidateSide &&
+                       (c.Center-history.Last).LengthHorizontalSquared>=225)
+                    {available=true;break;}
+                if(available){side=candidateSide;break;}
+            }
+            // A map with only one legal sector must never force an unsafe spawn.
+            if(side<0)
+                side=eligible[debugRandom!=null ? debugRandom.Next(eligible.Count) :
+                    Rand.Range(0,eligible.Count)].Side;
+            var options=new List<EntryCandidate>();
+            foreach(EntryCandidate c in eligible)
+                if(c.Side==side &&
+                   (c.Center-history.Last).LengthHorizontalSquared>=225)
+                    options.Add(c);
+            if(options.Count==0)
+                foreach(EntryCandidate c in eligible)
+                    if(c.Side==side)options.Add(c);
+            int choice=debugRandom!=null ? debugRandom.Next(options.Count) :
+                Rand.Range(0,options.Count);
+            IntVec3 selected=options[choice].Center;
             history.Last=selected;
-            Log.Message("[NJR][EntryR023] candidates="+valid.Count+
-                " comparable="+eligible+" chosen="+selected+
-                " score="+valid[choice].Score+" danger="+valid[choice].Danger);
+            Log.Message("[NJR][R026][GroundEntry] valid="+valid.Count+
+                " eligible="+eligible.Count+" side="+side+" chosen="+selected+
+                " score="+options[choice].Score+" danger="+options[choice].Danger);
             return selected;
         }
 

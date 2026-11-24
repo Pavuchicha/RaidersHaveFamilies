@@ -49,7 +49,10 @@ assert 'if(validPerSide[proposed.Side]>=8)continue;' in entry
 assert 'GroundEntryClusterSafe(map,center)' in entry
 assert 'ReachableExterior(map,center,captive)' in entry
 assert 'valid.Sort((a,b)=>a.Score.CompareTo(b.Score));' in entry
-assert 'int choice=eligible>1 ? Rand.Range(0,eligible) : 0;' in entry
+assert 'int[] validPerSide=new int[4];' in entry
+assert 'if(existing.Side==proposed.Side &&' in entry
+assert 'System.Random debugRandom=op.DebugForced ?' in entry
+assert 'Rand.Range(0,options.Count)' in entry
 assert 'ConnectedCluster(map,center)' in entry
 assert 'map.reachability.CanReach(center,c,PathEndMode.OnCell' not in entry
 

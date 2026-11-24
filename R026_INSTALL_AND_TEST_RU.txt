@@ -1,0 +1,16 @@
+NJR R026 — патч спасения №1 и разброса точек высадки
+
+1. Распакуйте NJR_R026_GITHUB_DESKTOP_STALL_AND_SPAWN_FIX.zip В КОРЕНЬ репозитория
+   Pavuchicha/RaidersHaveFamilies, с заменой файлов.
+2. GitHub Desktop: Summary:
+   R026: Unstall prisoner rescue and randomize safe entry sectors
+3. Commit to main -> Push origin.
+4. Убедитесь, что GitHub Actions скомпилировал DLL. Скачать только свежий
+   установочный ZIP из артефактов успешной сборки, не R026 исходный patch ZIP.
+5. В Mods убедитесь, что не осталось одновременно старого NJR/RHF и нового NJR.
+6. Запустите тест спасения №1. В Player.log проверьте `[NJR][R026]`.
+7. При простое: dev actions -> NJR - ТЕСТЫ | ДИАГНОСТИКА ->
+   29 — Диагностика спасения S41 и эвакуации. Приложите текст + Player.log.
+8. Спасение №16 и строительные капсулы этим патчем не исправлялись.
+
+85/85 проверок исходников/моделей пройдены. DLL и поведение игры НЕ проверены.
