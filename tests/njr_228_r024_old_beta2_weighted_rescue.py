@@ -29,10 +29,10 @@ for token in ('WEIGHTED-R024',
 assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
 assert 'if(forbidTurretExposure' not in route and 'forbidWalls' not in route
 assert 'private const int ExposedCost = 300;' in route
-assert 'private const int WallBreachBaseR024 = 7000;' in route
-assert 'private const int DoorBreachBaseR024 = 350;' in route
+assert 'private const int WallBreachBaseR024 = 32000;' in route
+assert 'private const int DoorBreachBaseR024 = 180;' in route
 assert 'board.Threat==null && !route.Valid' in planner
-assert 'op.Phase!=1 || op.BoardS41?.Breacher!=pawn' in role
+assert 'op.BoardS41?.Breacher!=pawn ||' in role
 assert '!RHFObjectiveRouteV128.IsRescueStructuralBarrier(obstacle)' in role
 assert 'if(op?.Type==(int)RHFOperationType.Rescue)return null;' in contact
 assert 'permitted && !RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure)' in command
@@ -45,8 +45,8 @@ def cost(kind,hp=0,visible=0):
     assert kind in ('walk','door','wall','generator')
     if kind=='generator':return None
     work=16+2*hp
-    return 10+(350+work if kind=='door' else
-               7000+6*work if kind=='wall' else 0)+600*visible
+    return 10+(180+work if kind=='door' else
+               32000+6*work if kind=='wall' else 0)+600*visible
 
 def plan(graph):
     queue=[(0,'start',())];best={}

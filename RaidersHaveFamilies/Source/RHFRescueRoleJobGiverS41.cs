@@ -161,10 +161,14 @@ namespace RaidersHaveFamilies
                     // A stale saved/order assignment is not a demolition permit.
                     // The CURRENT rescue blackboard owns exactly one barrier
                     // and exactly one authorized operator.
-                    if(op.Phase!=1 || op.BoardS41?.Breacher!=pawn ||
-                       op.BoardS41?.Barrier!=order.Objective)
-                        return null;
+                    // Assault: one board-owned structural breach. Withdrawal:
+                    // ONLY a physically verified CLOSED DOOR leading to an exit.
+                    // Never treat arbitrary wall attacks as a valid escape job.
+                    if(op.BoardS41?.Breacher!=pawn ||
+                       op.BoardS41?.Barrier!=order.Objective ||
+                       (op.Phase!=1 && op.Phase!=2))return null;
                     Thing obstacle=order.Objective;
+                    if(op.Phase==2 && !(obstacle is Building_Door))return null;
                     if(obstacle==null || obstacle.Destroyed || !obstacle.Spawned ||
                        obstacle.Map!=pawn.Map ||
                        !RHFObjectiveRouteV128.IsRescueStructuralBarrier(obstacle))return null;

@@ -58,7 +58,10 @@ assert 'FindEdge(map,op,navigator,Danger.Some)' in exitpath
 assert 'FindEdge(map,op,navigator,Danger.Deadly)' in exitpath
 assert 'ReachableProgress(Map map,RHFOperation op,Pawn navigator)' in exitpath
 assert 'RecoverBlockedExit(op,map,board,anchor,navigator,now)' in planner
-assert 'NJRCombatContactS44.BlockingStructure(navigator,edge)' in planner
+assert 'NJRRescueExitS41.FirstBlockedExitDoor(map,op,navigator)' in planner
+assert 'board.Breacher=soldier;' in planner
+assert 'if(op.Phase==2 && !(obstacle is Building_Door))return null;' in rescue
+assert 'cache.NextSearch=now+900;' in exitpath
 assert 'captive.CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in exitpath
 assert 'if(separation>9)' in rescue and 'return Task(JobDefOf.Goto,escorted,180);' in rescue
 assert 'pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly)' in rescue

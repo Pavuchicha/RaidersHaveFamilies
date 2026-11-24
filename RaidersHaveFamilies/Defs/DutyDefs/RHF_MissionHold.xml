@@ -8,8 +8,10 @@
     <thinkNode Class="ThinkNode_Priority">
       <subNodes>
         <!-- Mission-scoped self-defence: never target own hostages/coalition. -->
-        <li Class="RaidersHaveFamilies.RHFRescueRoleJobGiverS41" />
+        <!-- A visible attacker within weapon range must be engaged BEFORE
+             a long mission movement job is assigned. Never fire at VIPs. -->
         <li Class="RaidersHaveFamilies.RHFJobGiverMissionDefenseV136" />
+        <li Class="RaidersHaveFamilies.RHFRescueRoleJobGiverS41" />
         <li Class="JobGiver_WanderNearDutyLocation">
           <wanderRadius>1</wanderRadius>
         </li>

@@ -63,6 +63,10 @@ namespace RaidersHaveFamilies
         // Finite per-decision CPU budget. A failed tactical search must
         // never lock a RimWorld frame while inspecting every wall/turret tile.
         private const int MaxRouteExpansionsR024 = 30000;
+        // R025: give a large structural penalty to destroying an intact WALL.
+        // Several doors (even under modest defensive fire) are normally
+        // preferable to tearing through a room boundary; danger still matters
+        // on the WHOLE route, and impossible door paths are never fabricated.
         // R024: ONE weighted whole-route search, as in the user-supplied
         // 0.14.0-beta2 baseline. Never force a zero-turret search that can
         // prefer three demolished walls over one door and a short exposed lane.
@@ -70,8 +74,8 @@ namespace RaidersHaveFamilies
         // crossfire remains much worse than a short covered approach.
         // ONE capped search replaces three expensive whole-map passes.
         private const int ExposedCost = 300;
-        private const int WallBreachBaseR024 = 7000;
-        private const int DoorBreachBaseR024 = 350;
+        private const int WallBreachBaseR024 = 32000;
+        private const int DoorBreachBaseR024 = 180;
         private static readonly ConditionalWeakTable<RHFOperation, RHFRouteStoreV128> Cache =
             new ConditionalWeakTable<RHFOperation, RHFRouteStoreV128>();
 
@@ -199,7 +203,7 @@ namespace RaidersHaveFamilies
                 if(!sameGunRoom && !GenSight.LineOfSight(t.Origin,cell,map))continue;
                 cost+=ExposedCost*t.Importance;
                 if(dist<t.RangeSquared*0.32f)cost+=180*t.Importance;
-                if(cost>=4800)return 4800;
+                if(cost>=1600)return 1600;
             }
             return cost;
         }

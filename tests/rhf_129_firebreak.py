@@ -10,8 +10,8 @@ job=(root/'RaidersHaveFamilies/Source/RHFRescueRoleJobGiverS41.cs').read_text()
 workflow=(root/'.github/workflows/build.yml').read_text()
 for token in ('FirstTurretExposureIndex','ExposedTurretCells',
     'private const int ExposedCost = 300;',
-    'private const int WallBreachBaseR024 = 7000;',
-    'private const int DoorBreachBaseR024 = 350;',
+    'private const int WallBreachBaseR024 = 32000;',
+    'private const int DoorBreachBaseR024 = 180;',
     'plan.RiskFallback=plan.FirstTurretExposureIndex>=0;',
     'MaxRouteExpansionsR024', 'IsRescueStructuralBarrier(Thing thing)',
     'CrossesKnownFire(', 'route.FirstTurretExposureIndex-1',
@@ -38,8 +38,8 @@ def best(width,height,start,goal,obstacles,fire):
             if not(0<=nxt[0]<width and 0<=nxt[1]<height):continue
             kind,hp=obstacles.get(nxt,('open',0))
             if kind in ('rock','generator'):continue
-            extra=(350+(16+2*hp) if kind=='door' else
-                   7000+6*(16+2*hp) if kind=='wall' else 0)
+            extra=(180+(16+2*hp) if kind=='door' else
+                   32000+6*(16+2*hp) if kind=='wall' else 0)
             val=total+10+extra+fire.get(nxt,0)*600
             if val<dist.get(nxt,10**15):
                 dist[nxt]=val;prev[nxt]=at;heappush(q,(val,nxt))

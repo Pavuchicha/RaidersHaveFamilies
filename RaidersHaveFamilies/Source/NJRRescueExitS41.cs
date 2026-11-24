@@ -1,6 +1,7 @@
 // NJR P0: one stable, terrain-reachable evacuation edge for a whole convoy.
 // No vanilla per-pawn best-exit recomputation while the escort is moving.
 using System;
+using System.Runtime.CompilerServices;
 using RimWorld;
 using Verse;
 using Verse.AI;
@@ -9,6 +10,147 @@ namespace RaidersHaveFamilies
 {
     internal static class NJRRescueExitS41
     {
+        // R025: when no ordinary ground exit is reachable, find the FIRST
+        // CLOSED PLAYER DOOR on a real wall-free path to the map boundary.
+        // This is an independent bounded search (not a guess at the nearest
+        // wall/door in the rough direction of an arbitrary edge). A closed
+        // door consumes a finite physical breach cost; walls, generators and
+        // furniture cannot be promoted into an "escape obstacle".
+        // A sealed prison may require several seconds of physical door work.
+        // Do not repeat a 15k-node edge search every 180 ticks while that
+        // same door is being attacked. Actual native exit eligibility is
+        // still rechecked separately on every extraction decision.
+        private sealed class DoorMemory
+        {
+            internal Building_Door Door;
+            internal int NextSearch;
+            internal IntVec3 Origin = IntVec3.Invalid;
+        }
+        private static readonly ConditionalWeakTable<RHFOperation,DoorMemory>
+            DoorSearches=new ConditionalWeakTable<RHFOperation,DoorMemory>();
+
+        private struct ExitNode
+        {
+            internal int Cell,Priority;
+            internal ExitNode(int cell,int priority)
+            {Cell=cell;Priority=priority;}
+        }
+        private static void PushExit(System.Collections.Generic.List<ExitNode> heap,
+            ExitNode item)
+        {
+            heap.Add(item);
+            int at=heap.Count-1;
+            while(at>0)
+            {
+                int parent=(at-1)/2;
+                if(heap[parent].Priority<=item.Priority)break;
+                heap[at]=heap[parent];at=parent;
+            }
+            heap[at]=item;
+        }
+        private static ExitNode PopExit(System.Collections.Generic.List<ExitNode> heap)
+        {
+            ExitNode first=heap[0],last=heap[heap.Count-1];
+            heap.RemoveAt(heap.Count-1);
+            if(heap.Count==0)return first;
+            int at=0;
+            while(true)
+            {
+                int child=at*2+1;
+                if(child>=heap.Count)break;
+                if(child+1<heap.Count &&
+                   heap[child+1].Priority<heap[child].Priority)child++;
+                if(heap[child].Priority>=last.Priority)break;
+                heap[at]=heap[child];at=child;
+            }
+            heap[at]=last;
+            return first;
+        }
+        private static int EdgeDistance(Map map,int x,int z)
+        {
+            return Math.Min(Math.Min(x,map.Size.x-1-x),
+                Math.Min(z,map.Size.z-1-z));
+        }
+        internal static Building_Door FirstBlockedExitDoor(Map map,
+            RHFOperation op,Pawn navigator)
+        {
+            if(map==null || op==null || navigator?.Map!=map || !navigator.Spawned)
+                return null;
+            DoorMemory cache=DoorSearches.GetValue(op,_=>new DoorMemory());
+            int now=Find.TickManager.TicksGame;
+            if(now<cache.NextSearch && cache.Origin.IsValid &&
+               (navigator.Position-cache.Origin).LengthHorizontalSquared<144)
+            {
+                if(cache.Door==null)return null;
+                if(cache.Door.Spawned && !cache.Door.Destroyed &&
+                   RHFCombatPlannerV125.RequiresBreach(cache.Door) &&
+                   navigator.CanReach(cache.Door.Position,PathEndMode.Touch,Danger.Deadly))
+                    return cache.Door;
+            }
+            int width=map.Size.x,height=map.Size.z;
+            int count=width*height;
+            if(count<=0 || count>120000)return null;
+            int start=navigator.Position.z*width+navigator.Position.x;
+            int[] costs=new int[count],previous=new int[count];
+            for(int i=0;i<count;i++){costs[i]=int.MaxValue;previous[i]=-1;}
+            var queue=new System.Collections.Generic.List<ExitNode>(128);
+            costs[start]=0;
+            PushExit(queue,new ExitNode(start,EdgeDistance(map,
+                navigator.Position.x,navigator.Position.z)*10));
+            int reached=-1,expanded=0;
+            while(queue.Count>0 && expanded++<15000)
+            {
+                ExitNode item=PopExit(queue);
+                int cell=item.Cell,x=cell%width,z=cell/width;
+                if(item.Priority!=costs[cell]+EdgeDistance(map,x,z)*10)continue;
+                IntVec3 pos=new IntVec3(x,0,z);
+                if(EdgeDistance(map,x,z)<=1 && pos.Standable(map) &&
+                   pos.GetEdifice(map)==null && !pos.Roofed(map))
+                {reached=cell;break;}
+                for(int dir=0;dir<4;dir++)
+                {
+                    int nx=x+(dir==0?1:dir==1?-1:0);
+                    int nz=z+(dir==2?1:dir==3?-1:0);
+                    if(nx<0 || nx>=width || nz<0 || nz>=height)continue;
+                    IntVec3 nextPos=new IntVec3(nx,0,nz);
+                    Building block=nextPos.GetEdifice(map);
+                    int step=10;
+                    if(block is Building_Door door &&
+                       RHFCombatPlannerV125.RequiresBreach(door))
+                        step+=1000+RHFCombatPlannerV125.BreachWorkCost(door);
+                    else if(block!=null &&
+                        block.def?.passability==Traversability.Impassable)
+                        continue;
+                    else if(!nextPos.Standable(map))continue;
+                    int next=nz*width+nx;
+                    if(costs[cell]>int.MaxValue-step ||
+                       costs[cell]+step>=costs[next])continue;
+                    costs[next]=costs[cell]+step;
+                    previous[next]=cell;
+                    PushExit(queue,new ExitNode(next,costs[next]+
+                        EdgeDistance(map,nx,nz)*10));
+                }
+            }
+            cache.Origin=navigator.Position;
+            cache.NextSearch=now+900;
+            cache.Door=null;
+            if(reached<0)return null; // no proof; no random demolition
+            // Reconstruct backwards; the first closed door on the forward
+            // path is the last eligible door encountered in reverse order.
+            Building_Door first=null;
+            for(int at=reached;at>=0 && at!=start;at=previous[at])
+            {
+                IntVec3 cell=new IntVec3(at%width,0,at/width);
+                if(cell.GetEdifice(map) is Building_Door door &&
+                   RHFCombatPlannerV125.RequiresBreach(door))first=door;
+                if(previous[at]<0)break;
+            }
+            if(first!=null && !navigator.CanReach(first.Position,
+                PathEndMode.Touch,Danger.Deadly))return null;
+            cache.Door=first;
+            return first;
+        }
+
         internal static bool Eligible(Map map,RHFOperation op,Pawn navigator,IntVec3 cell,Danger allowedDanger = Danger.Some)
         {
             if(map==null || navigator==null || !cell.IsValid ||

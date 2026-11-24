@@ -3,6 +3,7 @@
 // All checks run only at a rescue incident, never in passive colony ticks.
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RimWorld;
 using UnityEngine;
@@ -103,6 +104,14 @@ namespace RaidersHaveFamilies
 
         private static bool ReachableExterior(Map map,IntVec3 edge,Pawn captive)
         {return ReachableApproach(map,edge,captive).IsValid;}
+
+        // Avoid deterministic reuse on repeated debug rescues of the SAME
+        // map. A single physically valid site remains valid; never teleport
+        // raiders into roofed stone just to create variety.
+        private sealed class EntryHistory
+        { internal IntVec3 Last = IntVec3.Invalid; }
+        private static readonly ConditionalWeakTable<Map,EntryHistory> RecentEntries =
+            new ConditionalWeakTable<Map,EntryHistory>();
 
         private struct EntryCandidate
         {
@@ -205,13 +214,20 @@ namespace RaidersHaveFamilies
             // An actual raid must not reuse a single hardcoded best cell on
             // every test. Randomize ONLY between comparably safe/near entries.
             int eligible=1;
-            int tolerance=Math.Max(2500,valid[0].Score/4);
-            while(eligible<valid.Count && eligible<8 &&
-                valid[eligible].Danger<=valid[0].Danger &&
+            // Allow a modest difference in threat and distance instead of
+            // requiring EXACTLY the same danger score as the first entry.
+            // Entries were already validated for safe physical deployment.
+            int tolerance=Math.Max(5000,valid[0].Score/3);
+            while(eligible<valid.Count && eligible<16 &&
+                valid[eligible].Danger<=valid[0].Danger+12000 &&
                 valid[eligible].Score-valid[0].Score<=tolerance)
                 eligible++;
+            EntryHistory history=RecentEntries.GetValue(map,_=>new EntryHistory());
             int choice=eligible>1 ? Rand.Range(0,eligible) : 0;
+            if(eligible>1 && valid[choice].Center==history.Last)
+                choice=(choice+1+Rand.Range(0,eligible-1))%eligible;
             IntVec3 selected=valid[choice].Center;
+            history.Last=selected;
             Log.Message("[NJR][EntryR023] candidates="+valid.Count+
                 " comparable="+eligible+" chosen="+selected+
                 " score="+valid[choice].Score+" danger="+valid[choice].Danger);

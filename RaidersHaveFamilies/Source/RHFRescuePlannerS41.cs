@@ -82,7 +82,7 @@ namespace RaidersHaveFamilies
                 if(Active(rescuer,map) &&
                    (rescuer.Position-captive.Position).LengthHorizontalSquared<=5 &&
                    SameAccessibleRoom(rescuer,captive,map) &&
-                   rescuer.CanReach(captive,PathEndMode.Touch,Danger.Some))return true;
+                   rescuer.CanReach(captive,PathEndMode.Touch,Danger.Deadly))return true;
             }
             return false;
         }
@@ -101,7 +101,7 @@ namespace RaidersHaveFamilies
             // native walkable path is sufficient; a solid wall or shut door
             // blocks sight and can never free the hostage remotely.
             return GenSight.LineOfSight(rescuer.Position,captive.Position,map) &&
-                rescuer.CanReach(captive,PathEndMode.Touch,Danger.Some);
+                rescuer.CanReach(captive,PathEndMode.Touch,Danger.Deadly);
         }
 
         internal static bool PhysicalContact(RHFOperation op, Pawn captive, Map map)
@@ -114,7 +114,7 @@ namespace RaidersHaveFamilies
                 if (!Active(rescuer, map) ||
                     (rescuer.Position-captive.Position).LengthHorizontalSquared>36)continue;
                 if (SameAccessibleRoom(rescuer,captive,map) &&
-                    rescuer.CanReach(captive,PathEndMode.Touch,Danger.Some))return true;
+                    rescuer.CanReach(captive,PathEndMode.Touch,Danger.Deadly))return true;
             }
             return false;
         }
@@ -211,6 +211,7 @@ namespace RaidersHaveFamilies
                     {reserved=true;break;}
                 }
             if(Active(existing?.Escort,map) && !reserved &&
+               existing.Escort.CanReach(captive,PathEndMode.ClosestTouch,Danger.Deadly) &&
                (!captive.Downed ||
                 (existing.Escort.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)==true &&
                  existing.Escort.carryTracker?.CarriedThing==null)))return existing;
@@ -232,6 +233,7 @@ namespace RaidersHaveFamilies
                        link.Captive!=null && link.Captive.MapHeld==map && !link.Captive.Dead)
                     {occupied=true;break;}
                 if(occupied)continue;
+                if(!candidate.CanReach(captive,PathEndMode.ClosestTouch,Danger.Deadly))continue;
                 if(captive.Downed &&
                    (candidate.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
                     candidate.carryTracker?.CarriedThing!=null ||
@@ -585,12 +587,38 @@ namespace RaidersHaveFamilies
                     board.Assign(soldier,RHFRoleS41.Advance,null,fallback,now);
                 else board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);
             }
+            // JobGivers do not run while a long-lived native Attack job
+            // continues. An obsolete target must therefore be interrupted
+            // during the mission replan, not only on the next ThinkTree job.
+            CancelObsoleteStructureJobs(op,map,board);
             board.Decision=obstacle!=null ?
                 "breach="+obstacle.LabelShortCap+" owner="+(board.Breacher?.LabelShortCap??"MISSING")+
                 "; screen="+screened+" suppress="+shooters+
                 (board.Threat!=null && shooters==0?" / NO VIABLE TURRET FIRE POSITION":"") :
                 route.Valid?"advance via cached corridor; suppress="+shooters:
                 "no valid route: "+route.Explanation;
+        }
+
+        private static void CancelObsoleteStructureJobs(RHFOperation op,Map map,
+            RHFTacticalBoardS41 board)
+        {
+            if(op?.Squad==null || board==null || map==null)return;
+            foreach(Pawn soldier in op.Squad)
+            {
+                if(!Active(soldier,map))continue;
+                Job current=soldier.jobs.curJob;
+                if(current==null || (current.def!=JobDefOf.AttackStatic &&
+                   current.def!=JobDefOf.AttackMelee))continue;
+                Building target=current.targetA.Thing as Building;
+                if(target==null || RHFCombatPlannerV125.IsTurret(target))continue;
+                if(op.Phase==1 && board.Barrier==target &&
+                   board.Breacher==soldier &&
+                   RHFObjectiveRouteV128.IsRescueStructuralBarrier(target))continue;
+                soldier.jobs.EndCurrentJob(JobCondition.InterruptForced);
+                Log.WarningOnce("[NJR][R025] Stopped unauthorized structural attack: "+
+                    soldier.LabelShortCap+" -> "+target.LabelShortCap,
+                    soldier.thingIDNumber ^ target.thingIDNumber ^ 250025);
+            }
         }
 
         // A direct fallback Goto is NOT a tactical route. Do not allow the
@@ -915,22 +943,11 @@ namespace RaidersHaveFamilies
             RHFTacticalBoardS41 board,Pawn anchor,Pawn navigator,int now)
         {
             board.Decision="no open exit: engage or breach toward nearest map edge";
-            IntVec3[] edges={new IntVec3(0,0,navigator.Position.z),
-                new IntVec3(map.Size.x-1,0,navigator.Position.z),
-                new IntVec3(navigator.Position.x,0,0),
-                new IntVec3(navigator.Position.x,0,map.Size.z-1)};
-            Building barrier=null;
-            int least=int.MaxValue;
-            foreach(IntVec3 edge in edges)
-            {
-                Building candidate=NJRCombatContactS44.BlockingStructure(navigator,edge);
-                // Do not destroy a random perimeter wall to escape. Only a
-                // real reachable door is eligible for this emergency fallback.
-                if(!(candidate is Building_Door))continue;
-                int score=(navigator.Position-candidate.Position).LengthHorizontalSquared+
-                    RHFCombatPlannerV125.BreachWorkCost(candidate);
-                if(score<least){least=score;barrier=candidate;}
-            }
+            // The only legal retreat breach is a door on a validated route
+            // to a real exit; never a random wall along a straight map ray.
+            Building barrier=NJRRescueExitS41.FirstBlockedExitDoor(map,op,navigator);
+            board.Barrier=barrier;
+            board.Breacher=null;
             IntVec3 progress=NJRRescueExitS41.ReachableProgress(map,op,navigator);
             var reserved=new HashSet<Pawn>();
             // If a reachable progress cell exists, keep the liberated pair
@@ -961,6 +978,7 @@ namespace RaidersHaveFamilies
                 if(!assigned && barrier!=null &&
                    soldier.CanReach(barrier.Position,PathEndMode.Touch,Danger.Deadly))
                 {
+                    board.Breacher=soldier;
                     board.Assign(soldier,RHFRoleS41.Breach,barrier,barrier.Position,now);
                     assigned=true;
                 }
@@ -979,9 +997,13 @@ namespace RaidersHaveFamilies
             board.Prune(map);
             bool enteringWithdrawal=board.ObservedPhase!=op.Phase;
             if(enteringWithdrawal)
-            {board.ObservedPhase=op.Phase;board.NextReplanTick=0;board.LastPlanTick=0;}
-
-            board.Breacher=null; // breaching is over: every survivor may escort
+            {
+                board.ObservedPhase=op.Phase;
+                board.NextReplanTick=0;board.LastPlanTick=0;
+                board.Breacher=null;board.Barrier=null;
+            }
+            // Keep a physically assigned door breaker until the next replan.
+            // Clearing Breacher on every pulse invalidated phase-2 access jobs.
             if (now<board.NextReplanTick && board.LastPlanTick>0)return true;
             board.NextReplanTick=now+PlanCadence;
             board.LastPlanTick=now;
@@ -1031,6 +1053,8 @@ namespace RaidersHaveFamilies
                 RecoverBlockedExit(op,map,board,anchor,navigator,now);
                 return true;
             }
+            // Once a real exit opens, drop any previous access-door permit.
+            board.Barrier=null;board.Breacher=null;
             int remaining=0;
             var paired=new HashSet<Pawn>();
             if(op.Freed!=null)

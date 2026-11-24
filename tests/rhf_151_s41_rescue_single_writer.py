@@ -61,8 +61,8 @@ contract(OPS,RES,PAT,BOARD,PLANNER,GIVER,EVENT,WF)
 assert 'if (RHFRescuePlannerS41.Enabled)' in V123
 assert 'return RHFRescuePlannerS41.GuardExit(__instance);' in V123
 prior=[n.attrib.get('Class') for n in DUTY.findall('.//li')]
-assert prior.index('RaidersHaveFamilies.RHFRescueRoleJobGiverS41') < \
-       prior.index('RaidersHaveFamilies.RHFJobGiverMissionDefenseV136')
+assert prior.index('RaidersHaveFamilies.RHFJobGiverMissionDefenseV136') < \
+       prior.index('RaidersHaveFamilies.RHFRescueRoleJobGiverS41')
 
 # Each independently required P0 property must cause a contract failure if removed.
 mutations=[

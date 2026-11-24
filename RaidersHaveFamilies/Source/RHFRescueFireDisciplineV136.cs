@@ -129,7 +129,8 @@ namespace RaidersHaveFamilies
         {
             if(pawn==null || !pawn.Spawned || pawn.Downed || pawn.Map==null ||
                pawn.GetLord()?.LordJob is not RHFRescueLordJobV124)return null;
-            if(RHFCombatPlannerV125.IsCombatEmergencyJob(pawn))return null;
+            if(RHFCombatPlannerV125.IsCombatEmergencyJob(pawn) ||
+               pawn.WorkTagIsDisabled(WorkTags.Violent))return null;
             RHFOperation op=RHFRescueFireDisciplineV136.RescueFor(pawn);
             if(op==null)return null;
             Map map=pawn.Map;

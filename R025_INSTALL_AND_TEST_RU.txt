@@ -1,0 +1,29 @@
+NJR R025 — rescue AI failure containment and evacuation hotfix
+
+INSTALL (GitHub Desktop)
+1. Из NJR_R025_GITHUB_DESKTOP_RESCUE_REPAIR.zip распаковать файлы и каталоги в КОРЕНЬ репозитория Pavuchicha/RaidersHaveFamilies с заменой.
+2. В GitHub Desktop Summary: R025: Fix door-first rescue, prisoner extraction and return fire
+3. Commit to main -> Push origin. Не копировать сюда PROJECT/ из полного архива.
+4. Дождаться результата GitHub Actions: Compile mod DLL / Package installable mod.
+5. Установить новую ZIP-сборку, убрать старую версию из Mods; тестировать на той же карте (спасение 1) и затем спасение 16 отдельно.
+
+PROVEN BY LOCAL CHECKS
+- 84/84 CI source/model tests passed individually in four groups.
+- Dynamic RimWorld test: NOT RUN.
+- .NET C# compile locally: NOT RUN, local SDK and RimWorld refs not available.
+
+PLAYTEST ACCEPTANCE
+A) Спасение #1: вход через открытый проход/двери вместо лишних стен;
+   единственный согласованный пролом только если не найден более выгодный путь.
+B) Боец под огнём: отвечает видимому врагу в дальности оружия; при риске
+   дружественного огня пытается выбрать доступную позицию с чистой линией.
+C) После освобождения: назначенный конвоир физически достигает пленника.
+   Пленник и конвоир движутся к одной доступной точке выхода.
+D) Если выход заблокирован: доступная дверь на реальном маршруте к краю,
+   НЕ случайная стена/генератор; за дверью отряд возобновляет эвакуацию.
+E) Несколько повторных рейдов: используемые безопасные точки высадки меняются
+   при наличии 2+ допустимых позиций; при единственной безопасной позиции повтор возможен.
+F) Спасение #16/капсулы — остаётся НЕ подтверждено и не переработано здесь.
+
+При сбое полезны Player.log с фильтрами [NJR], [RHF], [R025], а также
+точные задания (Jobs) бойцов и состояние пленника после освобождения.

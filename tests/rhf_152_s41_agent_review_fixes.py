@@ -31,7 +31,7 @@ def contract(p,g,b,e,v,o,w):
     assert 'nameof(Building.Destroy)' in e
     assert 'RHFRescuePlannerS41.OnBarrierDestroyed' in e
     assert 'SameAccessibleRoom(rescuer,captive,map)' in p
-    assert 'rescuer.CanReach(captive,PathEndMode.Touch,Danger.Some)' in p
+    assert 'rescuer.CanReach(captive,PathEndMode.Touch,Danger.Deadly)' in p
     assert 'if(op.Targets!=null && op.Targets.Contains(pawn)' in p
     assert '!pawn.IsSlaveOfColony && PhysicalContact(op,pawn,map)' in p
     assert 'else if(InTouch(op,captive,map))' in p

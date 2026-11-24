@@ -53,8 +53,15 @@ namespace RaidersHaveFamilies
                 if(distance>maxSq ||
                    !GenSight.LineOfSight(soldier.Position,enemy.Position,map))continue;
                 bool onCourse=OnCourse(soldier.Position,objective,enemy.Position);
-                if(!onCourse && distance>144)continue;
-                if(RHFRescueFireDisciplineV136.UnsafeLine(op,soldier,enemy))continue;
+                // A visible defender within the rescuer's actual weapon range is
+                // an immediate threat even if a 12-tile geometric mission
+                // corridor does not happen to pass through that defender.
+                // Also recognize an enemy directly attacking this soldier.
+                Job enemyJob=enemy.jobs?.curJob;
+                bool targetingUs=enemyJob!=null &&
+                    enemyJob.targetA.Thing==soldier;
+                if(!onCourse && !targetingUs && distance>144 &&
+                   distance>range*range)continue;
                 int score=distance-(onCourse?120:0)-250;
                 if(score<bestScore){best=enemy;bestScore=score;}
             }
@@ -65,8 +72,10 @@ namespace RaidersHaveFamilies
                 if(distance>maxSq ||
                    !GenSight.LineOfSight(soldier.Position,gun.Position,map))continue;
                 bool onCourse=OnCourse(soldier.Position,objective,gun.Position);
-                if(!onCourse && distance>225 && op.Phase==2)continue;
-                if(RHFRescueFireDisciplineV136.UnsafeLine(op,soldier,gun))continue;
+                // Do not chase a distant, unrelated turret during the rescue.
+                // A turret with a direct line of sight in weapon range is
+                // still a legitimate immediate defensive target.
+                if(!onCourse && distance>225 && distance>range*range)continue;
                 int score=distance-(onCourse?180:0)-220;
                 if(score<bestScore){best=gun;bestScore=score;}
             }
@@ -98,7 +107,8 @@ namespace RaidersHaveFamilies
             int distance=(soldier.Position-enemy.Position).LengthHorizontalSquared;
             float weaponRange=RHFCombatPlannerV125.WeaponRange(soldier);
             if(weaponRange>3f && distance<=weaponRange*weaponRange &&
-               GenSight.LineOfSight(soldier.Position,enemy.Position,map))
+               GenSight.LineOfSight(soldier.Position,enemy.Position,map) &&
+               !RHFRescueFireDisciplineV136.UnsafeLine(op,soldier,enemy))
                 return Order(JobDefOf.AttackStatic,enemy,150);
             if(weaponRange<=3f)
             {
@@ -126,7 +136,8 @@ namespace RaidersHaveFamilies
                 if(move>bound*bound || shot>weaponRange*weaponRange || shot<9 ||
                    cell==soldier.Position || !cell.Standable(map) ||
                    cell.GetEdifice(map)!=null ||
-                   !GenSight.LineOfSight(cell,enemy.Position,map))continue;
+                   !GenSight.LineOfSight(cell,enemy.Position,map) ||
+                   !FriendlyFiringLane(op,soldier,enemy,cell))continue;
                 int slot=0;
                 while(slot<scores.Count && scores[slot]<=move)slot++;
                 if(slot>=20)continue;
@@ -137,6 +148,35 @@ namespace RaidersHaveFamilies
                 if(soldier.CanReach(cells[i],PathEndMode.OnCell,Danger.Deadly))
                     return Order(JobDefOf.Goto,cells[i],180);
             return null;
+        }
+
+        // Cheap prospective friendly-fire check for a candidate firing tile.
+        // The actual shot is always rechecked through UnsafeLine from the
+        // soldier's real position before an AttackStatic job is issued.
+        private static bool FriendlyFiringLane(RHFOperation op,Pawn soldier,
+            Thing enemy,IntVec3 from)
+        {
+            if(op==null || enemy==null)return false;
+            long dx=enemy.Position.x-from.x, dz=enemy.Position.z-from.z;
+            long len=dx*dx+dz*dz;
+            if(len<=0)return false;
+            var groups=new System.Collections.Generic.List<Pawn>[] {
+                op.Squad,op.Diversion,op.Targets,op.Freed,op.NativeAnimalsS41};
+            foreach(var allies in groups)
+            {
+                if(allies==null)continue;
+                foreach(Pawn friend in allies)
+                {
+                    if(friend==null || friend==soldier || friend==enemy ||
+                       !friend.Spawned || friend.Dead || friend.Map!=soldier.Map)continue;
+                    long px=friend.Position.x-from.x,pz=friend.Position.z-from.z;
+                    long dot=px*dx+pz*dz;
+                    if(dot<=0 || dot>=len)continue;
+                    long cross=px*dz-pz*dx;
+                    if(cross*cross<=4L*len)return false;
+                }
+            }
+            return true;
         }
 
         // When there is no open way through a hostile perimeter, find a REAL

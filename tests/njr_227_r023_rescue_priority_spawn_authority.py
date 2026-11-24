@@ -16,7 +16,7 @@ route=(S/'RHFObjectiveRouteV128.cs').read_text()
 # Issue 1: A Room identifier is not evidence of a wall. Open doorway rescue
 # requires native reachability AND real physical LOS, at short contact range.
 assert 'return GenSight.LineOfSight(rescuer.Position,captive.Position,map) &&' in plan
-assert 'rescuer.CanReach(captive,PathEndMode.Touch,Danger.Some)' in plan
+assert 'rescuer.CanReach(captive,PathEndMode.Touch,Danger.Deadly)' in plan
 assert 'if(a!=b)return false;' not in plan
 assert '(rescuer.Position-captive.Position).LengthHorizontalSquared<=5' in plan
 
