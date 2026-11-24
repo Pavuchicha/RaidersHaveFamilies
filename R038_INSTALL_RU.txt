@@ -1,0 +1,7 @@
+NJR R038 (поверх R037)
+1. Распаковать патч в корень репозитория с заменой файлов.
+2. Summary: R038: Recover from native CE suppression and rebuild firing lines
+3. Commit to main -> Push origin. Установить успешную сборку GitHub Actions с заменой старой папки мода.
+4. Запись до рейда, проверить baseRevision=R038. Нужен тест обычного спасения и периметра, сохранить запись до окончания боя/отхода.
+5. По логам [NJR][R038][Firebreak] проверить native=true/false/unknown, regroup, recovered, second attempt, abort.
+95/95 предварительных проверок прошли. Компиляция/игра не проверены.

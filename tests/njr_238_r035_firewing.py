@@ -21,7 +21,8 @@ assert 'party.Drop || party.Role!=(int)RHFStrikeRole.Rescue' in force
 assert 'op.TryPod || op.Squad.Count>=12?2:1' in tactics
 assert 'party.Drop || !NJRRescueFirebreakR034.DirectGun(pawn)' in tactics
 assert 'else slot=Position(p,map,gun,shelter,used,false,true)' in combat
-assert 'regroup before second attempt' not in combat and 'e.PushBroken || e.Recovering.Contains(p)' in combat
+assert 'regroup before second attempt' not in combat and 'e.Recovering.Contains(p)' in combat
+assert 'e.Waves==1 && ready==fighters.Count' in combat and 'e.Recovering.Remove(p)' in combat
 assert 'MaintainPosture' in emergency
 # replay actual roster and native cover sequence under the policy; no automatic retry
 shooters={int(p) for p,w in a['roster'].items() if w.startswith('Gun_')}

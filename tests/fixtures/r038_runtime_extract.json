@@ -1,0 +1,1145 @@
+{
+  "revision": "R037",
+  "events": 6338,
+  "release": {
+    "tick": 42009,
+    "msg": "[NJR][R033][Rally] release ready=8/8 timed=False exposed=0"
+  },
+  "abort": {
+    "tick": 43269,
+    "msg": "[NJR][R034][Firebreak] abort; mobile=7 available=1 noDamageTicks=1260"
+  },
+  "cover": [
+    {
+      "tick": 42197,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Глехрюк"
+    },
+    {
+      "tick": 42198,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Barn"
+    },
+    {
+      "tick": 42202,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Пойнкуб"
+    },
+    {
+      "tick": 42202,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Пвопикхряк"
+    },
+    {
+      "tick": 42203,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Poggo"
+    },
+    {
+      "tick": 42205,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Пойлаг"
+    },
+    {
+      "tick": 42225,
+      "msg": "[NJR][R034][Firebreak] native cover; no repeat charge: Мойпоиер"
+    }
+  ],
+  "raider_casts": [
+    [
+      42153,
+      36736,
+      32396
+    ],
+    [
+      42153,
+      36769,
+      32396
+    ],
+    [
+      42172,
+      36794,
+      32396
+    ],
+    [
+      42185,
+      36726,
+      32396
+    ],
+    [
+      42196,
+      36744,
+      32396
+    ],
+    [
+      42197,
+      36744,
+      32396
+    ],
+    [
+      42215,
+      36799,
+      32396
+    ],
+    [
+      42225,
+      36799,
+      32396
+    ]
+  ],
+  "turret_casts": [
+    [
+      42109,
+      32398,
+      36726
+    ],
+    [
+      42145,
+      32396,
+      36726
+    ],
+    [
+      42182,
+      32398,
+      36726
+    ],
+    [
+      42201,
+      32396,
+      36726
+    ]
+  ],
+  "samples": [
+    {
+      "tick": 42066,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            98,
+            139
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            99,
+            139
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            98,
+            138
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            99,
+            138
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            136
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            98,
+            137
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            99,
+            136
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            97,
+            137
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Goto"
+        }
+      ]
+    },
+    {
+      "tick": 42186,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "AttackStatic"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            143
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "AttackStatic"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            100,
+            143
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            142
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            99,
+            142
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Goto"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            100,
+            142
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            98,
+            142
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Goto"
+        }
+      ]
+    },
+    {
+      "tick": 42306,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 42426,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 42546,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 42666,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 42786,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 42906,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 43026,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 43146,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    },
+    {
+      "tick": 43266,
+      "pawns": [
+        {
+          "id": 36726,
+          "name": "Пойнкуб",
+          "pos": [
+            102,
+            144
+          ],
+          "weapon": null,
+          "downed": true,
+          "job": "Wait_Downed"
+        },
+        {
+          "id": 36736,
+          "name": "Пвопикхряк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36744,
+          "name": "Глехрюк",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Autopistol",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36769,
+          "name": "Poggo",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_HeavySMG",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36777,
+          "name": "Мовхрюк",
+          "pos": [
+            99,
+            137
+          ],
+          "weapon": "MeleeWeapon_BreachAxe",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36788,
+          "name": "Пойлаг",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36794,
+          "name": "Barn",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_ChainShotgun",
+          "downed": false,
+          "job": "Wait_Combat"
+        },
+        {
+          "id": 36799,
+          "name": "Мойпоиер",
+          "pos": [
+            101,
+            141
+          ],
+          "weapon": "Gun_Revolver",
+          "downed": false,
+          "job": "Wait_Combat"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    "Could not find think node with key -2015279229",
+    "Could not find think node with key -300341232",
+    "Could not find think node with key -464704803",
+    "Could not find think node with key 1862137177",
+    "Mod Advanced Battle Cloak [RUS] dependency (darjeeling.BattleCloak) needs to have <downloadUrl> and/or <steamWorkshopUrl> specified.",
+    "Mod Faction - Orbiters dependency (ICC.AOV.OSEC) needs to have <downloadUrl> and/or <steamWorkshopUrl> specified.",
+    "Mod The Dead Man's Switch-AutoCannon Series II dependency (brrainz.harmony) needs to have <downloadUrl> and/or <steamWorkshopUrl> specified.",
+    "Translation data for language Russian / Русский has 939 errors. Generate translation report for more info."
+  ],
+  "errors": [],
+  "old_think_warnings": 18,
+  "window_tick": 38679,
+  "target_hp": 100
+}

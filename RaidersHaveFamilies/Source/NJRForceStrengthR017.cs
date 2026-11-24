@@ -107,6 +107,14 @@ namespace RaidersHaveFamilies
                 !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction);
         }
 
+        private static bool MediumRangeSupport(Pawn p)
+        {
+            if(!NJRRescueFirebreakR034.DirectGun(p) || RHFCombatPlannerV125.WeaponRange(p)<24f)return false;
+            string name=p?.equipment?.Primary?.def?.defName??"";
+            return name.IndexOf("Pistol",StringComparison.OrdinalIgnoreCase)<0 &&
+                   name.IndexOf("Revolver",StringComparison.OrdinalIgnoreCase)<0;
+        }
+
         // Ground rescue: retain at least one non-shooter for breaching where
         // present, but aim for 75% native direct-fire weapons. Generate native
         // candidates (including CE ammo) before arrival, never rearm by hand.
@@ -116,21 +124,31 @@ namespace RaidersHaveFamilies
             if(party.Drop || party.Role!=(int)RHFStrikeRole.Rescue ||
                NJRForceCompositionS42.LowTech(party.Faction) ||
                RHFMod.Settings?.RoleEquipment!=true)return;
-            int humans=0, guns=0;
+            int humans=0, guns=0, support=0;
             float spent=0f;
             foreach(Pawn pawn in pawns)
                 if(pawn?.RaceProps?.Humanlike==true && pawn.Faction==party.Faction)
-                { humans++; spent+=Mathf.Max(0f,pawn.kindDef?.combatPower??0f); if(NJRRescueFirebreakR034.DirectGun(pawn))guns++; }
+                {
+                    humans++; spent+=Mathf.Max(0f,pawn.kindDef?.combatPower??0f);
+                    if(NJRRescueFirebreakR034.DirectGun(pawn))
+                    {guns++;if(MediumRangeSupport(pawn))support++;}
+                }
             int desired=Math.Min(humans,Math.Max(0,(humans*3+3)/4));
+            int desiredSupport=(desired+1)/2;
             float remaining=Mathf.Max(0f,party.Points-party.SupplyBudget-party.AnimalBudgetS42-
                 party.LoadoutBudgetS42-spent);
             List<PawnKindDef> kinds=CombatKinds(party.Faction);
             int attempts=0;
-            for(int i=0;i<pawns.Count && guns<desired && attempts<24;i++)
+            // First secure the headcount, THEN upgrade short-range shooters where
+            // the faction's native combat kinds and existing budget permit it.
+            for(int pass=0;pass<2 && attempts<24;pass++)
+            for(int i=0;i<pawns.Count && (pass==0?guns<desired:support<desiredSupport) && attempts<24;i++)
             {
                 Pawn original=pawns[i];
                 if(original?.RaceProps?.Humanlike!=true || original.Faction!=party.Faction ||
-                   original.Spawned || original.IsWorldPawn() || NJRRescueFirebreakR034.DirectGun(original))continue;
+                   original.Spawned || original.IsWorldPawn())continue;
+                bool oldGun=NJRRescueFirebreakR034.DirectGun(original);
+                if(pass==0 && oldGun || pass==1 && (!oldGun || MediumRangeSupport(original)))continue;
                 // Keep actual rescue targets and explicitly recorded family/rescuer
                 // identities intact; do not replace an existing world pawn.
                 if(op.Targets!=null && op.Targets.Contains(original))continue;
@@ -148,10 +166,12 @@ namespace RaidersHaveFamilies
                         if(candidate==null || candidate.Spawned || candidate.IsWorldPawn())continue;
                         if(!NJRRescueFirebreakR034.DirectGun(candidate))
                         {Find.WorldPawns.PassToWorld(candidate);continue;}
+                        bool longGun=MediumRangeSupport(candidate);
+                        if(pass==1 && !longGun){Find.WorldPawns.PassToWorld(candidate);continue;}
                         // Keep the discarded roster member in the world, not dead.
                         Find.WorldPawns.PassToWorld(original,PawnDiscardDecideMode.KeepForever);
                         remaining=Mathf.Max(0f,remaining+cap-candidate.kindDef.combatPower);
-                        pawns[i]=candidate;guns++;break;
+                        pawns[i]=candidate;if(!oldGun)guns++;if(longGun)support++;break;
                     }
                     catch(Exception ex)
                     {
@@ -162,7 +182,7 @@ namespace RaidersHaveFamilies
                     }
                 }
             }
-            Log.Message("[NJR][R035][Roster] direct fire="+guns+"/"+humans+" target="+desired+" attempts="+attempts);
+            Log.Message("[NJR][R035][Roster] direct fire="+guns+"/"+humans+" target="+desired+" range24="+support+"/"+desiredSupport+" attempts="+attempts);
         }
 
         // Called at the native Arrive(List<Pawn>, IncidentParms) boundary,

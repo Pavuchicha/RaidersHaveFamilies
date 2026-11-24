@@ -1,0 +1,13 @@
+RaidersHaveFamilies/Source/NJRRescueFirebreakR034.cs
+RaidersHaveFamilies/Source/RHFCombatPlannerV125.cs
+RaidersHaveFamilies/Source/NJRForceStrengthR017.cs
+RaidersHaveFamilies/Source/Diagnostics/NJRTestRecorderR030.cs
+tests/njr_237_r034_firebreak.py
+tests/njr_238_r035_firewing.py
+tests/njr_239_r037_rally_deadlock.py
+tests/njr_240_r038_reversible_suppression.py
+tests/fixtures/r038_runtime_extract.json
+.github/workflows/build.yml
+docs/NJR_R038_REVERSIBLE_SUPPRESSION_RU.md
+R038_INSTALL_RU.txt
+docs/R038_CHANGED_FILES.txt

@@ -384,7 +384,8 @@ namespace RaidersHaveFamilies
             if(pawn.Spawned && pawn.jobs!=null &&
                (pawn.CurJobDef==JobDefOf.Wait_Combat ||
                 pawn.CurJobDef==JobDefOf.AttackStatic) &&
-               pawn.GetPosture()!=PawnPosture.Standing)return true;
+               pawn.GetPosture()!=PawnPosture.Standing &&
+               !NJRRescueFirebreakR034.RecoveredPosture(pawn))return true;
             string name = pawn.jobs?.curJob?.def?.defName ?? "";
             return name.IndexOf("Suppress",StringComparison.OrdinalIgnoreCase)>=0 ||
                 name.IndexOf("TakeCover",StringComparison.OrdinalIgnoreCase)>=0 ||
@@ -392,7 +393,8 @@ namespace RaidersHaveFamilies
                 name.IndexOf("SeekCover",StringComparison.OrdinalIgnoreCase)>=0 ||
                 name.IndexOf("Flee",StringComparison.OrdinalIgnoreCase)>=0 ||
                 name.IndexOf("Reload",StringComparison.OrdinalIgnoreCase)>=0 ||
-                name.IndexOf("MaintainPosture",StringComparison.OrdinalIgnoreCase)>=0;
+                name.IndexOf("MaintainPosture",StringComparison.OrdinalIgnoreCase)>=0 ||
+                name.IndexOf("HunkerDown",StringComparison.OrdinalIgnoreCase)>=0;
         }
 
         private static bool SafelyEngage(Pawn pawn, Thing enemy, Map map,

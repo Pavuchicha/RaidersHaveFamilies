@@ -31,13 +31,14 @@ assert 'NJRRescueFirebreakR034.Controls(op,pawn)' in j and 'NJRRescueFirebreakR0
 assert 'return NJRRescueFirebreakR034.CombatJob(op,pawn,order)' in j
 assert '[HarmonyPatch(typeof(Pawn_JobTracker),"StartJob")]' in g and 'ObserveCover(PawnField.GetValue(__instance) as Pawn,__0)' in g
 assert 'e.Recovering.Add(p)' in g and 'e.FailedSlots.Add(e.Slots[p])' in g
-assert 'if(e.PushBroken || e.Recovering.Contains(p))return JobFor(JobDefOf.Wait_Combat,p.Position,60)' in g
-assert 'e.PushBroken=true' in g and 'e.Slots[p]=p.Position' in g
+assert 'if(e.Recovering.Contains(p))return JobFor(JobDefOf.Wait_Combat,p.Position,60)' in g
+assert 'e.Recovering.Remove(p)' in g and 'NativeSuppression(p)' in g
+assert 'e.PushBroken=true' in g and 'e.Regrouping=true' in g and 'e.Slots[p]=slot' in g
 assert 'regroup before second attempt' not in g and 'op.Phase=2;op.PhaseStartTick=now' in g
 assert 'RHFCombatPlannerV125.IsCombatEmergencyJob(p)' in g
 assert 'NJRRescueFirebreakR034.DirectGun(candidate)' in t
-assert 'Write("debug_window_open"' in diag and 'baseRevision="R037"' in diag
-# Each previously observed retry is disallowed for that suppressed pawn.
+assert 'Write("debug_window_open"' in diag and 'baseRevision="R038"' in diag
+# Historical individual retries remain disallowed while suppressed; R038 permits a new coordinated wave after native recovery.
 for cover,retry in loops:
  assert retry['tick']>=cover['tick']
  assert cover['pawn']==retry['pawn']
