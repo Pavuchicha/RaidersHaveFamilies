@@ -30,7 +30,7 @@ for name,(text,forbidden) in blocks.items():
  for token in forbidden:assert token not in text,(name,token)
 expected={
  'combat': (combat,['while(queue.Count>0)','for(int x=0;x<map.Size.x;x++)','exposureCache','remaining>=initialRemaining']),
- 'route': (route,['while(heap.Count>0)','new HashSet<Thing>(holder.UnworkableBarriers.Keys));']),
+ 'route': (route,['while(heap.Count>0 && expanded<MaxRouteExpansionsR024)','new HashSet<Thing>(holder.UnworkableBarriers.Keys),holder);']),
  'rescuer': (rescue,['for(int i=0;i<operations.Count;i++)','int[] radii={2,4,6,9,12,16};']),
  'pod': (pod,['private static bool InFootprint','private static bool ValidGuardCell','private static IntVec3 GuardCell','radius<=12']),
  'entry': (entry,['for(int t=5;t<span-5;t++)','ReachableExterior(map,center,captive)']),
@@ -48,8 +48,8 @@ assert 'MapComponentTick()' in ops
 assert 'MaxBatchSize' in read('RaidersHaveFamilies.cs')  # passive work is STILL bounded.
 # The CPU budget is a safety limit for an A* invocation, NOT a raid
 # size limit, an inability to see distant turrets, or a free demolition.
-assert 'MaxRouteExpansionsR024 = 30000' in route
-assert 'if(expanded>MaxRouteExpansionsR024)' in route
+assert 'MaxRouteExpansionsR024 = 3000' in route
+assert 'plan.SearchPending=heap.Count>0;' in route
 assert 'IndividualRoutesR019.GetValue(member' not in route  # R021 unified source route
 assert 'for(int radius=1;radius<=12;radius++)' in pod
 assert 'for(int x=Math.Max(0,origin.x-20)' in rescue

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using RimWorld;
 using Verse;
 using Verse.AI;
+using Verse.AI.Group;
 
 namespace RaidersHaveFamilies
 {
@@ -14,7 +15,7 @@ namespace RaidersHaveFamilies
         internal static bool Enabled => true;
         internal static bool ActiveForRoleS41(Pawn pawn,Map map) => Active(pawn,map);
 
-        private const int PlanCadence = 180;
+        private const int PlanCadence = 90;
         // Pursuit memory is map/operation-scoped, rebuilt after loading. It
         // detects PLAYER pawns genuinely moving closer to the exiting convoy;
         // a static colonist or turret does not force a permanent rearguard.
@@ -44,11 +45,14 @@ namespace RaidersHaveFamilies
             if (map == null || member == null) return null;
             List<RHFOperation> operations = RHFMissionIntegrityV130.Operations(map);
             if (operations == null) return null;
+            string lordKey=(member.GetLord()?.LordJob as RHFRescueLordJobV124)?.MissionKey;
+            if(lordKey==null)return null;
             for (int i = 0; i < operations.Count; i++)
             {
                 RHFOperation op = operations[i];
                 if (op == null || op.Finished || !op.Deployed ||
-                    op.Type != (int)RHFOperationType.Rescue) continue;
+                    op.Type != (int)RHFOperationType.Rescue ||
+                    RHFRescueCommandV124.Key(op)!=lordKey) continue;
                 if (op.Squad != null && op.Squad.Contains(member)) return op;
                 if (op.Freed != null && op.Freed.Contains(member)) return op;
             }
@@ -122,7 +126,7 @@ namespace RaidersHaveFamilies
         // Event-scoped adoption: not every released prisoner, only an operation's
         // named target physically reached by its own rescuers. Never grant success
         // to player-initiated releases on the far side of the map.
-        internal static bool TryAdoptReleased(Pawn captive)
+        internal static bool TryAdoptReleased(Pawn captive,RHFOperation preferred=null)
         {
             Map map = captive?.Map;
             // Vanilla GenGuest.PrisonerRelease may set Released=true while
@@ -131,7 +135,26 @@ namespace RaidersHaveFamilies
             if (map == null || captive.Dead || captive.IsSlaveOfColony ||
                 (captive.IsPrisonerOfColony && !vanillaReleased)) return false;
             RHFOperationController controller=map.GetComponent<RHFOperationController>();
-            RHFOperation op=controller?.FindRescueFor(captive.ThingID);
+            RHFOperation owner=controller?.FreedOwnerR028(captive);
+            if(owner!=null)
+            {
+                if(preferred!=null && preferred!=owner)return false;
+                // The owning release transaction will bind after faction/status changes.
+                return true;
+            }
+            // The release hook must select a physically present expedition,
+            // not the first earlier expedition listed for the same prisoner.
+            RHFOperation op=preferred;
+            if(op==null)
+            {
+                var active=RHFMissionIntegrityV130.Operations(map);
+                if(active!=null)
+                    foreach(RHFOperation candidate in active)
+                        if(candidate!=null && !candidate.Finished && candidate.Deployed &&
+                           candidate.Phase==1 && candidate.Type==(int)RHFOperationType.Rescue &&
+                           candidate.Targets?.Contains(captive)==true && PhysicalContact(candidate,captive,map))
+                        {op=candidate;break;}
+            }
             if (op == null || !op.Deployed || op.Finished || op.Phase != 1 ||
                 op.Targets == null || !op.Targets.Contains(captive) ||
                 !PhysicalContact(op,captive,map))return false;
@@ -212,6 +235,7 @@ namespace RaidersHaveFamilies
                 }
             if(Active(existing?.Escort,map) && !reserved &&
                existing.Escort.CanReach(captive,PathEndMode.ClosestTouch,Danger.Deadly) &&
+               EscortCanReachWithdrawalR029(op,existing.Escort) &&
                (!captive.Downed ||
                 (existing.Escort.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)==true &&
                  existing.Escort.carryTracker?.CarriedThing==null)))return existing;
@@ -233,7 +257,8 @@ namespace RaidersHaveFamilies
                        link.Captive!=null && link.Captive.MapHeld==map && !link.Captive.Dead)
                     {occupied=true;break;}
                 if(occupied)continue;
-                if(!candidate.CanReach(captive,PathEndMode.ClosestTouch,Danger.Deadly))continue;
+                if(!candidate.CanReach(captive,PathEndMode.ClosestTouch,Danger.Deadly) ||
+                   !EscortCanReachWithdrawalR029(op,candidate))continue;
                 if(captive.Downed &&
                    (candidate.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
                     candidate.carryTracker?.CarriedThing!=null ||
@@ -267,6 +292,13 @@ namespace RaidersHaveFamilies
                 op.BoardS41.Assign(selected,RHFRoleS41.Escort,captive,captive.Position,now);
             }
             return existing;
+        }
+
+        private static bool EscortCanReachWithdrawalR029(RHFOperation op,Pawn escort)
+        {
+            IntVec3 exit=op.BoardS41?.WithdrawalCell ?? IntVec3.Invalid;
+            return op.Phase!=2 || !exit.IsValid ||
+                escort.CanReach(exit,PathEndMode.OnCell,Danger.Deadly);
         }
 
         // Protect released prisoners throughout Phase 1, not only after all
@@ -363,7 +395,7 @@ namespace RaidersHaveFamilies
                     if(op.Targets[i]!=null &&
                        (!op.Targets[i].IsPrisonerOfColony || op.Targets[i].guest?.Released==true) &&
                        !op.Targets[i].IsSlaveOfColony)
-                        TryAdoptReleased(op.Targets[i]);
+                        TryAdoptReleased(op.Targets[i],op);
             var escortedDuringAssault=new HashSet<Pawn>();
             AssignFreedEscort(op,map,now,escortedDuringAssault);
             Pawn captive=CurrentCaptive(op,map);
@@ -560,7 +592,7 @@ namespace RaidersHaveFamilies
             // Do NOT send a third of the rescue wing after an unrelated
             // visible turret if the hostage route is already clear of guns.
             // Only a failed route triggers a defensive-front recovery.
-            if(board.Threat==null && !route.Valid)
+            if(board.Threat==null && !route.Valid && !route.SearchPending)
                 board.Threat=DefensiveTurretFront(op,map);
             if(board.Threat!=null && board.Threat.HitPoints<board.LastThreatHP)
             {
@@ -1052,6 +1084,11 @@ namespace RaidersHaveFamilies
                 board.ObservedPhase=op.Phase;
                 board.NextReplanTick=0;board.LastPlanTick=0;
                 board.Breacher=null;board.Barrier=null;
+                // Advance/Goto-to-contact tasks from the assault must not
+                // persist through the withdrawal handoff.
+                foreach(Pawn soldier in op.Squad)
+                    if(Active(soldier,map) && soldier.jobs.curJob?.def==JobDefOf.Goto)
+                        soldier.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
             }
             // Keep a physically assigned door breaker until the next replan.
             // Clearing Breacher on every pulse invalidated phase-2 access jobs.
@@ -1135,7 +1172,13 @@ namespace RaidersHaveFamilies
                 }
                 Pawn escort=pair?.Escort;
                 if(!Active(escort,map))
-                {board.Assign(rescued,RHFRoleS41.Hold,null,rescued.Position,now);continue;}
+                {
+                    // Do not strand an ambulatory captive with a valid exit.
+                    // Retry escort allocation on the next planner pulse.
+                    board.Assign(rescued,RHFRoleS41.FollowEscort,null,board.WithdrawalCell,now);
+                    TryUnescortedExitR029(op,rescued,map,board.WithdrawalCell);
+                    continue;
+                }
                 paired.Add(escort);
                 board.Assign(rescued,RHFRoleS41.FollowEscort,escort,board.WithdrawalCell,now);
                 board.Assign(escort,RHFRoleS41.Escort,rescued,board.WithdrawalCell,now);
@@ -1215,7 +1258,7 @@ namespace RaidersHaveFamilies
                 else if(remaining>0)
                 {
                     board.Assign(soldier,RHFRoleS41.Withdraw,null,
-                        convoy.Position,now);
+                        board.WithdrawalCell,now);
                 }
                 else
                 {
@@ -1235,10 +1278,37 @@ namespace RaidersHaveFamilies
                     if(!anySoldier){op.Phase=4;op.Finished=true;board.Orders.Clear();}
                 }
             }
+            // Clear stale prisoner/assault jobs once, AFTER new orders exist.
+            // Never interrupt a new movement job on every planner pulse.
+            if(enteringWithdrawal && op.Freed!=null)
+                foreach(Pawn freed in op.Freed)
+                {
+                    if(!Active(freed,map) || RHFCombatPlannerV125.IsCombatEmergencyJob(freed))continue;
+                    Job current=freed.jobs.curJob;
+                    if(current!=null && (current.def!=JobDefOf.Goto ||
+                       current.targetA.Cell!=board.WithdrawalCell))
+                        freed.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
+                }
             board.Decision="extraction; remaining="+remaining+"; escorted="+
                 op.EscapedWithEscort+"; pursuers="+chasers.Count+
                 "; rearguard="+rearCount;
             return true;
+        }
+
+        // Last resort when no reachable escort can be allocated: a mobile
+        // former captive at the genuine map edge may leave on their own.
+        // This does not count as an escorted extraction or remove a downed pawn.
+        private static void TryUnescortedExitR029(RHFOperation op,Pawn captive,Map map,IntVec3 exit)
+        {
+            if(!Active(captive,map) || !exit.IsValid ||
+               (captive.Position-exit).LengthHorizontalSquared>10 ||
+               !NJRRescueExitS41.Eligible(map,op,captive,exit,Danger.Deadly))return;
+            // Require the actual edge (not just the ordinary pair staging radius).
+            if(captive.Position.x>1 && captive.Position.z>1 &&
+               captive.Position.x<map.Size.x-2 && captive.Position.z<map.Size.z-2)return;
+            RHFRescueCommandV124.MissionExit(captive);
+            if(captive.MapHeld!=map)
+                Log.Message("[NJR][R029] Unescorted physical exit: "+captive.LabelShortCap);
         }
     }
 

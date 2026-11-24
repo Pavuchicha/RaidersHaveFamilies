@@ -17,19 +17,19 @@ offense=(S/'RHFOffenseS41.cs').read_text()
 workflow=(P/'.github/workflows/build.yml').read_text()
 for token in ('WEIGHTED-R024',
               'DoorBreachBaseR024+work',
-              'WallBreachBaseR024+work*6',
+              'WallBreachBaseR024+work*3',
               'if(building is Building_Door openDoor && openDoor.Open)return 10;',
               'if(IsRescueStructuralBarrier(building))',
               'if(building.def?.passability==Traversability.Impassable)return -1;',
               'plan.RiskFallback=plan.FirstTurretExposureIndex>=0;',
               'MaxRouteExpansionsR024',
-              'IntVec3 source=origins[i];',
+              'Roots=new HashSet<IntVec3>(origins)',
               'return name.IndexOf("Wall",StringComparison.OrdinalIgnoreCase)>=0'):
     assert token in route,token
 assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
 assert 'if(forbidTurretExposure' not in route and 'forbidWalls' not in route
 assert 'private const int ExposedCost = 300;' in route
-assert 'private const int WallBreachBaseR024 = 32000;' in route
+assert 'private const int WallBreachBaseR024 = 2400;' in route
 assert 'private const int DoorBreachBaseR024 = 180;' in route
 assert 'board.Threat==null && !route.Valid' in planner
 assert 'op.BoardS41?.Breacher!=pawn ||' in role
@@ -46,7 +46,7 @@ def cost(kind,hp=0,visible=0):
     if kind=='generator':return None
     work=16+2*hp
     return 10+(180+work if kind=='door' else
-               32000+6*work if kind=='wall' else 0)+600*visible
+               2400+3*work if kind=='wall' else 0)+600*visible
 
 def plan(graph):
     queue=[(0,'start',())];best={}

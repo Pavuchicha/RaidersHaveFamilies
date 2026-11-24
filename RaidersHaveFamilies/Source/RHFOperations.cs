@@ -333,9 +333,38 @@ namespace RaidersHaveFamilies
 
         // Reuse a genuinely scheduled rescue for the disappeared VIP rather than
         // spawning a duplicate expedition when the order already existed.
+        // A prisoner may be targeted by several simultaneous expeditions, but
+        // only ONE live operation owns the liberated pawn and its escort.
+        internal RHFOperation FreedOwnerR028(Pawn captive)
+        {
+            if(captive==null)return null;
+            string lordKey=(captive.GetLord()?.LordJob as RHFRescueLordJobV124)?.MissionKey;
+            RHFOperation first=null;
+            foreach(RHFOperation op in operations)
+            {
+                if(op==null || op.Finished || !op.Deployed ||
+                   op.Type!=(int)RHFOperationType.Rescue ||
+                   op.Freed==null || !op.Freed.Contains(captive))continue;
+                if(first==null)first=op;
+                if(lordKey!=null && RHFRescueCommandV124.Key(op)==lordKey)return op;
+            }
+            return first;
+        }
+
         public RHFOperation FindRescueFor(string victimId)
         {
             if (string.IsNullOrEmpty(victimId)) return null;
+            // Actual ownership outranks earlier scheduled target references.
+            foreach(RHFOperation candidate in operations)
+            {
+                if(candidate==null || candidate.Finished || candidate.Freed==null)continue;
+                foreach(Pawn captive in candidate.Freed)
+                    if(captive?.ThingID==victimId)
+                    {
+                        RHFOperation owner=FreedOwnerR028(captive);
+                        if(owner!=null)return owner;
+                    }
+            }
             for (int i=0;i<operations.Count;i++)
             {
                 RHFOperation op=operations[i];
@@ -1422,6 +1451,10 @@ namespace RaidersHaveFamilies
         {
             if (p == null || p.guest == null ||
                 !(p.IsPrisonerOfColony || p.IsSlaveOfColony)) return;
+            RHFOperation owner=FreedOwnerR028(p);
+            if(owner!=null && owner!=op)return;
+            // Claim BEFORE SetGuestStatus triggers the synchronous release hook.
+            if (!op.Freed.Contains(p)) op.Freed.Add(p);
             bool wasSlave = p.IsSlaveOfColony;
             // A breakout cancels ransom conditions. The player cannot collect payment.
             RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
@@ -1432,7 +1465,6 @@ namespace RaidersHaveFamilies
             if (record?.OriginalFaction != null && !record.OriginalFaction.IsPlayer &&
                 (wasSlave || p.Faction == null || p.Faction == Faction.OfPlayer))
                 p.SetFaction(record.OriginalFaction);
-            if (!op.Freed.Contains(p)) op.Freed.Add(p);
             // Establish the escort BEFORE the former prisoner receives a free
             // think-tree decision. A still-active enemy lord must not commandeer it.
             EnsureEscort(op,p);

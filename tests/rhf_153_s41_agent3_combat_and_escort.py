@@ -36,9 +36,10 @@ def test(p,g,b,j,w,x):
     assert 'Task(JobDefOf.Wait,pawn.Position,90) : null' in g
     # Synchronised escort: tight range + short path job + no VIP-first ExitMap.
     assert 'if(separation>9)' in g
-    assert 'int gap=(pawn.Position-escort.Position).LengthHorizontalSquared;' in g
+    assert 'if(gap>16)' not in g
+    assert 'paired?10:0' in g
     assert 'pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly)' in g
-    assert 'return Task(JobDefOf.Goto,order.Cell,90)' in g
+    assert 'return Task(JobDefOf.Goto,order.Cell,240)' in g
     assert 'RHFRescueCommandV124.MissionExit(escort);' in p
     assert p.index('RHFRescueCommandV124.MissionExit(escort);') < p.index('RHFRescueCommandV124.MissionExit(rescued);')
     assert 'pair.Escort=null;' in p

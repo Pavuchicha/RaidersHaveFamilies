@@ -15,8 +15,8 @@ assert 'RHFObjectiveRouteV128.ResolveShared(' in planner
 assert 'RHFObjectiveRouteV128.PlanIndividual(' not in planner
 assert 'RescueLeadsR020' not in planner
 assert 'IList<IntVec3> origins' in source
-assert 'Push(heap,id,Heuristic(source.x,source.z,goal));' in source
-assert 'if(parents[cursor]<0)break;' in source
+assert 'Roots=new HashSet<IntVec3>(origins)' in source
+assert 'if(cell==search.Goal)break;' in source
 assert 'plan.From=reverse[0]' in source
 assert 'JoinCommonCorridor(' in source
 assert 'Prior.Leader' not in source

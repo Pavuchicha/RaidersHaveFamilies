@@ -39,10 +39,10 @@ assert 'OrbitalTargeterPowerBeam' in orb and 'VerbTracker' in orb
 assert 'TryStartCastOn' in orb and 'FriendlyNear(op,map' in orb
 assert 'njrAnimalBudgetS42' in ops and 'njrLoadoutBudgetS42' in ops
 assert 'njrWeaponPresetS42' in member and 'njrOrbitalItemS42' in member
-assert 'new HashSet<Thing>(holder.UnworkableBarriers.Keys));' in route
+assert 'new HashSet<Thing>(holder.UnworkableBarriers.Keys),holder);' in route
 assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
 assert 'forbidTurretExposure' not in route
-assert 't.Origin.GetRoom(map)==cell.GetRoom(map)' in route
+assert 'gunRoom==cell.GetRoom(map)' in route and '!gunRoom.PsychologicallyOutdoors' in route
 assert 'WEIGHTED-R024' in route
 assert 'private static readonly string[][] Clan' in offices
 assert 'private static readonly string[][] Outlaw' in offices

@@ -50,12 +50,12 @@ def constant(name):
  return int(m.group(1))
 W=constant('WallBreachBaseR024')
 D=constant('DoorBreachBaseR024')
-assert W>100*D
+assert W>5*D
 
 def step(kind,hp=150,fire=0):
  work=16+hp*2
  if kind=='generator':return None
- return 10+(W+work*6 if kind=='wall' else D+work if kind=='door' else 0)+min(1600,fire*600)
+ return 10+(W+work*3 if kind=='wall' else D+work if kind=='door' else 0)+min(1600,fire*600)
 
 def shortest(graph):
  q=[(0,'spawn',())];dist={}

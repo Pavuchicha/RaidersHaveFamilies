@@ -63,7 +63,7 @@ assert 'board.Breacher=soldier;' in planner
 assert 'if(op.Phase==2 && !(obstacle is Building_Door))return null;' in rescue
 assert 'cache.NextSearch=now+900;' in exitpath
 assert 'captive.CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in exitpath
-assert 'if(separation>9)' in rescue and 'return Task(JobDefOf.Goto,escorted,180);' in rescue
+assert 'if(separation>9)' in rescue and 'return ApproachPawn(pawn,escorted,180);' in rescue
 assert 'pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly)' in rescue
 
 # Full real weapon range instead of a fake 55-tile CE/mod weapon cap.

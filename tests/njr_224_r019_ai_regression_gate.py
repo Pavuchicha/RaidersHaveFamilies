@@ -12,8 +12,8 @@ job=file('RHFRescueRoleJobGiverS41.cs')
 pod=file('RHFPodPlannerS41.cs')
 ops=file('RHFOperations.cs')
 roster=file('NJRForceStrengthR017.cs')
-assert 'MaxRouteExpansionsR024 = 30000' in route
-assert 'if(expanded>MaxRouteExpansionsR024)' in route
+assert 'MaxRouteExpansionsR024 = 3000' in route
+assert 'plan.SearchPending=heap.Count>0;' in route
 assert 'IndividualRoutesR019.GetValue(member' not in route  # obsolete per-unit A* removed R021
 assert route.count('PlanBounded(map,origins,captive,fresh,') == 1
 assert 'for(int x=0;x<map.Size.x;x++)for(int z=0;z<map.Size.z;z++)' not in contact
@@ -34,17 +34,17 @@ assert 'if(requiresEngineer && !hasEngineer)' in roster
 assert 'pawns.Add(candidate);' in roster
 assert 'party.Points+=need;op.ThreatPoints+=need;' in roster
 assert 'if(separation>9)' in job
-assert 'if(gap>16)return Task(JobDefOf.Wait,pawn.Position,120);' in job
-assert 'return Task(JobDefOf.Goto,order.Cell,90);' in job
+assert 'if(gap>16)return Task(JobDefOf.Wait,pawn.Position,30);' not in job
+assert 'return Task(JobDefOf.Goto,order.Cell,360);' in job
 assert 'return Task(JobDefOf.Goto,escort,120);' not in job
 
-# Independent convoy policy oracle: a slow VIP holds if its escort is too far;
+# Independent convoy policy oracle: a mobile VIP advances even if its escort is delayed;
 # they move toward the same frozen exit, never toward one another's stale tile.
 def vip_action(phase,gap,remaining,reachable):
-    if phase!=2 or gap>16 or remaining<=10 or not reachable:return 'wait'
+    if phase!=2 or remaining<=10 or not reachable:return 'wait'
     return 'exit'
 assert vip_action(2,4,400,True)=='exit'
-assert vip_action(2,25,400,True)=='wait'
+assert vip_action(2,25,400,True)=='exit'
 assert vip_action(2,4,5,True)=='wait'
 assert vip_action(1,4,400,True)=='wait'
 # Single demolition permission oracle.

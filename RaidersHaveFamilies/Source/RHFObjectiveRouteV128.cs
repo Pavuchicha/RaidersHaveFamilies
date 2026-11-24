@@ -19,6 +19,7 @@ namespace RaidersHaveFamilies
         // A capped search is UNKNOWN, not proof that the wall-free route fails.
         // Never escalate to demolition after a CPU limit interrupted A*.
         internal bool BudgetExceeded;
+        internal bool SearchPending;
         // True when the chosen complete route crosses a real turret arc.
         // Such a route must advance while the rescue wing fights back.
         internal bool RiskFallback;
@@ -62,12 +63,12 @@ namespace RaidersHaveFamilies
     {
         static RHFObjectiveRouteV128()
         {
-            Log.Message("[NJR][R026] Route/mission authority loaded; check this line in Player.log to verify installed DLL.");
+            Log.Message("[NJR][R028] Resumable reverse route and rescue job/lord repair loaded.");
         }
         private const int ReplanTicks = 900;
         // Finite per-decision CPU budget. A failed tactical search must
         // never lock a RimWorld frame while inspecting every wall/turret tile.
-        private const int MaxRouteExpansionsR024 = 30000;
+        private const int MaxRouteExpansionsR024 = 3000; // per pulse, NOT total search limit
         // R025: give a large structural penalty to destroying an intact WALL.
         // Several doors (even under modest defensive fire) are normally
         // preferable to tearing through a room boundary; danger still matters
@@ -79,7 +80,7 @@ namespace RaidersHaveFamilies
         // crossfire remains much worse than a short covered approach.
         // ONE capped search replaces three expensive whole-map passes.
         private const int ExposedCost = 300;
-        private const int WallBreachBaseR024 = 32000;
+        private const int WallBreachBaseR024 = 2400;
         private const int DoorBreachBaseR024 = 180;
         private static readonly ConditionalWeakTable<RHFOperation, RHFRouteStoreV128> Cache =
             new ConditionalWeakTable<RHFOperation, RHFRouteStoreV128>();
@@ -202,9 +203,9 @@ namespace RaidersHaveFamilies
                 if(dist>t.RangeSquared || dist<=1)continue;
                 // A closed door can conceal a turret until the first soldier
                 // breaks it. Its adjacent ROOM is still a dangerous corridor.
-                bool sameGunRoom=t.Importance>=2 &&
-                    t.Origin.GetRoom(map)==cell.GetRoom(map) &&
-                    cell.GetRoom(map)!=null;
+                Room gunRoom=t.Importance>=2?t.Origin.GetRoom(map):null;
+                bool sameGunRoom=gunRoom!=null && !gunRoom.PsychologicallyOutdoors &&
+                    gunRoom==cell.GetRoom(map);
                 if(!sameGunRoom && !GenSight.LineOfSight(t.Origin,cell,map))continue;
                 cost+=ExposedCost*t.Importance;
                 if(dist<t.RangeSquared*0.32f)cost+=180*t.Importance;
@@ -224,7 +225,8 @@ namespace RaidersHaveFamilies
                 int distance=(cell-source.Origin).LengthHorizontalSquared;
                 if(distance>source.RangeSquared || distance<=1)continue;
                 Room turretRoom=source.Origin.GetRoom(map);
-                if(turretRoom!=null && turretRoom==cell.GetRoom(map))return true;
+                if(turretRoom!=null && !turretRoom.PsychologicallyOutdoors &&
+                   turretRoom==cell.GetRoom(map))return true;
                 if(GenSight.LineOfSight(source.Origin,cell,map))return true;
             }
             return false;
@@ -260,7 +262,7 @@ namespace RaidersHaveFamilies
                     // Evaluate COMPLETE demolition work, not nearest-wall
                     // distance. Doors are cheaper than physically solid walls.
                     return 10+(building is Building_Door ?
-                        DoorBreachBaseR024+work : WallBreachBaseR024+work*6);
+                        DoorBreachBaseR024+work : WallBreachBaseR024+work*3);
                 }
                 if(building.def?.passability==Traversability.Impassable)return -1;
             }
@@ -270,105 +272,154 @@ namespace RaidersHaveFamilies
         // R021: a single multi-source A* represents the WHOLE available assault
         // wing. No selected pawn owns the mission's path or demolition target.
         // All active start positions are genuine standable map cells.
+        // Search backwards from the hostage. A sealed cell is a small region,
+        // not an invitation to exhaust the open exterior before considering doors.
+        // Keep the frontier across strategy pulses; a CPU slice is not failure.
+        private sealed class ReverseSearchR028
+        {
+            internal Map Map;
+            internal IntVec3 Goal;
+            internal List<IntVec3> Origins;
+            internal HashSet<IntVec3> Roots;
+            internal List<Emitter> Threats;
+            internal HashSet<Thing> Rejected;
+            internal int Width, Height, Expanded;
+            internal int[] Costs, Parents, Hazard, Steps, Heuristics;
+            internal List<HeapItem> Heap = new List<HeapItem>(128);
+        }
+        private static readonly ConditionalWeakTable<RHFRouteStoreV128,ReverseSearchR028> Searches =
+            new ConditionalWeakTable<RHFRouteStoreV128,ReverseSearchR028>();
+
+        private static int RootHeuristic(ReverseSearchR028 search,int id,int x,int z)
+        {
+            int known=search.Heuristics[id];
+            if(known>=0)return known;
+            int h=int.MaxValue;
+            foreach(IntVec3 source in search.Origins)
+                h=Math.Min(h,Heuristic(x,z,source));
+            return search.Heuristics[id]=h;
+        }
+
+        private static bool SameGoal(Map map,IntVec3 a,IntVec3 b)
+        {
+            if(a==b)return true;
+            return a.InBounds(map) && b.InBounds(map) &&
+                (a-b).LengthHorizontalSquared<=36 && a.GetRoom(map)!=null &&
+                a.GetRoom(map)==b.GetRoom(map);
+        }
+
         private static bool PlanBounded(Map map,IList<IntVec3> origins,Pawn captive,
-            RHFRoutePlanV128 plan,int margin,HashSet<Thing> rejectedBarriers)
+            RHFRoutePlanV128 plan,int margin,HashSet<Thing> rejectedBarriers,
+            RHFRouteStoreV128 holder)
         {
             if(origins==null || origins.Count==0 || map==null || captive==null)
                 return false;
-            IntVec3 start=origins[0],goal=captive.Position;
-            int lowX=goal.x,lowZ=goal.z,highX=goal.x,highZ=goal.z;
-            for(int i=0;i<origins.Count;i++)
+            ReverseSearchR028 search;
+            if(!Searches.TryGetValue(holder,out search) || search.Map!=map ||
+               !SameGoal(map,search.Goal,captive.Position) ||
+               !search.Rejected.SetEquals(rejectedBarriers))
             {
-                IntVec3 source=origins[i];
-                lowX=Math.Min(lowX,source.x);lowZ=Math.Min(lowZ,source.z);
-                highX=Math.Max(highX,source.x);highZ=Math.Max(highZ,source.z);
+                Searches.Remove(holder);
+                search=new ReverseSearchR028 {Map=map,Goal=captive.Position,
+                    Origins=new List<IntVec3>(origins),Roots=new HashSet<IntVec3>(origins),
+                    Rejected=new HashSet<Thing>(rejectedBarriers),
+                    Width=map.Size.x,Height=map.Size.z,
+                    Threats=Threats(map,origins[0],captive.Position)};
+                int size=search.Width*search.Height;
+                search.Costs=new int[size];search.Parents=new int[size];
+                search.Hazard=new int[size];search.Steps=new int[size];search.Heuristics=new int[size];
+                for(int i=0;i<size;i++)
+                {search.Costs[i]=int.MaxValue;search.Parents[i]=-1;search.Hazard[i]=-1;
+                 search.Steps[i]=int.MinValue;search.Heuristics[i]=-1;}
+                int goalId=search.Goal.z*search.Width+search.Goal.x;
+                search.Costs[goalId]=0;
+                Push(search.Heap,goalId,RootHeuristic(search,goalId,search.Goal.x,search.Goal.z));
+                Searches.Add(holder,search);
             }
-            int minX=Math.Max(0,lowX-margin);
-            int minZ=Math.Max(0,lowZ-margin);
-            int maxX=Math.Min(map.Size.x-1,highX+margin);
-            int maxZ=Math.Min(map.Size.z-1,highZ+margin);
-            int width=maxX-minX+1,height=maxZ-minZ+1;
-            int count=width*height;
-            if(count<=0)return false;
-            int finish=(goal.z-minZ)*width+goal.x-minX;
-            var costs=new int[count];
-            var parents=new int[count];
-            var hazard=new int[count];
-            for(int i=0;i<count;i++){costs[i]=int.MaxValue;parents[i]=-1;hazard[i]=-1;}
-            List<Emitter> threats=Threats(map,start,goal);
-            var heap=new List<HeapItem>(128);
-            // One queue, many roots. Cheapest VALID approach wins, rather
-            // than the approach of the geometrically nearest arbitrary leader.
-            for(int i=0;i<origins.Count;i++)
-            {
-                IntVec3 source=origins[i];
-                if(!source.InBounds(map) || !source.Standable(map))continue;
-                int id=(source.z-minZ)*width+source.x-minX;
-                if(costs[id]!=int.MaxValue)continue;
-                costs[id]=0;
-                Push(heap,id,Heuristic(source.x,source.z,goal));
-            }
-            int expanded=0;
-            bool reached=false;
-            while(heap.Count>0)
+            int width=search.Width,height=search.Height,count=width*height;
+            int minX=0,minZ=0;
+            int[] costs=search.Costs,parents=search.Parents,hazard=search.Hazard;
+            List<Emitter> threats=search.Threats;
+            List<HeapItem> heap=search.Heap;
+            int expanded=0,finish=-1;
+            while(heap.Count>0 && expanded<MaxRouteExpansionsR024)
             {
                 HeapItem current=Pop(heap);
-                int at=current.Id;
-                int cx=at%width+minX,cz=at/width+minZ;
-                if(current.Priority!=costs[at]+Heuristic(cx,cz,goal))continue;
-                expanded++;
-                if(expanded>MaxRouteExpansionsR024)
+                int at=current.Id,cx=at%width,cz=at/width;
+                if(current.Priority!=costs[at]+RootHeuristic(search,at,cx,cz))continue;
+                expanded++;search.Expanded++;
+                IntVec3 cell=new IntVec3(cx,0,cz);
+                if(search.Roots.Contains(cell)){finish=at;break;}
+                Thing obstacle;
+                // Reverse edge u<-v pays the FORWARD cost of entering u.
+                int step=search.Steps[at];
+                if(step==int.MinValue)
                 {
-                    plan.BudgetExceeded=true;
-                    plan.Explanation="CPU budget exhausted: route unknown; demolition forbidden";
-                    break;
+                    step=Step(map,cell,out obstacle);
+                    if(obstacle!=null && rejectedBarriers.Contains(obstacle))step=-1;
+                    search.Steps[at]=step;
                 }
-                if(at==finish){reached=true;break;}
+                if(step<0)continue;
+                if(hazard[at]<0)hazard[at]=Exposure(map,cell,threats);
+                step+=hazard[at];
                 for(int direction=0;direction<4;direction++)
                 {
                     int nx=cx+(direction==0?1:direction==1?-1:0);
                     int nz=cz+(direction==2?1:direction==3?-1:0);
-                    if(nx<minX||nx>maxX||nz<minZ||nz>maxZ)continue;
-                    int next=(nz-minZ)*width+nx-minX;
-                    IntVec3 cell=new IntVec3(nx,0,nz);
-                    Thing obstacle;
-                    int step=Step(map,cell,out obstacle);
-                    if(step<0 || (obstacle!=null &&
-                       rejectedBarriers!=null && rejectedBarriers.Contains(obstacle)))continue;
-                    // Do not disqualify an otherwise sensible doorway just
-                    // because one turret covers a short part of the route.
-                    // Threats enter the SAME whole-path cost calculation.
-                    // Out-of-sight soft-cover and shooter arcs enter the ACTUAL
-                    // cost of every route segment, not a straight-line estimate.
-                    if(hazard[next]<0)hazard[next]=Exposure(map,cell,threats);
-                    step+=hazard[next];
-                    if(costs[at] > int.MaxValue-step)continue;
+                    if(nx<0 || nx>=width || nz<0 || nz>=height)continue;
+                    int next=nz*width+nx;
+                    if(search.Steps[next]==int.MinValue)
+                    {
+                        int entry=Step(map,new IntVec3(nx,0,nz),out obstacle);
+                        if(obstacle!=null && rejectedBarriers.Contains(obstacle))entry=-1;
+                        search.Steps[next]=entry;
+                    }
+                    if(search.Steps[next]<0 || costs[at]>int.MaxValue-step)continue;
                     int total=costs[at]+step;
                     if(total>=costs[next])continue;
-                    costs[next]=total;
-                    parents[next]=at;
-                    Push(heap,next,total+Heuristic(nx,nz,goal));
+                    costs[next]=total;parents[next]=at;
+                    Push(heap,next,total+RootHeuristic(search,next,nx,nz));
                 }
             }
-            plan.Expanded+=expanded;
-            if(!reached)
+            plan.Expanded=search.Expanded;
+            plan.To=search.Goal;
+            if(finish<0)
             {
-                if(expanded<=MaxRouteExpansionsR024)
-                    plan.Explanation="вся достижимая область проверена: маршрута нет";
+                plan.SearchPending=heap.Count>0;
+                plan.BudgetExceeded=plan.SearchPending;
+                plan.Explanation=plan.SearchPending ?
+                    "R028 route search pending; saved frontier; demolition forbidden" :
+                    "вся достижимая область проверена: маршрута нет";
+                if(!plan.SearchPending)Searches.Remove(holder);
                 return false;
             }
             var reverse=new List<IntVec3>(256);
             for(int cursor=finish;cursor>=0 && reverse.Count<count;cursor=parents[cursor])
             {
-                reverse.Add(new IntVec3(cursor%width+minX,0,cursor/width+minZ));
-                if(parents[cursor]<0)break;
+                IntVec3 cell=new IntVec3(cursor%width,0,cursor/width);
+                reverse.Add(cell);
+                if(cell==search.Goal)break;
             }
-            if(reverse.Count<2 || !origins.Contains(reverse[reverse.Count-1]))
+            Searches.Remove(holder);
+            if(reverse.Count<2 || reverse[reverse.Count-1]!=search.Goal)
             {
                 plan.Explanation="ошибка восстановления полного маршрута";
                 return false;
             }
-            reverse.Reverse();
+            // Revalidate against LIVE terrain after a multi-pulse search.
+            // Do not grant a breach from a stale search after a door closes or a wall changes.
+            for(int i=1;i<reverse.Count;i++)
+            {
+                Thing live;
+                int liveCost=Step(map,reverse[i],out live);
+                int index=reverse[i].z*width+reverse[i].x;
+                if(liveCost<0 || (live!=null && rejectedBarriers.Contains(live)) ||
+                   (search.Steps[index]!=int.MinValue && liveCost>search.Steps[index]))
+                {
+                    plan.Explanation="R028 route invalidated by changed terrain; retry";
+                    return false;
+                }
+            }
             plan.From=reverse[0]; // geometric route root, NOT a commander
             plan.Cells=reverse;
             plan.TotalCost=costs[finish];
@@ -477,6 +528,7 @@ namespace RaidersHaveFamilies
             }
             holder.UnworkableBarriers[barrier]=now+1800;
             holder.Plan=null;
+            Searches.Remove(holder);
             Log.WarningOnce("[NJR][R026] Unreachable breach at "+barrier.Position+
                 "; retrying weighted route without this obstacle",
                 barrier.thingIDNumber ^ 260026);
@@ -506,8 +558,9 @@ namespace RaidersHaveFamilies
                     if(pair.Key==null || pair.Key.Destroyed ||
                        !pair.Key.Spawned || now>=pair.Value)expired.Add(pair.Key);
                 foreach(Thing old in expired)holder.UnworkableBarriers.Remove(old);
-                if(expired.Count>0)holder.Plan=null;
+                if(expired.Count>0){holder.Plan=null;Searches.Remove(holder);}
             }
+            if(layoutChanged)Searches.Remove(holder);
             RHFRoutePlanV128 prior=holder.Plan;
             // A corridor with no actual forward progress must expire sooner;
             // otherwise idle pawns can retain a bad initial approach for 900t.
@@ -519,10 +572,10 @@ namespace RaidersHaveFamilies
                 prior.FirstBarrier.Spawned &&
                 RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier) &&
                 now-prior.Tick<2700;
-            if(prior!=null && (!stalled || committedBarrier) && !layoutChanged && prior.Captive==captive &&
+            if(prior!=null && !prior.SearchPending && (!stalled || committedBarrier) && !layoutChanged && prior.Captive==captive &&
                // Route permission belongs to the objective, not a fighter.
                // If no member can reach the cached corridor, replan below.
-               prior.To==captive.Position &&
+               SameGoal(map,prior.To,captive.Position) &&
                now-prior.Tick<(prior.Valid ?
                    (committedBarrier?2700:ReplanTicks) : 300) &&
                (prior.FirstBarrier==null ||
@@ -538,7 +591,7 @@ namespace RaidersHaveFamilies
             // for the real exposure, and allows actual combat on approach.
             PlanBounded(map,origins,captive,fresh,
                 Math.Max(map.Size.x,map.Size.z),
-                new HashSet<Thing>(holder.UnworkableBarriers.Keys));
+                new HashSet<Thing>(holder.UnworkableBarriers.Keys),holder);
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
                     " sources="+origins.Count+" target="+captive.Position);
@@ -660,7 +713,7 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 join=route.Cells[nearest];
                 if(join!=soldier.Position && soldier.CanReach(join,PathEndMode.OnCell,Danger.Deadly) &&
-                   !LateralExposed(map,soldier.Position,join))return join;
+                   (route.RiskFallback || !LateralExposed(map,soldier.Position,join)))return join;
                 return JoinCommonCorridor(route,soldier,map,limit);
             }
             if(nearest>=limit)return IntVec3.Invalid;
@@ -735,7 +788,7 @@ namespace RaidersHaveFamilies
                 }
                 if(!candidate.IsValid || candidate==pawn.Position)continue;
                 probes++;
-                if(!LateralExposed(map,pawn.Position,candidate) &&
+                if((route.RiskFallback || !LateralExposed(map,pawn.Position,candidate)) &&
                    pawn.CanReach(candidate,PathEndMode.OnCell,Danger.Deadly))
                     return candidate;
             }

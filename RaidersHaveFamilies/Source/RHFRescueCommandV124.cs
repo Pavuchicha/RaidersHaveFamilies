@@ -177,7 +177,7 @@ namespace RaidersHaveFamilies
         { return op != null && op.Deployed && !op.Finished &&
             op.Type == (int)RHFOperationType.Rescue; }
 
-        private static string Key(RHFOperation op)
+        internal static string Key(RHFOperation op)
         {
             string captiveId = op.Vip?.ThingID;
             if (string.IsNullOrEmpty(captiveId) && op.Targets != null && op.Targets.Count > 0)
@@ -347,6 +347,19 @@ namespace RaidersHaveFamilies
             bool incidentSucceeded)
         {
             if (!incidentSucceeded || !IsRescue(op)) return;
+            // Repair duplicate ownership from old saves before issuing orders.
+            if(op.Freed!=null)
+                for(int i=op.Freed.Count-1;i>=0;i--)
+                {
+                    Pawn captive=op.Freed[i];
+                    RHFOperation owner=controller.FreedOwnerR028(captive);
+                    if(owner==null || owner==op)continue;
+                    op.Freed.RemoveAt(i);
+                    op.Escorts?.RemoveAll(link=>link?.Captive==captive);
+                    op.BoardS41?.Orders?.RemoveAll(order=>order?.Member==captive || order?.Objective==captive);
+                    if(op.BoardS41!=null)
+                    {op.BoardS41.NextReplanTick=0;op.BoardS41.LastPlanTick=0;}
+                }
             ClaimGroup(op, MapFor(controller));
             // v0.13.3-S0: Refresh() was only reachable through the retired
             // RefreshOwnership hook, so freed captives were bound once at release
@@ -892,6 +905,8 @@ namespace RaidersHaveFamilies
         {
             if(op==null || captive==null || !captive.Spawned || captive.Map==null ||
                op.Freed==null || !op.Freed.Contains(captive))return;
+            RHFOperation owner=captive.Map.GetComponent<RHFOperationController>()?.FreedOwnerR028(captive);
+            if(owner!=null && owner!=op)return;
             // Preserve the prisoner's authentic original affiliation while
             // giving them a rescue-specific Lord and defend objective.
             RebindFreed(op,captive);
@@ -923,8 +938,16 @@ namespace RaidersHaveFamilies
                 if(original!=null && !original.IsPlayer) captive.SetFaction(original);
             }
             string key = Key(op);
-            if (captive.GetLord()?.LordJob is RHFRescueLordJobV124 already &&
+            Lord current=captive.GetLord();
+            if (current?.LordJob is RHFRescueLordJobV124 already &&
                 already.MissionKey == key) return;
+            // A stale rescue Lord from a completed operation is not a valid
+            // owner. Detach it explicitly; never AddPawn while still owned.
+            RHFOperation owner=captive.Map.GetComponent<RHFOperationController>()?.FreedOwnerR028(captive);
+            if(owner!=op)return;
+            if(current!=null)
+                current.Notify_PawnLost(captive,PawnLostCondition.LeftVoluntarily);
+            if(captive.GetLord()!=null)return;
             for (int i=0;i<op.Squad.Count;i++)
             {
                 Pawn rescuer=op.Squad[i];
@@ -933,6 +956,7 @@ namespace RaidersHaveFamilies
                     !(missionLord.LordJob is RHFRescueLordJobV124 job) || job.MissionKey != key)
                     continue;
                 RelinquishVanilla(captive);
+                if(captive.GetLord()!=null)return;
                 missionLord.AddPawn(captive);
                 return;
             }
@@ -942,6 +966,7 @@ namespace RaidersHaveFamilies
             if(captive.Faction!=null)
             {
                 RelinquishVanilla(captive);
+                if(captive.GetLord()!=null)return;
                 try
                 {
                     LordMaker.MakeNewLord(captive.Faction,

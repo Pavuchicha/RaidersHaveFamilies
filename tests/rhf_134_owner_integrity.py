@@ -37,7 +37,18 @@ def validate_lord_guards(text,filename):
         matches+=1
         previous='\n'.join(lines[max(0,i-2):i])
         found=re.search(r'if\s*\(\s*(\w+)\s*!=\s*null\s*&&\s*!\(\s*\1\s*\.\s*LordJob\s+is\s+RHFRescueLordJobV124\s*\)\s*\)',previous,re.S)
-        assert found,f'{filename}:{i+1} unguarded mission Lord detach'
+        # R028 has one explicit captive handoff. It is allowed ONLY when the
+        # map's canonical owner equals the requesting operation and the existing
+        # lord is not already the correct lord; AddPawn requires a null lord.
+        if not found and filename=='RHFRescueCommandV124.cs':
+            section='\n'.join(lines[max(0,i-12):i+3])
+            assert 'FreedOwnerR028(captive)' in section
+            assert 'if(owner!=op)return;' in section
+            assert 'already.MissionKey == key) return;' in section
+            assert 'if(captive.GetLord()!=null)return;' in section
+            assert 'current.Notify_PawnLost(captive,' in line
+            continue
+        assert found,f'{filename}:{i+1} unguarded mission Lord detach' 
         assert re.search(r'\b'+found.group(1)+r'\.Notify_PawnLost\s*\(',line), filename+': wrong Lord guard'
     assert matches>0,filename+': Notify_PawnLost unexpectedly missing'
 

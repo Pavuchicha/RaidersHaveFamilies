@@ -1,4 +1,4 @@
-// NJR — Not Just Raiders v0.2.0 — RimWorld 1.7
+﻿// NJR — Not Just Raiders v0.2.0 — RimWorld 1.7
 // Event-driven spawn processing via Harmony: no repeated map-pawn discovery.
 // Family generation is bounded per arrival batch; diplomatic checks run infrequently.
 using System;
@@ -588,6 +588,9 @@ namespace RaidersHaveFamilies
 
         public override void MapComponentTick()
         {
+#if NJR_TEST_DIAGNOSTICS
+            if (NJRTestRecorderR030.Active) NJRTestRecorderR030.Sample(map);
+#endif
             RHFSettings cfg = RHFMod.Settings;
             if (cfg == null || !cfg.Enabled) return;
 

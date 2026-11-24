@@ -13,7 +13,7 @@ combat=source('RHFCombatPlannerV125.cs')
 entry=source('RHFRescueGroundEntryS41.cs')
 command=source('RHFRescueCommandV124.cs')
 role=source('RHFRescueRoleJobGiverS41.cs')
-assert '[NJR][R026] Route/mission authority loaded' in route
+assert '[NJR][R028] Resumable reverse route' in route
 assert 'internal static void RejectUnworkableBarrier(' in route
 assert 'rejectedBarriers.Contains(obstacle)' in route
 assert 'holder.UnworkableBarriers[barrier]=now+1800;' in route

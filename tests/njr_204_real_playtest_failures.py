@@ -16,9 +16,9 @@ assert 'if(!route.RiskFallback && LateralExposed(map,from,to))return true;' in r
 assert 'plan.RiskFallback=plan.FirstTurretExposureIndex>=0;' in route
 assert 'if(route.FirstTurretExposureIndex>=0 && !route.RiskFallback)' in route
 follow=job.split('case RHFRoleS41.FollowEscort:')[-1].split('case RHFRoleS41.Withdraw:')[0]
-assert 'return Task(JobDefOf.Goto,order.Cell,90);' in follow
+assert 'return Task(JobDefOf.Goto,order.Cell,360);' in follow
 assert 'JobDefOf.Goto,escort,120' not in follow
-assert 'if(gap>16)return Task(JobDefOf.Wait,pawn.Position,120);' in follow
+assert 'if(gap>16)return Task(JobDefOf.Wait,pawn.Position,30);' not in follow
 # A direct LOS-to-VIP line is NOT the same as the actual native walking
 # path. A failed strategic search must not mask confirmed prisoner access.
 plan=(S/'RHFRescuePlannerS41.cs').read_text()

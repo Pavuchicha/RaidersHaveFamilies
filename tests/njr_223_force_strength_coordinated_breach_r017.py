@@ -54,7 +54,7 @@ assert 'board.Assign(soldier,RHFRoleS41.Breach,obstacle,obstacle.Position,now)' 
 for token in [
     'internal static bool IsRescueStructuralBarrier(Thing thing)',
     'DoorBreachBaseR024+work',
-    'WallBreachBaseR024+work*6',
+    'WallBreachBaseR024+work*3',
     'if(building is Building_Door openDoor && openDoor.Open)return 10;',
     'PlanBounded(map,origins,captive,fresh,',
     'RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier)'

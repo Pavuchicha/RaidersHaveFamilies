@@ -21,7 +21,7 @@ section=ops.split('private void SplitRescueWing(RHFOperation op)',1)[1].split('p
 assert 'op.SplitApplied = true;' in section
 assert 'op.Diversion.Add' not in section and 'op.Squad.RemoveAt' not in section
 # Case search also has command ownership, but is not converted to a captive-freeing job.
-assert 'string.IsNullOrEmpty(op.CaseKeyV10)' not in command.split('private static bool IsRescue(RHFOperation op)',1)[1].split('private static string Key',1)[0]
+assert 'string.IsNullOrEmpty(op.CaseKeyV10)' not in command.split('private static bool IsRescue(RHFOperation op)',1)[1].split('internal static string Key',1)[0]
 assert '!string.IsNullOrEmpty(op.CaseKeyV10)' in command
 assert 'op.CaseSearchCellV10' in command
 # No speculative nearest-door fallback after the objective route fails.

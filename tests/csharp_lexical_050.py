@@ -1,7 +1,7 @@
 """Very simple lexical brace check; NOT a compiler or full C# parser."""
 from pathlib import Path
 base=Path(__file__).resolve().parents[1]/'RaidersHaveFamilies/Source'
-for file in base.glob('*.cs'):
+for file in base.rglob('*.cs'):
     s=file.read_text('utf-8')
     stack=[];i=0;mode='code'
     while i<len(s):
