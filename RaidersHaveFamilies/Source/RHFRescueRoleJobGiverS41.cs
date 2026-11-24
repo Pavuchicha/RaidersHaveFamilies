@@ -175,6 +175,8 @@ namespace RaidersHaveFamilies
             // BEFORE following Goto waypoints. Escorts defend locally without
             // abandoning their VIP; convoy guards manoeuvre only if needed.
             RHFRoleS41 role=(RHFRoleS41)order.Role;
+            if(NJRRescueFirebreakR034.Controls(op,pawn))
+                return NJRRescueFirebreakR034.CombatJob(op,pawn,order);
             if(op.Freed==null || !op.Freed.Contains(pawn))
             {
                 bool maneuver=(op.Phase==1 && !NJRRescueRallyR033.IsGathering(op)) ||

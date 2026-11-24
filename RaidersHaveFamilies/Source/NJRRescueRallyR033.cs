@@ -71,6 +71,7 @@ namespace RaidersHaveFamilies
             RHFRoutePlanV128 route,Thing turret,HashSet<Pawn> reserved,int now)
         {
             State s=States.GetValue(op,_=>new State());
+            if(NJRRescueFirebreakR034.IsActive(op)){s.Gathering=false;return false;}
             if(route==null || !route.Valid || turret==null || turret.Destroyed ||
                route.FirstTurretExposureIndex<0 || (route.FirstBarrierIndex>=0 &&
                route.FirstBarrierIndex<route.FirstTurretExposureIndex))

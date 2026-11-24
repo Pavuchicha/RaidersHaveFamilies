@@ -302,7 +302,8 @@ namespace RaidersHaveFamilies
                        candidate.Dead || candidate.Downed ||
                        member==null || IsBreachAxe(candidate) ||
                        member.Role==(int)RHFCombatRole.Escort ||
-                       member.Role==(int)RHFCombatRole.Medic)continue;
+                       member.Role==(int)RHFCombatRole.Medic ||
+                       NJRRescueFirebreakR034.DirectGun(candidate))continue;
                     if(IssueBreachAxe(candidate,party))
                     {
                         member.Role=(int)RHFCombatRole.Breacher;

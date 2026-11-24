@@ -1,0 +1,5 @@
+R034 — поверх R033. Распаковать в корень репозитория с заменой.
+Summary: R034: Coordinate turret engagements and stop CE cover retry loops
+Commit to main -> Push origin. Дождаться успешной сборки и установить свежий ZIP.
+В тестах включить NJR - ЗАПИСЬ ТЕСТОВ до вызова. baseRevision=R034.
+92 проверки исходников и моделей; DLL/игра не проверены. Отчёт в docs/NJR_R034_FIREBREAK_CE_RECOVERY_RU.md.

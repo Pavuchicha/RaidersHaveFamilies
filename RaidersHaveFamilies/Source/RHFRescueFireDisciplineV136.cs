@@ -133,6 +133,8 @@ namespace RaidersHaveFamilies
                pawn.WorkTagIsDisabled(WorkTags.Violent))return null;
             RHFOperation op=RHFRescueFireDisciplineV136.RescueFor(pawn);
             if(op==null)return null;
+            // The coordinated firebreak is the sole issuer for its members.
+            if(NJRRescueFirebreakR034.Controls(op,pawn))return null;
             Map map=pawn.Map;
             float range=RHFCombatPlannerV125.WeaponRange(pawn);
             float safeRange=range>0f?range:2f;

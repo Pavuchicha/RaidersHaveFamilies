@@ -443,6 +443,7 @@ namespace RaidersHaveFamilies
             Pawn captive=CurrentCaptive(op,map);
             if(captive==null)
             {
+                NJRRescueFirebreakR034.End(op);
                 op.Phase=op.Freed!=null && op.Freed.Contains(op.Vip) && op.TryPod &&
                     op.Vip!=null && op.Vip.Map==map ? 3 : 2;
                 op.PhaseStartTick=now;
@@ -524,6 +525,7 @@ namespace RaidersHaveFamilies
                 }
                 return;
             }
+            NJRRescueFirebreakR034.Observe(op,map,now);
             if(now<board.NextReplanTick && board.LastPlanTick>0)return;
             board.NextReplanTick=now+PlanCadence;
             board.LastPlanTick=now;
@@ -546,6 +548,9 @@ namespace RaidersHaveFamilies
                        FirstRouteTurret(accessRoute,map),escortedDuringAssault,now))
                 {CancelObsoleteStructureJobs(op,map,board);return;}
                 NJRRescueRallyR033.StopGathering(op);
+                if(NJRRescueFirebreakR034.TryControl(op,map,board,accessRoute,
+                    FirstRouteTurret(accessRoute,map),escortedDuringAssault,now))
+                {CancelObsoleteStructureJobs(op,map,board);return;}
                 board.Barrier=null;board.Breacher=null;board.Threat=null;
                 int advancing=0;
                 var contactSlots=new HashSet<IntVec3>();
@@ -630,6 +635,8 @@ namespace RaidersHaveFamilies
                 CancelObsoleteStructureJobs(op,map,board);
                 return;
             }
+            if(NJRRescueFirebreakR034.TryControl(op,map,board,route,routeGun,escortedDuringAssault,now))
+            {CancelObsoleteStructureJobs(op,map,board);return;}
             bool firebreakBeforeBreach=route.Valid && !route.RiskFallback &&
                 route.FirstTurretExposureIndex>=0 &&
                 (route.FirstBarrierIndex<0 ||
@@ -1242,6 +1249,7 @@ namespace RaidersHaveFamilies
             if(map==null)return true;
             RHFTacticalBoardS41 board=op.BoardS41 ??= new RHFTacticalBoardS41();
             board.Prune(map);
+            NJRRescueFirebreakR034.End(op);
             bool enteringWithdrawal=board.ObservedPhase!=op.Phase;
             if(enteringWithdrawal)
             {

@@ -316,11 +316,24 @@ namespace RaidersHaveFamilies
             }
             if(count==0)HookResults.Add("MISSING "+type.FullName+"."+name);
         }
+        private static void WindowPrefix(MethodBase __originalMethod,object[] __args)
+        {
+            if(!Recording)return;
+            MainObserve(()=>{
+                if(__args==null || __args.Length==0 || __args[0]==null)return;
+                string name=__args[0].GetType().FullName ?? "";
+                if(name.IndexOf("Log",StringComparison.OrdinalIgnoreCase)<0 &&
+                   name.IndexOf("Debug",StringComparison.OrdinalIgnoreCase)<0)return;
+                Write("debug_window_open",new { window=name,method=__originalMethod.Name,
+                    stack=Environment.StackTrace },true);
+            });
+        }
         private static void Install()
         {
             if(HooksAttempted)return;HooksAttempted=true;
             var h=new Harmony("pavuk.njr.testrecorder.r030");
             foreach(string n in new[]{"Message","Warning","Error","ErrorOnce","WarningOnce"})Hook(h,typeof(Verse.Log),n,nameof(ConsolePrefix),null);
+            Hook(h,AccessTools.TypeByName("Verse.WindowStack"),"Add",nameof(WindowPrefix),null);
             foreach(string n in new[]{"StartJob","EndCurrentJob"})Hook(h,typeof(Pawn_JobTracker),n,nameof(JobPrefix),nameof(JobPostfix));
             Hook(h,typeof(JobDriver),"EndJobWith",nameof(DriverPrefix),null);
             foreach(string n in new[]{"StartPath","PatherFailed","PatherArrived"})Hook(h,PathFollowerType,n,null,nameof(PathEvent));
@@ -427,7 +440,7 @@ namespace RaidersHaveFamilies
                 catch(Exception e){StopLocked("start failed: "+e.Message);return Status();}
             }
             try{Install();}catch(Exception e){HookResults.Add("INSTALL FAILED: "+e);}
-            Write("session_start",new { revision="R030", baseRevision="R033", tick=LastTick, hooks=HookResults.ToArray(),
+            Write("session_start",new { revision="R030", baseRevision="R034", tick=LastTick, hooks=HookResults.ToArray(),
                 jobTrackerPawnField=TrackerPawn!=null,pathPawnField=PathPawn!=null,pathCurrentField=PathCurrent!=null, sampleTicks=120, objectTicks=600, byteLimit=SessionLimit,
                 note="All Verse console calls; selected engine and NJR events; snapshots. No claim of every internal game action." },true);
             Sample(Find.CurrentMap,true);return Status();
