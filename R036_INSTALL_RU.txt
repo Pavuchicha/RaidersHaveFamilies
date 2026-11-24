@@ -1,0 +1,4 @@
+R036 (поверх R035, уже загруженного в GitHub)
+Распаковать патч в корень локального репозитория с заменой.
+Summary: R036: Import RimWorld.Planet for native rescue roster
+Commit to main, Push origin, дождаться успешной сборки Actions и скачать её артефакт.

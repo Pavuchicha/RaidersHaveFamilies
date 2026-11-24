@@ -36,7 +36,7 @@ assert 'e.PushBroken=true' in g and 'e.Slots[p]=p.Position' in g
 assert 'regroup before second attempt' not in g and 'op.Phase=2;op.PhaseStartTick=now' in g
 assert 'RHFCombatPlannerV125.IsCombatEmergencyJob(p)' in g
 assert 'NJRRescueFirebreakR034.DirectGun(candidate)' in t
-assert 'Write("debug_window_open"' in diag and 'baseRevision="R035"' in diag
+assert 'Write("debug_window_open"' in diag and 'baseRevision="R036"' in diag
 # Each previously observed retry is disallowed for that suppressed pawn.
 for cover,retry in loops:
  assert retry['tick']>=cover['tick']

@@ -14,6 +14,7 @@ assert sum(x['job']=='RunForCover' for x in a['jobs'])==9
 force=(s/'NJRForceStrengthR017.cs').read_text();combat=(s/'NJRRescueFirebreakR034.cs').read_text();tactics=(s/'RHFTactical.cs').read_text();emergency=(s/'RHFCombatPlannerV125.cs').read_text()
 assert 'if(humans>=minimum && (!requiresEngineer || hasEngineer))\n            {BalanceGroundRescue(op,party,pawns);return;}' in force
 assert 'kind.combatPower<=cap+remaining' in force and 'remaining+cap-candidate.kindDef.combatPower' in force
+assert 'using RimWorld.Planet;' in force
 assert 'original.IsWorldPawn()' in force and 'PawnDiscardDecideMode.KeepForever' in force
 assert 'if(!NJRRescueFirebreakR034.DirectGun(candidate))' in force
 assert 'party.Drop || party.Role!=(int)RHFStrikeRole.Rescue' in force
