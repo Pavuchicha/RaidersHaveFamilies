@@ -238,7 +238,7 @@ namespace RaidersHaveFamilies
             System.Random debugRandom=op.DebugForced ?
                 new System.Random(Guid.NewGuid().GetHashCode()) : null;
             int roll=debugRandom!=null ? debugRandom.Next(4) : Rand.Range(0,4);
-            int side=-1;
+            int selectedSide=-1;
             for(int i=0;i<4;i++)
             {
                 int candidateSide=(roll+i)%4;
@@ -247,26 +247,26 @@ namespace RaidersHaveFamilies
                     if(c.Side==candidateSide &&
                        (c.Center-history.Last).LengthHorizontalSquared>=225)
                     {available=true;break;}
-                if(available){side=candidateSide;break;}
+                if(available){selectedSide=candidateSide;break;}
             }
             // A map with only one legal sector must never force an unsafe spawn.
-            if(side<0)
-                side=eligible[debugRandom!=null ? debugRandom.Next(eligible.Count) :
+            if(selectedSide<0)
+                selectedSide=eligible[debugRandom!=null ? debugRandom.Next(eligible.Count) :
                     Rand.Range(0,eligible.Count)].Side;
             var options=new List<EntryCandidate>();
             foreach(EntryCandidate c in eligible)
-                if(c.Side==side &&
+                if(c.Side==selectedSide &&
                    (c.Center-history.Last).LengthHorizontalSquared>=225)
                     options.Add(c);
             if(options.Count==0)
                 foreach(EntryCandidate c in eligible)
-                    if(c.Side==side)options.Add(c);
+                    if(c.Side==selectedSide)options.Add(c);
             int choice=debugRandom!=null ? debugRandom.Next(options.Count) :
                 Rand.Range(0,options.Count);
             IntVec3 selected=options[choice].Center;
             history.Last=selected;
             Log.Message("[NJR][R026][GroundEntry] valid="+valid.Count+
-                " eligible="+eligible.Count+" side="+side+" chosen="+selected+
+                " eligible="+eligible.Count+" side="+selectedSide+" chosen="+selected+
                 " score="+options[choice].Score+" danger="+options[choice].Danger);
             return selected;
         }
