@@ -334,6 +334,10 @@ namespace RaidersHaveFamilies
                     return door.Open?10:10+DoorBreachBaseR024+RHFCombatPlannerV125.BreachWorkCost(door);
                 }
             int cost=Step(map,cell,out obstacle);
+            // R045: Standable is a destination test, not a traversal test.
+            // Preserve structural prohibitions; a walkable pass-through cell is not a wall.
+            if(cost<0 && obstacle==null && cell.Walkable(map) &&
+               cell.GetEdifice(map)?.def?.passability!=Traversability.Impassable)cost=14;
             if(cost>=0 && obstacle!=null && !(obstacle is Building_Door))cost+=12000;
             return cost;
         }
@@ -366,7 +370,7 @@ namespace RaidersHaveFamilies
                 for(int x=minX;x<=maxX;x++)
                 {
                     IntVec3 c=new IntVec3(x,0,z);int step=DoorStepR043(map,c,out Thing obstacle);
-                    text.Append(c==origin?'S':c==goal?'G':step<0?'#':obstacle is Building_Door?'D':'.');
+                    text.Append(c==origin?'S':c==goal?'G':step<0?'#':obstacle is Building_Door?'D':!c.Standable(map)&&c.Walkable(map)?'~':'.');
                 }
             }
             Log.Message(text.ToString());

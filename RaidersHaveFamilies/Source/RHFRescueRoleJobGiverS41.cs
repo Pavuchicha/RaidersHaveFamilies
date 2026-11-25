@@ -62,9 +62,9 @@ namespace RaidersHaveFamilies
                 // The assigned engineer must finish the REAL pod, even under
                 // pressure. Everyone else who is not transporting cargo or
                 // boarding may stop to fight a physical approach to the site.
-                if(phase3Role==RHFRoleS41.Screen ||
+                if(op.Freed?.Contains(pawn)!=true && (phase3Role==RHFRoleS41.Screen ||
                    phase3Role==RHFRoleS41.Hold ||
-                   phase3Role==RHFRoleS41.Breach)
+                   phase3Role==RHFRoleS41.Breach))
                 {
                     IntVec3 site=op.PodCell.IsValid?op.PodCell:op.PodLauncherCell;
                     Job contact=NJRCombatContactS44.Respond(pawn,op,site,true,22);
@@ -123,7 +123,7 @@ namespace RaidersHaveFamilies
                     case RHFRoleS41.PodSupply:
                     {
                         if(phase3.Objective is Thing cargo && cargo.Spawned &&
-                           op.PodCargoStacksS41.Contains(cargo) && phase3.Cell.IsValid && cargo.Position!=phase3.Cell)
+                           (op.PodCargoStacksS41.Contains(cargo) || NJRVipDebrisR045.IsAssigned(op,pawn,cargo)) && phase3.Cell.IsValid && cargo.Position!=phase3.Cell)
                         {
                             JobDef move=DefDatabase<JobDef>.GetNamedSilentFail("NJR_MoveSealCargoR044");
                             if(move==null)return null;

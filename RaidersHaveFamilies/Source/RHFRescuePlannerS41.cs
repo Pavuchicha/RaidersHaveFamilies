@@ -1268,6 +1268,8 @@ namespace RaidersHaveFamilies
                     if(Active(soldier,map) && soldier.jobs.curJob?.def==JobDefOf.Goto)
                         soldier.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
             }
+            if(op.FortifyPrison && op.Freed!=null)
+                foreach(Pawn captive in op.Freed)RHFRescueCommandV124.StabilizeFreed(op,captive);
             // Keep a physically assigned door breaker until the next replan.
             // Clearing Breacher on every pulse invalidated phase-2 access jobs.
             if (now<board.NextReplanTick && board.LastPlanTick>0)return true;

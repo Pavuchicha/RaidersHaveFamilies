@@ -129,6 +129,7 @@ namespace RaidersHaveFamilies
         protected override IEnumerable<Toil> MakeNewToils()
         {
             Thing original=job.targetA.Thing;
+            bool debris=NJRVipDebrisR045.IsDebris(original);
             this.FailOn(() => pawn.Dead || pawn.Downed || pawn.Map==null ||
                 RHFRescuePlannerS41.MissionFor(pawn.Map,pawn)?.Phase!=3);
             yield return Toils_Goto.GotoThing(TargetIndex.A,PathEndMode.ClosestTouch);
@@ -139,7 +140,7 @@ namespace RaidersHaveFamilies
             {
                 RHFOperation op=RHFRescuePlannerS41.MissionFor(pawn.Map,pawn);
                 Thing carried=pawn.carryTracker?.CarriedThing;
-                if(op==null || carried==null)return;
+                if(op==null || carried==null || debris)return;
                 if(!op.PodCargoStacksS41.Contains(carried))op.PodCargoStacksS41.Add(carried);
                 if(carried.def==ThingDefOf.Chemfuel && !op.PodFuelStacksS311.Contains(carried))op.PodFuelStacksS311.Add(carried);
             });
@@ -151,6 +152,12 @@ namespace RaidersHaveFamilies
                 if(!pawn.carryTracker.TryDropCarriedThing(job.targetB.Cell,ThingPlaceMode.Direct,out Thing dropped))
                     return; // native job cleanup safely releases carry; next plan rechecks actual cell
                 if(dropped==null)return;
+                if(debris)
+                {
+                    NJRVipDebrisR045.Completed(op,original,dropped);
+                    Log.Message("[NJR][R045] physically cleared drop debris "+dropped.Position);
+                    return;
+                }
                 if(!op.PodCargoStacksS41.Contains(dropped))op.PodCargoStacksS41.Add(dropped);
                 if(original!=null && (original.Destroyed || !original.Spawned))
                 {

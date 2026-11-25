@@ -924,6 +924,10 @@ namespace RaidersHaveFamilies
             // Preserve the prisoner's authentic original affiliation while
             // giving them a rescue-specific Lord and defend objective.
             RebindFreed(op,captive);
+            if(op.FortifyPrison && captive.jobs?.curJob?.targetA.Thing is Pawn unrelated &&
+               unrelated.IsPrisonerOfColony && op.Targets?.Contains(unrelated)!=true &&
+               (captive.jobs.curJob.def?.defName??"").StartsWith("Attack"))
+                captive.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
             // Mission duty must be restored after faction and Lord handoff or load.
             Lord lord=captive.GetLord();
             if(lord?.LordJob is RHFRescueLordJobV124 job &&

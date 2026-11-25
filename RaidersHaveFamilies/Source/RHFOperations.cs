@@ -2084,12 +2084,14 @@ namespace RaidersHaveFamilies
                 x<=Math.Min(map.Size.x-1,vip.Position.x+siteRadius);x++)
             for(int z=Math.Max(0,vip.Position.z-siteRadius);
                 z<=Math.Min(map.Size.z-1,vip.Position.z+siteRadius);z++)
+            foreach(Rot4 rotation in indoorOnlyR043?NJRPodSiteClearS41.Rotations:new[]{Rot4.North})
             {
+                if(rotation!=Rot4.North && !launcher.rotatable)continue;
                 IntVec3 cell=new IntVec3(x,0,z);
-                IntVec3 vehicle=FuelingPortUtility.GetFuelingPortCell(cell,Rot4.North);
+                IntVec3 vehicle=FuelingPortUtility.GetFuelingPortCell(cell,rotation);
                 if(!vehicle.InBounds(map))continue;
                 int clearance=NJRPodSiteClearS41.Needed(map,cell,vehicle,
-                    launcher,pod,vip);
+                    launcher,pod,vip,rotation);
                 // Do not demolish existing walls or colony furniture for a
                 // slightly closer site: search empty indoor footprints first.
                 if(clearance!=0)continue;

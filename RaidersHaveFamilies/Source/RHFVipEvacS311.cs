@@ -732,6 +732,7 @@ namespace RaidersHaveFamilies
                 { NativeFallBackS311(op, now, "VIP absent at site search"); return; }
                 if(!op.PodPrisonAnchorR043.IsValid)op.PodPrisonAnchorR043=vip.Position;
                 if(NJRRescueAccessR040.ContinuePodAccess(op,map,vip,now))return;
+                if(op.FortifyPrison && NJRVipDebrisR045.Continue(op,map,now))return;
                 if(op.PodStageStartedTickS311>=op.PhaseStartTick && now-op.PodStageStartedTickS311<450 && now-op.PhaseStartTick>90)
                 {RHFPodPlannerS41.Plan(op,map,null,null,now);return;}
                 op.PodStageStartedTickS311=now;
@@ -745,6 +746,8 @@ namespace RaidersHaveFamilies
                     if(FindFieldConstructionSite(vip,launcherDef,podDef,out IntVec3 indoorLaunch,
                         out IntVec3 indoorPod,true,op.PodPrisonAnchorR043))
                     {launchCell=indoorLaunch;podCell=indoorPod;}
+                    else if(op.FortifyPrison && now-op.PhaseStartTick<6000 &&
+                        NJRVipDebrisR045.TryStart(op,map,vip,now))return;
                     else if(now-op.PhaseStartTick<1800)
                     {
                         RHFPodPlannerS41.Plan(op,map,null,null,now);

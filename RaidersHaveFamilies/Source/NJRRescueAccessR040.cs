@@ -290,7 +290,7 @@ namespace RaidersHaveFamilies
                     if(!c.InBounds(map) || footprint.Contains(c) || seen.Contains(c) ||
                        Math.Abs(c.x-vip.Position.x)>26 || Math.Abs(c.z-vip.Position.z)>26)continue;
                     Building edifice=c.GetEdifice(map);
-                    if(!c.Standable(map) && !(barrier!=null && (edifice==barrier || edifice is Building_Door)))continue;
+                    if(!c.Walkable(map) && !(barrier!=null && (edifice==barrier || edifice is Building_Door)))continue;
                     if(edifice is Building_Door door && !door.Open && barrier==null && RHFObjectiveRouteV128.IsRescueStructuralBarrier(door))continue;
                     seen.Add(c);queue.Enqueue(c);
                 }
@@ -562,7 +562,8 @@ namespace RaidersHaveFamilies
                    op.Phase>3)continue;
                 bool soldier=op.Squad?.Contains(pawn)==true;
                 bool beast=op.FortifyPrison && op.NativeAnimalsS41?.Contains(pawn)==true;
-                if(!soldier && !beast)continue;
+                bool freed=op.FortifyPrison && op.Freed?.Contains(pawn)==true;
+                if(!soldier && !beast && !freed)continue;
                 if(other!=null)
                 {
                     if(!op.FortifyPrison || op.Targets?.Contains(other)==true)return;
@@ -576,7 +577,7 @@ namespace RaidersHaveFamilies
                     }
                     bool activeThreat=other.jobs?.curJob?.targetA.Thing==pawn &&
                         (other.jobs.curJob.def?.defName??"").StartsWith("Attack");
-                    if(!activeThreat)
+                    if(freed || !activeThreat)
                     {__0=JobMaker.MakeJob(JobDefOf.Wait,pawn.Position);__0.expiryInterval=30;}
                     return;
                 }
