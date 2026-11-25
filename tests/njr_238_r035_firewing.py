@@ -17,9 +17,9 @@ assert 'kind.combatPower<=cap+remaining' in force and 'remaining+cap-candidate.k
 assert 'using RimWorld.Planet;' in force
 assert 'original.IsWorldPawn()' in force and 'PawnDiscardDecideMode.KeepForever' in force
 assert 'if(!NJRRescueFirebreakR034.DirectGun(candidate))' in force
-assert 'party.Drop || party.Role!=(int)RHFStrikeRole.Rescue' in force
-assert 'op.TryPod || op.Squad.Count>=12?2:1' in tactics
-assert 'party.Drop || !NJRRescueFirebreakR034.DirectGun(pawn)' in tactics
+assert 'party.Role!=(int)RHFStrikeRole.Rescue' in force
+assert 'op.Squad.Count>=12?2:1' in tactics
+assert '!NJRRescueFirebreakR034.DirectGun(pawn)' in tactics
 assert 'Position(p,map,op,e.Gun,e.Shelter,occupied,false,true,true)' in combat
 assert 'regroup before second attempt' not in combat and 'e.Recovering.Contains(p)' in combat
 assert 'localReady>=2 && localReady*2>=localGuns' in combat and 'e.Recovering.Remove(p)' in combat

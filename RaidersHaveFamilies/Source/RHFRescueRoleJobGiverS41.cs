@@ -100,6 +100,15 @@ namespace RaidersHaveFamilies
                     case RHFRoleS41.Breach:
                     {
                         Thing wall=phase3.Objective;
+                        if(op.PodConstructionStage==0)
+                        {
+                            if(!op.BoardS41.PermitsAssaultBreach(pawn,wall) ||
+                               !NJRRescueFormationR032.StrikeCell(pawn.Map,wall,phase3.Cell,pawn))return null;
+                            if(pawn.Position!=phase3.Cell)
+                                return pawn.CanReach(phase3.Cell,PathEndMode.OnCell,Danger.Deadly) ?
+                                    Task(JobDefOf.Goto,phase3.Cell,360) : null;
+                            return Task(JobDefOf.AttackMelee,wall,900);
+                        }
                         if(wall==null || wall.Destroyed || !wall.Spawned ||
                            wall.Map!=pawn.Map ||
                            !RHFCombatPlannerV125.RequiresBreach(wall))return null;
@@ -157,7 +166,7 @@ namespace RaidersHaveFamilies
                     }
                     case RHFRoleS41.Screen:
                         if(phase3.Cell.IsValid && phase3.Cell.InBounds(pawn.Map) &&
-                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>9 &&
+                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>(op.PodConstructionStage==0?0:9) &&
                            pawn.CanReach(phase3.Cell,PathEndMode.OnCell,Danger.Deadly))
                             return Task(JobDefOf.Goto,phase3.Cell,90);
                         return null;
@@ -203,17 +212,16 @@ namespace RaidersHaveFamilies
                     {
                         if(op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true)return null;
                     }
-                    else if(op.BoardS41?.Breacher!=pawn ||
-                       op.BoardS41?.Barrier!=order.Objective || op.Phase!=2)return null;
+                    else if(op.Phase!=2 || op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true)return null;
                     Thing obstacle=order.Objective;
-                    if(op.Phase==2 && !(obstacle is Building_Door))return null;
+                    if(op.Phase==2 && !NJRRescueAccessR040.PermitsExit(op,obstacle))return null;
                     if(obstacle==null || obstacle.Destroyed || !obstacle.Spawned ||
                        obstacle.Map!=pawn.Map ||
                        !RHFObjectiveRouteV128.IsRescueStructuralBarrier(obstacle))return null;
                     // R032: assault operators first occupy their separately
                     // allocated, reachable strike cells. Native melee may use
                     // a clear diagonal, but never an obstructed corner.
-                    if(op.Phase==1)
+                    if(op.Phase==1 || NJRRescueAccessR040.IsAssignedAccess(op,obstacle))
                     {
                         if(!NJRRescueFormationR032.StrikeCell(pawn.Map,obstacle,order.Cell,pawn))return null;
                         if(pawn.Position!=order.Cell)
@@ -298,7 +306,7 @@ namespace RaidersHaveFamilies
                 case RHFRoleS41.Screen:
                 {
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
-                       (op.Phase==1 ? pawn.Position!=order.Cell :
+                       (op.Phase==1 || NJRRescueAccessR040.IsAssignedAccess(op,op.BoardS41.Barrier) ? pawn.Position!=order.Cell :
                            (pawn.Position-order.Cell).LengthHorizontalSquared>9))
                     {
                         if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
@@ -401,7 +409,7 @@ namespace RaidersHaveFamilies
         // The mere existence of a live pawn somewhere in the squad does not
         // protect the engineer. A guard must be near the pod, free of a
         // critical work/escort duty, and physically able to fight.
-        private static bool HasActivePodGuard(RHFOperation op,Pawn worker)
+        internal static bool HasActivePodGuard(RHFOperation op,Pawn worker)
         {
             if(op?.Squad==null || worker?.Map==null)return false;
             IntVec3 site=op.PodCell.IsValid ? op.PodCell :

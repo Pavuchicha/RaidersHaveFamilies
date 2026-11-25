@@ -102,7 +102,7 @@ namespace RaidersHaveFamilies
                        previous.Pawn.Spawned && !previous.Pawn.Dead &&
                        previous.Role==(int)RHFCombatRole.Breacher &&
                        IsBreachAxe(previous.Pawn)) {equippedSapper=true;break;}
-                if(capable && !equippedSapper && (party.Drop || !NJRRescueFirebreakR034.DirectGun(pawn)))
+                if(capable && !equippedSapper && !NJRRescueFirebreakR034.DirectGun(pawn))
                     role = RHFCombatRole.Breacher;
                 else if (ordinal % 7 == 1 || ordinal % 7 == 4) role = RHFCombatRole.Escort;
                 else if (ordinal % 7 == 3 && capable) role = RHFCombatRole.Medic;
@@ -288,7 +288,7 @@ namespace RaidersHaveFamilies
             int axes=0;
             foreach(Pawn p in op.Squad)
                 if(p!=null && p.Map==map && !p.Dead && IsBreachAxe(p))axes++;
-            if(axes>=(op.TryPod || op.Squad.Count>=12?2:1))return;
+            if(axes>=(op.Squad.Count>=12?2:1))return;
             foreach(RHFStrikeParty party in op.Parties)
             {
                 if(party==null || party.Role!=(int)RHFStrikeRole.Rescue ||

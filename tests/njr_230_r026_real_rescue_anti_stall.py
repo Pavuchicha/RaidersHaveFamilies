@@ -31,7 +31,7 @@ assert 'SelectBreachOperator(op,map,obstacle,' in planner
 assert 'RHFCombatPlannerV125.IsTurret(target)' in planner
 assert 'if(!melee && !safeRifle)continue;' not in combat
 assert 'return JobDefOf.AttackMelee;' in combat.split('internal static JobDef BreachAttack(Pawn pawn)')[1].split('internal static bool TryPaidBreach(')[0]
-assert 'else if(op.BoardS41?.Breacher!=pawn ||' in role
+assert 'else if(op.Phase!=2 || op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true)' in role
 assert 'RHFObjectiveRouteV128.IsRescueStructuralBarrier(obstacle)' in role
 assert 'bool overlaps=false;' in entry
 assert 'if(existing.Side==proposed.Side &&' in entry

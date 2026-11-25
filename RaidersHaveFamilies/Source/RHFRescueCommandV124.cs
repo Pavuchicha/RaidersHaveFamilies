@@ -316,13 +316,14 @@ namespace RaidersHaveFamilies
                         permitted=(RHFRoleS41)issued.Role==RHFRoleS41.Breach &&
                             issued.Objective==structure &&
                             op.BoardS41?.Barrier==structure &&
-                            op.BoardS41?.Breacher==p &&
-                            structure is Building_Door;
+                            NJRRescueAccessR040.PermitsExit(op,structure) &&
+                            (op.BoardS41?.Breacher==p || NJRRescueAccessR040.IsAssignedAccess(op,structure));
                     // Pod room access uses separate phase-3 orders; no rescue
                     // wall may become an implicit phase-2 retreat permit.
                     if(!permitted && op.Phase==3 && issued!=null)
                         permitted=(RHFRoleS41)issued.Role==RHFRoleS41.Breach &&
-                            issued.Objective==structure;
+                            issued.Objective==structure &&
+                            (op.PodConstructionStage!=0 || op.BoardS41.PermitsAssaultBreach(p,structure));
                     if(permitted && !RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure))
                         permitted=false;
                     if(permitted)continue;

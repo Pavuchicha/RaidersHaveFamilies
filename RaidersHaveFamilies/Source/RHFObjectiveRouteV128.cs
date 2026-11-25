@@ -238,6 +238,11 @@ namespace RaidersHaveFamilies
             threat.AddRange(shooters);
             return threat;
         }
+        internal static Func<IntVec3,int> AccessExposureR040(Map map,IntVec3 origin)
+        {
+            var threats=Threats(map,origin,origin);
+            return cell=>Exposure(map,cell,threats);
+        }
         private static int Exposure(Map map,IntVec3 cell,List<Emitter> threats)
         {
             int cost=0;
@@ -293,7 +298,7 @@ namespace RaidersHaveFamilies
                 name.IndexOf("Barricade",StringComparison.OrdinalIgnoreCase)>=0;
         }
 
-        private static int Step(Map map,IntVec3 cell, out Thing obstacle)
+        internal static int Step(Map map,IntVec3 cell, out Thing obstacle)
         {
             obstacle=null;
             Building building=cell.GetEdifice(map);

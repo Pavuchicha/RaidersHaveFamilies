@@ -1084,7 +1084,7 @@ namespace RaidersHaveFamilies
                 RHFRescueCommandV124.OnDeploy(this, op, true);
 
             if (op.Type == (int)RHFOperationType.Rescue && op.Squad.Count == 0 && success > 0)
-                Log.Warning("[RHF] Rescue dispatched but no active on-map rescuers yet. " +
+                Log.Message("[RHF] Rescue dispatched but no active on-map rescuers yet. " +
                     "Drop pods may still be opening.");
             if (success > 0)
             {
@@ -2073,6 +2073,11 @@ namespace RaidersHaveFamilies
             // When no viable pad exists nearby, ground extraction is honest;
             // a launcher across the map is not a defensible rescue site.
             const int siteRadius=32;
+            int freeFootprints=0,reachable=0,sameRoom=0;
+            var roomTiers=new Dictionary<Room,int>();
+            var activeTurrets=new List<Building>();
+            foreach(Building gun in map.listerBuildings.allBuildingsColonist)
+                if(RHFCombatPlannerV125.IsTurret(gun))activeTurrets.Add(gun);
             for(int x=Math.Max(0,vip.Position.x-siteRadius);
                 x<=Math.Min(map.Size.x-1,vip.Position.x+siteRadius);x++)
             for(int z=Math.Max(0,vip.Position.z-siteRadius);
@@ -2085,10 +2090,14 @@ namespace RaidersHaveFamilies
                     launcher,pod,vip);
                 // Do not demolish existing walls or colony furniture for a
                 // slightly closer site: search empty indoor footprints first.
-                if(clearance!=0 ||
-                   !vip.CanReach(cell,PathEndMode.Touch,Danger.Deadly))continue;
+                if(clearance!=0)continue;
+                freeFootprints++;
+                if(!vip.CanReach(cell,PathEndMode.OnCell,Danger.Deadly) ||
+                   !vip.CanReach(vehicle,PathEndMode.OnCell,Danger.Deadly))continue;
+                reachable++;
                 Room candidate=cell.GetRoom(map);
                 if(candidate==null || vehicle.GetRoom(map)!=candidate)continue;
+                sameRoom++;
                 // Keep roof-punch labor away from the captive, even if the
                 // same prison room is large enough for the built structures.
                 RoofDef roof=map.roofGrid.RoofAt(vehicle);
@@ -2096,17 +2105,21 @@ namespace RaidersHaveFamilies
                 // roof, never the VIP's tile. Reject thick mountain roofs,
                 // not otherwise valid compact indoor prison-room footprints.
                 if(roof!=null && roof.isThickRoof)continue;
-                int tier = candidate==prison ? 0 :
-                    !candidate.PsychologicallyOutdoors &&
-                    NJRRescueInteriorS41.DirectDoor(map,prison,candidate,vip.Position) ? 1 :
-                    !candidate.PsychologicallyOutdoors ? 2 : 3;
+                if(!roomTiers.TryGetValue(candidate,out int tier))
+                {
+                    tier = candidate==prison ? 0 :
+                        !candidate.PsychologicallyOutdoors &&
+                        NJRRescueInteriorS41.DirectDoor(map,prison,candidate,vip.Position) ? 1 :
+                        !candidate.PsychologicallyOutdoors ? 2 : 3;
+                    roomTiers[candidate]=tier;
+                }
                 int risk=0;
-                foreach(Building turret in map.listerBuildings.allBuildingsColonist)
+                foreach(Building turret in activeTurrets)
                 {
                     // Count all real threats at the candidate launch cell.
                     if(!RHFCombatPlannerV125.IsTurret(turret))continue;
-                    if((turret.Position-vehicle).LengthHorizontalSquared<=1600 &&
-                       GenSight.LineOfSight(turret.Position,vehicle,map))risk+=16000;
+                    if(RHFObjectiveRouteV128.TurretCoversR037(turret,map,vehicle) ||
+                       RHFObjectiveRouteV128.TurretCoversR037(turret,map,cell))risk+=16000;
                 }
                 int dist=(vehicle-vip.Position).LengthHorizontalSquared;
                 // A room with a door and cover is preferable even if an
@@ -2116,6 +2129,8 @@ namespace RaidersHaveFamilies
                 if(score<bestScore)
                 {bestScore=score;launchCell=cell;podCell=vehicle;}
             }
+            Log.Message("[NJR][R040][PodSite] free="+freeFootprints+" reachable="+reachable+
+                " sameRoom="+sameRoom+" launcher="+launchCell+" pod="+podCell);
             return launchCell.IsValid;
         }
 
@@ -2206,7 +2221,7 @@ namespace RaidersHaveFamilies
         {
             op.Phase=2;op.PhaseStartTick=now;
             op.TryPod=false;
-            Log.Warning("[RHF][VIP] Native transport fallback to ground exit: " + reason);
+            Log.Message("[RHF][VIP] Native transport fallback to ground exit: " + reason);
             Messages.Message("NJR: воздушная эвакуация VIP невозможна ("+reason+"). " +
                 "Группа переходит к наземному отходу.",
                 MessageTypeDefOf.ThreatSmall,false);

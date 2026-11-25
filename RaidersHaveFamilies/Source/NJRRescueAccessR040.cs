@@ -1,0 +1,321 @@
+// R040: shared structural access for pod construction and trapped rescue convoys.
+// No extra damage, new serialized data, teleportation or independent job writer.
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using HarmonyLib;
+using RimWorld;
+using Verse;
+using Verse.AI;
+
+namespace RaidersHaveFamilies
+{
+    internal static class NJRRescueAccessR040
+    {
+        private sealed class State
+        {
+            internal Thing Barrier;
+            internal int Phase,NextSearch,Started,LastHP,LastProgress;
+            internal IntVec3 Goal=IntVec3.Invalid;
+            internal readonly HashSet<Pawn> Failed=new HashSet<Pawn>();
+        }
+        private static readonly ConditionalWeakTable<RHFOperation,State> States=new ConditionalWeakTable<RHFOperation,State>();
+        internal static void Clear(RHFOperation op)
+        {
+            if(op==null)return;
+            if(States.TryGetValue(op,out State previous) && op.BoardS41!=null &&
+               op.BoardS41.Barrier==previous.Barrier)
+            {
+                op.BoardS41.Barrier=null;op.BoardS41.Breacher=null;
+                op.BoardS41.NextReplanTick=0;
+            }
+            States.Remove(op);
+        }
+        internal static bool IsAssignedAccess(RHFOperation op,Thing barrier)
+        {
+            return op!=null && barrier!=null && States.TryGetValue(op,out State state) &&
+                state.Phase==op.Phase && state.Barrier==barrier && op.BoardS41?.Barrier==barrier &&
+                RHFObjectiveRouteV128.IsRescueStructuralBarrier(barrier);
+        }
+        internal static bool PermitsExit(RHFOperation op,Thing barrier)
+        {return barrier!=null && (barrier is Building_Door || IsAssignedAccess(op,barrier));}
+        private static bool Active(Pawn pawn,Map map)=>RHFRescuePlannerS41.ActiveForRoleS41(pawn,map);
+        private static bool Live(Thing barrier,Map map)=>barrier!=null && barrier.Spawned &&
+            barrier.Map==map && !barrier.Destroyed && RHFObjectiveRouteV128.IsRescueStructuralBarrier(barrier);
+        private static bool CanWork(RHFOperation op,Map map,Thing barrier)
+        {
+            if(!Live(barrier,map))return false;
+            var excluded=new HashSet<Pawn>();var used=new HashSet<IntVec3>();
+            if(op.Freed!=null)foreach(Pawn freed in op.Freed)
+                if(freed!=null && freed.Spawned && freed.Map==map)used.Add(freed.Position);
+            for(int i=0;i<op.Squad.Count;i++)
+            {
+                Pawn actor=RHFCombatPlannerV125.SelectBreachOperator(op,map,barrier,excluded);
+                if(actor==null)break;
+                if(NJRRescueFormationR032.BreachSlot(actor,barrier,map,used,op.Squad,true,
+                    IntVec3.Invalid,true).IsValid)return true;
+                excluded.Add(actor);
+            }
+            return false;
+        }
+        // A safe local interior bend is legal even if the two endpoints do not
+        // have straight LOS. Check actual native reachability in BreachSlot too.
+        internal static bool SafeInteriorReach(Pawn pawn,Map map,IntVec3 target)
+        {
+            if(pawn==null || map==null || !target.InBounds(map) ||
+               (pawn.Position-target).LengthHorizontalSquared>576)return false;
+            Room room=pawn.Position.GetRoom(map);
+            if(room==null || room.PsychologicallyOutdoors || target.GetRoom(map)!=room)return false;
+            var danger=RHFObjectiveRouteV128.AccessExposureR040(map,pawn.Position);
+            var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
+            queue.Enqueue(pawn.Position);seen.Add(pawn.Position);
+            int expanded=0;
+            while(queue.Count>0 && expanded++<800)
+            {
+                IntVec3 at=queue.Dequeue();if(at==target)return true;
+                foreach(IntVec3 offset in GenAdj.CardinalDirections)
+                {
+                    IntVec3 next=at+offset;
+                    if(!next.InBounds(map) || seen.Contains(next) || !next.Standable(map) ||
+                       next.GetRoom(map)!=room || danger(next)>0)continue;
+                    if(RHFObjectiveRouteV128.Step(map,next,out Thing barrier)<0 || barrier!=null)continue;
+                    seen.Add(next);queue.Enqueue(next);
+                }
+            }
+            return false;
+        }
+        // One forward search over real cells. Reuse the assault planner's exact
+        // structural classification and costs, including cheap doors and expensive
+        // constructed walls. The returned first barrier belongs to a COMPLETE path.
+        private sealed class Field
+        {
+            internal readonly int Width,Height;
+            internal readonly int[] Cost;
+            internal readonly Thing[] First;
+            internal IntVec3 Exit=IntVec3.Invalid;
+            internal Field(Map map)
+            {Width=map.Size.x;Height=map.Size.z;Cost=new int[Width*Height];First=new Thing[Cost.Length];Array.Fill(Cost,int.MaxValue);}
+            internal int Id(IntVec3 c)=>c.z*Width+c.x;
+            internal int At(IntVec3 c)=>Cost[Id(c)];
+            internal Thing BarrierAt(IntVec3 c)=>First[Id(c)];
+        }
+        private static int Edge(Map map,IntVec3 c)=>Math.Min(Math.Min(c.x,map.Size.x-1-c.x),Math.Min(c.z,map.Size.z-1-c.z));
+        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge)
+        {
+            int count=map.Size.x*map.Size.z;
+            if(count<=0 || count>120000)return null;
+            var f=new Field(map);
+            var heap=new PriorityQueue<int,int>();
+            var closed=new bool[count];
+            var hazards=new int[count];Array.Fill(hazards,-1);
+            var danger=RHFObjectiveRouteV128.AccessExposureR040(map,navigator.Position);
+            int start=f.Id(navigator.Position);f.Cost[start]=0;
+            heap.Enqueue(start,toEdge?Edge(map,navigator.Position)*10:0);
+            int expanded=0;
+            while(heap.TryDequeue(out int id,out int priority) && expanded<count)
+            {
+                if(closed[id])continue;
+                IntVec3 at=new IntVec3(id%f.Width,0,id/f.Width);
+                if(priority!=f.Cost[id]+(toEdge?Edge(map,at)*10:0))continue;
+                closed[id]=true;expanded++;
+                if(toEdge && Edge(map,at)==0 && at.Standable(map) && at.GetEdifice(map)==null && !at.Roofed(map))
+                {f.Exit=at;break;}
+                foreach(IntVec3 offset in GenAdj.CardinalDirections)
+                {
+                    IntVec3 next=at+offset;
+                    if(!next.InBounds(map) || (!toEdge &&
+                        (Math.Abs(next.x-navigator.Position.x)>radius || Math.Abs(next.z-navigator.Position.z)>radius)))continue;
+                    int nid=f.Id(next);if(closed[nid])continue;
+                    int step=RHFObjectiveRouteV128.Step(map,next,out Thing obstacle);
+                    if(step<0)continue;
+                    if(hazards[nid]<0)hazards[nid]=danger(next);
+                    step+=hazards[nid];
+                    if(f.Cost[id]>int.MaxValue-step || f.Cost[id]+step>=f.Cost[nid])continue;
+                    f.Cost[nid]=f.Cost[id]+step;f.First[nid]=f.First[id]??obstacle;
+                    heap.Enqueue(nid,f.Cost[nid]+(toEdge?Edge(map,next)*10:0));
+                }
+            }
+            return f;
+        }
+        private static Thing FindPodBarrier(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,bool indoorOnly,out IntVec3 goal)
+        {
+            goal=IntVec3.Invalid;
+            Field f=Search(map,vip,32,false);if(f==null)return null;
+            Room prison=vip.Position.GetRoom(map);
+            Thing best=null;long scoreBest=long.MaxValue;
+            var canWork=new Dictionary<Thing,bool>();
+            var roomTiers=new Dictionary<Room,int>();
+            var guns=new List<Building>();
+            foreach(Building gun in map.listerBuildings.allBuildingsColonist)
+                if(RHFCombatPlannerV125.IsTurret(gun))guns.Add(gun);
+            for(int x=Math.Max(0,vip.Position.x-32);x<=Math.Min(map.Size.x-1,vip.Position.x+32);x++)
+            for(int z=Math.Max(0,vip.Position.z-32);z<=Math.Min(map.Size.z-1,vip.Position.z+32);z++)
+            {
+                IntVec3 cell=new IntVec3(x,0,z),vehicle=FuelingPortUtility.GetFuelingPortCell(cell,Rot4.North);
+                if(!vehicle.InBounds(map) || f.At(cell)==int.MaxValue || f.At(vehicle)==int.MaxValue)continue;
+                Room room=cell.GetRoom(map);
+                if(room==null || vehicle.GetRoom(map)!=room || (indoorOnly && room.PsychologicallyOutdoors))continue;
+                // Do not enlarge the footprint by smashing furniture or walls.
+                if(NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip)!=0)continue;
+                Thing barrier=f.BarrierAt(cell)??f.BarrierAt(vehicle);
+                if(barrier==null)continue; // direct native site search owns these candidates
+                if(!canWork.TryGetValue(barrier,out bool possible))
+                    canWork[barrier]=possible=CanWork(op,map,barrier);
+                if(!possible)continue;
+                bool exposed=false;
+                foreach(Building gun in guns)
+                    if(RHFObjectiveRouteV128.TurretCoversR037(gun,map,cell) ||
+                       RHFObjectiveRouteV128.TurretCoversR037(gun,map,vehicle)){exposed=true;break;}
+                if(exposed)continue;
+                if(!roomTiers.TryGetValue(room,out int tier))
+                {
+                    tier=room==prison?0:!room.PsychologicallyOutdoors &&
+                        NJRRescueInteriorS41.DirectDoor(map,prison,room,vip.Position)?1:
+                        !room.PsychologicallyOutdoors?2:3;
+                    roomTiers[room]=tier;
+                }
+                long score=tier*100000L+Math.Max(f.At(cell),f.At(vehicle))+
+                    (vehicle-vip.Position).LengthHorizontalSquared*6L;
+                if(score<scoreBest){scoreBest=score;best=barrier;goal=cell;}
+            }
+            return best;
+        }
+        private static State Set(RHFOperation op,Thing barrier,IntVec3 goal,int now)
+        {
+            var state=States.GetValue(op,_=>new State());
+            state.Barrier=barrier;state.Phase=op.Phase;state.Goal=goal;state.Started=now;
+            state.LastHP=barrier?.HitPoints??0;state.LastProgress=now;
+            state.NextSearch=now+600;state.Failed.Clear();
+            if(barrier!=null)Log.Message("[NJR][R040][Access] phase="+op.Phase+" barrier="+barrier.Position+" goal="+goal);
+            return state;
+        }
+        // Plan only. The same mission ThinkTree, legal strike-cell checks and
+        // native melee jobs used in Rescue-1 execute all structural work.
+        private static bool Assign(RHFOperation op,Map map,Pawn navigator,State state,int now)
+        {
+            Thing barrier=state.Barrier;
+            if(!Live(barrier,map))return false;
+            RHFTacticalBoardS41 board=op.BoardS41??=new RHFTacticalBoardS41();
+            if(board.ObservedPhase!=op.Phase)
+            {board.Orders.Clear();board.ObservedPhase=op.Phase;board.PodWorkStageS41=-1;board.PodWorkTargetS41=null;}
+            board.Barrier=barrier;
+            if(state.LastHP!=barrier.HitPoints)
+            {state.LastHP=barrier.HitPoints;state.LastProgress=now;state.Failed.Clear();op.LastProgressTick=now;}
+            Pawn prior=board.Breacher;
+            RHFOrderS41 priorOrder=prior!=null?board.For(prior,false):null;
+            if(priorOrder!=null && priorOrder.Objective==barrier && prior.Position==priorOrder.Cell &&
+               Active(prior,map) && !RHFCombatPlannerV125.IsCombatEmergencyJob(prior) && now-state.LastProgress>=900)
+            {
+                state.Failed.Add(prior);state.LastProgress=now;
+                if(prior.jobs?.curJob?.targetA.Thing==barrier)
+                    prior.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
+            }
+            var used=new HashSet<IntVec3>();var actors=new HashSet<Pawn>();
+            if(op.Freed!=null)foreach(Pawn freed in op.Freed)
+                if(freed!=null && freed.Spawned && freed.Map==map && !freed.Dead)
+                {used.Add(freed.Position);board.Assign(freed,RHFRoleS41.Hold,null,freed.Position,now);}
+            var excluded=new HashSet<Pawn>(state.Failed);
+            board.Breacher=null;
+            int mobile=0;foreach(Pawn member in op.Squad)if(Active(member,map))mobile++;
+            int limit=Math.Min(3,Math.Max(1,mobile-2));
+            for(int tries=0;tries<op.Squad.Count && actors.Count<limit;tries++)
+            {
+                Pawn actor=RHFCombatPlannerV125.SelectBreachOperator(op,map,barrier,excluded);
+                if(actor==null)break;
+                excluded.Add(actor);
+                if(actors.Count>0 && actor.equipment?.Primary?.def?.IsMeleeWeapon!=true)continue;
+                RHFOrderS41 old=board.For(actor,false);
+                IntVec3 slot=NJRRescueFormationR032.BreachSlot(actor,barrier,map,used,op.Squad,true,
+                    old!=null && old.Objective==barrier?old.Cell:IntVec3.Invalid,true);
+                if(!slot.IsValid)continue;
+                used.Add(slot);actors.Add(actor);
+                if(board.Breacher==null)board.Breacher=actor;
+                board.Assign(actor,RHFRoleS41.Breach,barrier,slot,now);
+            }
+            if(actors.Count==0)
+            {
+                state.Failed.Clear();board.Barrier=null;board.Breacher=null;
+                board.NextReplanTick=0;return false;
+            }
+            foreach(IntVec3 offset in NJRRescueFormationR032.Adjacent)
+            {IntVec3 c=barrier.Position+offset;if(c.InBounds(map))used.Add(c);}
+            foreach(Pawn member in op.Squad)
+            {
+                if(!Active(member,map) || actors.Contains(member))continue;
+                IntVec3 slot=NJRRescueFormationR032.SpreadNear(member,barrier.Position,map,used,4,9,false);
+                if(!slot.IsValid)slot=NJRRescueFormationR032.SpreadNear(member,barrier.Position,map,used,4,9,true);
+                if(slot.IsValid){used.Add(slot);board.Assign(member,RHFRoleS41.Screen,null,slot,now);}
+                else board.Assign(member,RHFRoleS41.Hold,null,member.Position,now);
+            }
+            board.Decision="R040 verified "+(op.Phase==3?"pod site":"exit")+" access: "+barrier.Position+" -> "+state.Goal;
+            board.LastPlanTick=now;board.NextReplanTick=now+90;
+            return true;
+        }
+        internal static bool ContinuePodAccess(RHFOperation op,Map map,Pawn vip,int now)
+        {
+            if(now-op.PhaseStartTick>9000 || !States.TryGetValue(op,out State state) || state.Phase!=3 ||
+               !Live(state.Barrier,map) || now-state.Started>4500)return false;
+            return Assign(op,map,vip,state,now);
+        }
+        internal static bool TryPodAccess(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,int now,bool indoorOnly)
+        {
+            if(now-op.PhaseStartTick>9000)return false;
+            if(ContinuePodAccess(op,map,vip,now))return true;
+            Thing barrier=FindPodBarrier(op,map,vip,launcher,pod,indoorOnly,out IntVec3 goal);
+            if(barrier==null)return false;
+            return Assign(op,map,vip,Set(op,barrier,goal,now),now);
+        }
+        internal static bool TryExitAccess(RHFOperation op,Map map,Pawn navigator,int now)
+        {
+            if(States.TryGetValue(op,out State state) && state.Phase==2)
+            {
+                if(Live(state.Barrier,map) && now-state.Started<=9000 && Assign(op,map,navigator,state,now))return true;
+                if(state.Barrier==null && now<state.NextSearch)return false;
+            }
+            Field f=Search(map,navigator,0,true);
+            Thing barrier=f!=null && f.Exit.IsValid?f.BarrierAt(f.Exit):null;
+            if(!CanWork(op,map,barrier)){Set(op,null,IntVec3.Invalid,now);return false;}
+            return Assign(op,map,navigator,Set(op,barrier,f.Exit,now),now);
+        }
+    }
+
+    // Shared immediate authorization, including delayed drop arrivals before
+    // their Lord is claimed on the next operation pulse. No unrelated pawn is
+    // changed, and no actual turret/defender or emergency job is suppressed.
+    [HarmonyPatch(typeof(Pawn_JobTracker),"StartJob")]
+    internal static class NJRRescueStructureGateR040
+    {
+        private static readonly FieldInfo PawnField=AccessTools.Field(typeof(Pawn_JobTracker),"pawn");
+        private static void Prefix(Pawn_JobTracker __instance,ref Job __0)
+        {
+            if(__0==null || PawnField==null || !(__0.targetA.Thing is Building structure) ||
+               RHFCombatPlannerV125.IsTurret(structure))return;
+            string def=__0.def?.defName??"";
+            if(def!="AttackMelee" && def!="AttackStatic" && def!="Ignite" && def!="UseVerbOnThing")return;
+            Pawn pawn=PawnField.GetValue(__instance) as Pawn;
+            if(pawn?.Spawned!=true || pawn.Faction==Faction.OfPlayer || pawn.Map==null)return;
+            var operations=RHFMissionIntegrityV130.Operations(pawn.Map);
+            if(operations==null)return;
+            foreach(RHFOperation op in operations)
+            {
+                if(op==null || op.Finished || !op.Deployed || op.Type!=(int)RHFOperationType.Rescue ||
+                   op.Phase>3 || op.Squad?.Contains(pawn)!=true)continue;
+                RHFOrderS41 order=op.BoardS41?.For(pawn,false);
+                bool permitted=def!="Ignite" && RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure) &&
+                    (op.Phase==1 && op.BoardS41?.PermitsAssaultBreach(pawn,structure)==true ||
+                     op.Phase==2 && op.BoardS41?.PermitsAssaultBreach(pawn,structure)==true &&
+                         NJRRescueAccessR040.PermitsExit(op,structure) ||
+                     op.Phase==3 && order?.Role==(int)RHFRoleS41.Breach && order.Objective==structure &&
+                         (op.PodConstructionStage!=0 || op.BoardS41.PermitsAssaultBreach(pawn,structure)));
+                if(!permitted)
+                {
+                    NJRRescueRallyR033.NoteOnce(op,"[NJR][R040] prevented unauthorized structure job: "+pawn.LabelShortCap+" / "+structure.LabelShortCap,
+                        pawn.thingIDNumber^structure.thingIDNumber^400040);
+                    __0=JobMaker.MakeJob(JobDefOf.Wait,pawn.Position);__0.expiryInterval=30;
+                }
+                return;
+            }
+        }
+    }
+}

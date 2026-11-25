@@ -19,7 +19,9 @@ assert 'parms.spawnCenter=IntVec3.Invalid;' in retry  # only non-rescue retry
 assert retry.index('else {parms.raidArrivalMode=null;') < retry.index('parms.spawnCenter=IntVec3.Invalid;')
 assert 't++' in entry and 'GroundEntryClusterSafe(map,center)' in entry
 # Candidate can't choose a destructive launch pad while a free footprint exists.
-assert 'if(clearance!=0 ||' in ops
+assert 'if(clearance!=0)continue;' in ops
+assert '!vip.CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in ops
+assert '!vip.CanReach(vehicle,PathEndMode.OnCell,Danger.Deadly)' in ops
 assert 'vehicle.GetRoom(map)!=candidate' in ops
 assert 'roof!=null && roof.isThickRoof' in ops  # thin roofs can be worked physically
 assert 'c==vip.Position' in clear  # never overlap the VIP's actual tile

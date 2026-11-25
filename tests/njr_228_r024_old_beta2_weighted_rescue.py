@@ -32,7 +32,7 @@ assert 'private const int ExposedCost = 300;' in route
 assert 'private const int WallBreachBaseR024 = 2400;' in route
 assert 'private const int DoorBreachBaseR024 = 180;' in route
 assert 'board.Threat==null && !route.Valid' in planner
-assert 'op.BoardS41?.Breacher!=pawn ||' in role
+assert 'op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true' in role
 assert '!RHFObjectiveRouteV128.IsRescueStructuralBarrier(obstacle)' in role
 assert 'if(op?.Type==(int)RHFOperationType.Rescue)return null;' in contact
 assert 'permitted && !RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure)' in command

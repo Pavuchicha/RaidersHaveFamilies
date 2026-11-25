@@ -22,8 +22,9 @@ assert '(rescuer.Position-captive.Position).LengthHorizontalSquared<=5' in plan
 
 # Issue 2: A blackboard must grant explicit breach access to ONE soldier and
 # ONE CURRENT barrier. Stale job orders cannot authorize another structure.
-assert 'op.BoardS41?.Breacher!=pawn' in roles
-assert 'op.BoardS41?.Barrier!=order.Objective' in roles
+assert 'op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true' in roles
+board=(S/'RHFTacticalBoardS41.cs').read_text()
+assert 'Barrier==barrier && order!=null' in board and 'order.Objective==barrier' in board
 assert 'op.BoardS41?.Barrier!=best' in combat
 assert 'op.BoardS41?.Breacher!=soldier' in combat
 assert 'op.BoardS41?.Breacher==p' in command

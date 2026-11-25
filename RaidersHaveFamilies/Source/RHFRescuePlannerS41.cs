@@ -696,7 +696,7 @@ namespace RaidersHaveFamilies
                         IntVec3 priorSlot=previous!=null && previous.Role==(int)RHFRoleS41.Breach &&
                             previous.Objective==obstacle ? previous.Cell : IntVec3.Invalid;
                         IntVec3 slot=NJRRescueFormationR032.BreachSlot(actor,obstacle,map,
-                            allocated,op.Squad,route.RiskFallback,priorSlot);
+                            allocated,op.Squad,route.RiskFallback,priorSlot,op.TryPod);
                         if(slot.IsValid){breachSlots.Add(actor,slot);allocated.Add(slot);}
                     }
                     actor=RHFCombatPlannerV125.SelectBreachOperator(op,map,obstacle,excludedBreach);
@@ -1199,6 +1199,8 @@ namespace RaidersHaveFamilies
             // The only legal retreat breach is a door on a validated route
             // to a real exit; never a random wall along a straight map ray.
             Building barrier=NJRRescueExitS41.FirstBlockedExitDoor(map,op,navigator);
+            if(barrier==null && NJRRescueAccessR040.TryExitAccess(op,map,navigator,now))return;
+            if(barrier!=null)NJRRescueAccessR040.Clear(op);
             board.Barrier=barrier;
             board.Breacher=null;
             IntVec3 progress=NJRRescueExitS41.ReachableProgress(map,op,navigator);
@@ -1313,6 +1315,7 @@ namespace RaidersHaveFamilies
                 return true;
             }
             // Once a real exit opens, drop any previous access-door permit.
+            NJRRescueAccessR040.Clear(op);
             board.Barrier=null;board.Breacher=null;
             int remaining=0;
             var paired=new HashSet<Pawn>();

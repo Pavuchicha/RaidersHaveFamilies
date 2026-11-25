@@ -27,7 +27,7 @@ assert 'rescuer.CanReach(captive,PathEndMode.Touch,Danger.Deadly)' in rescue
 assert 'if(op.Phase==2)Extract(controller,op,now);' in rescue
 assert 'FirstBlockedExitDoor(map,op,navigator)' in rescue
 assert 'board.Breacher=soldier;' in rescue
-assert 'if(op.Phase==2 && !(obstacle is Building_Door))return null;' in ops
+assert 'if(op.Phase==2 && !NJRRescueAccessR040.PermitsExit(op,obstacle))return null;' in ops
 assert 'board.Barrier=null;board.Breacher=null;' in rescue
 assert 'FirstBlockedExitDoor(Map map,\n            RHFOperation op,Pawn navigator)' in (S/'NJRRescueExitS41.cs').read_text()
 assert 'distance>range*range' in combat
@@ -39,7 +39,7 @@ assert '(c.Center-history.Last).LengthHorizontalSquared>=225' in entry
 assert 'System.Random debugRandom=op.DebugForced ?' in entry
 assert 'RecentEntries.GetValue(map' in entry
 assert 'if(op?.Type==(int)RHFOperationType.Rescue)return null;' in combat
-assert 'else if(op.BoardS41?.Breacher!=pawn ||' in ops
+assert 'else if(op.Phase!=2 || op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true)' in ops
 nodes=[n.attrib.get('Class') for n in duty.findall('.//li')]
 assert nodes.index('RaidersHaveFamilies.RHFJobGiverMissionDefenseV136') < nodes.index('RaidersHaveFamilies.RHFRescueRoleJobGiverS41')
 

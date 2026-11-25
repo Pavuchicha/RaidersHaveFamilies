@@ -13,7 +13,7 @@ assert 'Math.Min(3,Math.Max(1,available-2))' in p
 assert 'breachSlots.Add(actor,slot);allocated.Add(slot)' in p and 'board.Assign(soldier,RHFRoleS41.Breach,obstacle,strikeCell,now)' in p
 assert 'PermitsAssaultBreach(pawn,order.Objective)' in j and 'PermitsAssaultBreach(p,structure)' in c and 'board.PermitsAssaultBreach(soldier,target)' in p
 assert 'Barrier==barrier && order!=null' in b and 'order.Objective==barrier' in b
-assert 'else if(op.BoardS41?.Breacher!=pawn' in j and 'if(op.Phase==2 && !(obstacle is Building_Door))' in j
+assert 'else if(op.Phase!=2 || op.BoardS41?.PermitsAssaultBreach(pawn,order.Objective)!=true)' in j and 'if(op.Phase==2 && !NJRRescueAccessR040.PermitsExit(op,obstacle))' in j
 assert 'RHFRoleS41.Breach &&' in p and 'previous.Objective==obstacle' in p
 assert 'RHFTactical.IsBreachAxe(pawn)?10000:0' in w
 assert 'NJRRescueFormationR032.StrikeCell(pawn.Map,obstacle,order.Cell,pawn)' in j

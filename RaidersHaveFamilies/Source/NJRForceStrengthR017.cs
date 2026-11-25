@@ -121,7 +121,7 @@ namespace RaidersHaveFamilies
         // Replace only non-ranged slots, within the already committed budget.
         private static void BalanceGroundRescue(RHFOperation op,RHFStrikeParty party,List<Pawn> pawns)
         {
-            if(party.Drop || party.Role!=(int)RHFStrikeRole.Rescue ||
+            if(party.Role!=(int)RHFStrikeRole.Rescue ||
                NJRForceCompositionS42.LowTech(party.Faction) ||
                RHFMod.Settings?.RoleEquipment!=true)return;
             int humans=0, guns=0, support=0;
@@ -136,7 +136,7 @@ namespace RaidersHaveFamilies
             int desired=Math.Min(humans,Math.Max(0,(humans*3+3)/4));
             int desiredSupport=(desired+1)/2;
             float remaining=Mathf.Max(0f,party.Points-party.SupplyBudget-party.AnimalBudgetS42-
-                party.LoadoutBudgetS42-spent);
+                party.LoadoutBudgetS42-spent-(party.Drop && op.TryPod ? op.PodSupplyCost : 0f));
             List<PawnKindDef> kinds=CombatKinds(party.Faction);
             int attempts=0;
             // First secure the headcount, THEN upgrade short-range shooters where
@@ -165,6 +165,11 @@ namespace RaidersHaveFamilies
                         candidate=PawnGenerator.GeneratePawn(affordable[(attempts-1)%affordable.Count],party.Faction);
                         if(candidate==null || candidate.Spawned || candidate.IsWorldPawn())continue;
                         if(!NJRRescueFirebreakR034.DirectGun(candidate))
+                        {Find.WorldPawns.PassToWorld(candidate);continue;}
+                        // A drop roster must retain at least one real construction-capable soldier.
+                        if(party.Drop && op.TryPod && QualifiedPodEngineer(original,party.Faction) &&
+                           !QualifiedPodEngineer(candidate,party.Faction) &&
+                           !pawns.Exists(other=>other!=original && QualifiedPodEngineer(other,party.Faction)))
                         {Find.WorldPawns.PassToWorld(candidate);continue;}
                         bool longGun=MediumRangeSupport(candidate);
                         if(pass==1 && !longGun){Find.WorldPawns.PassToWorld(candidate);continue;}

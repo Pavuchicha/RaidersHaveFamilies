@@ -464,7 +464,7 @@ namespace RaidersHaveFamilies
                     op.CompletedBarricades.Add(target);
                     // Construction must receive its own full stage timeout
                     // after the actual protective wall was finished.
-                    op.PodStageStartedTickS311=now;
+                    if(op.PodConstructionStage==3)op.PodStageStartedTickS311=now;
                     op.BarricadeCell=IntVec3.Invalid;
                     op.FortifyStartedTick=0;
                     return NativeFortificationWorkS41(op,vip,owner,now);
@@ -573,10 +573,21 @@ namespace RaidersHaveFamilies
             {
                 if (vip.Spawned && op.Freed != null && op.Freed.Contains(vip))
                     RHFRescueCommandV124.StabilizeFreed(op, vip);
-                if (!vip.Spawned || vip.Map != map ||
-                    !FindFieldConstructionSite(vip, launcherDef, podDef,
-                        out IntVec3 launchCell, out IntVec3 podCell))
-                { NativeFallBackS311(op, now, "no reachable safe outdoor build site"); return; }
+                if (!vip.Spawned || vip.Map != map)
+                { NativeFallBackS311(op, now, "VIP absent at site search"); return; }
+                if(NJRRescueAccessR040.ContinuePodAccess(op,map,vip,now))return;
+                bool direct=FindFieldConstructionSite(vip, launcherDef, podDef,
+                    out IntVec3 launchCell, out IntVec3 podCell);
+                // Prefer a protected legal site behind a verified barrier over
+                // giving up the pod or building outside the prison under fire.
+                if(!direct || launchCell.GetRoom(map)?.PsychologicallyOutdoors==true)
+                {
+                    if(NJRRescueAccessR040.TryPodAccess(op,map,vip,launcherDef,podDef,now,
+                        direct))return;
+                    if(!direct)
+                    { NativeFallBackS311(op, now, "no physical build site or recoverable access route"); return; }
+                }
+                NJRRescueAccessR040.Clear(op);
                 op.PodLauncherCell = launchCell;
                 op.PodCell = podCell;
                 op.PodConstructionStage = 1;
@@ -621,6 +632,32 @@ namespace RaidersHaveFamilies
             }
             NativeDefendSiteS311(op, engineer, now);
             Thing fortifyWork=null;
+            Thing parallelWall=null;
+            Pawn fortifier=null;
+            // A separate engineer can secure the room while the main builder
+            // continues pod work. Do not consume the only engineer or guard.
+            if(RHFRescuePlannerS41.Enabled && op.PodConstructionStage>=1 &&
+               op.PodConstructionStage<=2 && op.FortifyPrison && op.BarricadesBuilt<2 &&
+               engineer!=null && now-op.PodStageStartedTickS311<12000)
+            {
+                int active=0;
+                foreach(Pawn candidate in op.Squad)if(NativeAliveS311(candidate,map))active++;
+                if(active>=3)
+                foreach(Pawn candidate in op.Squad)
+                {
+                    if(candidate==engineer || !NativeAliveS311(candidate,map) ||
+                       candidate.Faction!=owner.Faction ||
+                       candidate.WorkTypeIsDisabled(WorkTypeDefOf.Construction) ||
+                       RHFPodSupplyS41.HasCargo(op,candidate) ||
+                       RHFCombatPlannerV125.IsCombatEmergencyJob(candidate) ||
+                       !candidate.CanReach(siteCell,PathEndMode.Touch,Danger.Some))continue;
+                    if(!NativePrepareEngineerS41(candidate))continue;
+                    parallelWall=NativeFortificationWorkS41(op,vip,owner.Faction,now);
+                    if(parallelWall==null)break;
+                    if(!candidate.CanReach(parallelWall,PathEndMode.Touch,Danger.Some))continue;
+                    fortifier=candidate;break;
+                }
+            }
             // Build BOTH physical pod structures before letting an unfinished
             // wall blueprint commandeer the only qualified engineer.
             if(op.PodConstructionStage==3 &&
@@ -640,7 +677,7 @@ namespace RaidersHaveFamilies
                     fortifyWork ??
                     (op.PodConstructionStage==4 ? op.PodVehicleThing :
                     NativeWorkSiteS311(map,siteCell,owner.Faction) ??
-                    (op.PodConstructionStage==3 ? op.PodLauncherThing : null)),now);
+                    (op.PodConstructionStage==3 ? op.PodLauncherThing : null)),now,fortifier,parallelWall);
             // Never convert unfinished fortification into a completed wall:
             // the native WorkGiver must consume actual steel and work ticks.
             if(fortifyWork!=null)return;

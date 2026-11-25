@@ -32,7 +32,15 @@ namespace RaidersHaveFamilies
                 op.BoardS41.PodEngineerS41=engineer;
         }
 
-        internal static void Plan(RHFOperation op,Map map,Pawn engineer,Thing work,int now)
+        private static bool HasParallelOrder(RHFTacticalBoardS41 board,Pawn primary)
+        {
+            foreach(RHFOrderS41 order in board.Orders)
+                if(order!=null && order.Member!=primary && order.Role==(int)RHFRoleS41.Engineer)return true;
+            return false;
+        }
+
+        internal static void Plan(RHFOperation op,Map map,Pawn engineer,Thing work,int now,
+            Pawn fortifier=null,Thing parallelWall=null)
         {
             if(op==null || map==null || op.Phase!=3 || op.Finished)return;
             RHFTacticalBoardS41 board=op.BoardS41 ??= new RHFTacticalBoardS41();
@@ -45,7 +53,8 @@ namespace RaidersHaveFamilies
                 board.Orders.Clear();
             }
             if(now<board.NextReplanTick && board.LastPlanTick>0 &&
-               board.PodWorkTargetS41==work && board.PodWorkStageS41==op.PodConstructionStage)
+               board.PodWorkTargetS41==work && board.PodWorkStageS41==op.PodConstructionStage &&
+               fortifier==null && !HasParallelOrder(board,engineer))
                 return;
             board.PodWorkTargetS41=work;
             board.PodWorkStageS41=op.PodConstructionStage;
@@ -99,6 +108,13 @@ namespace RaidersHaveFamilies
             {
                 board.Assign(engineer,RHFRoleS41.Engineer,work,assembly,now);
                 occupied.Add(engineer);
+            }
+            if(fortifier!=null && fortifier!=engineer && !occupied.Contains(fortifier) &&
+               parallelWall!=null && parallelWall.Spawned && parallelWall.Map==map &&
+               RHFRescuePlannerS41.ActiveForRoleS41(fortifier,map))
+            {
+                board.Assign(fortifier,RHFRoleS41.Engineer,parallelWall,assembly,now);
+                occupied.Add(fortifier);
             }
             // The VIP may board only in the real native CompTransporter stage.
             // No external TryTakeOrderedJob or artificial removal from the map.

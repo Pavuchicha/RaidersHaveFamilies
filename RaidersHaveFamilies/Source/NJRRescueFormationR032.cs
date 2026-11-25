@@ -72,7 +72,7 @@ namespace RaidersHaveFamilies
         }
 
         internal static IntVec3 BreachSlot(Pawn pawn,Thing barrier,Map map,
-            HashSet<IntVec3> used,List<Pawn> squad, bool risk,IntVec3 previous)
+            HashSet<IntVec3> used,List<Pawn> squad, bool risk,IntVec3 previous, bool allowInteriorTurn=false)
         {
             IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
             foreach(IntVec3 offset in Adjacent)
@@ -84,7 +84,8 @@ namespace RaidersHaveFamilies
                 // a hostile or unrelated pawn cannot be allocated over.
                 if(occupant!=null && occupant!=pawn && !squad.Contains(occupant))continue;
                 if(!pawn.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
-                if(!RHFObjectiveRouteV128.FormationLegSafe(pawn.Position,cell,map,risk))continue;
+                if(!RHFObjectiveRouteV128.FormationLegSafe(pawn.Position,cell,map,risk) &&
+                   !(allowInteriorTurn && NJRRescueAccessR040.SafeInteriorReach(pawn,map,cell)))continue;
                 int cost=(pawn.Position-cell).LengthHorizontalSquared*4+
                     (offset.LengthHorizontalSquared==2?6:0)+
                     (occupant!=null && occupant!=pawn?12:0);
