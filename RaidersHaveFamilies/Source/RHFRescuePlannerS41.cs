@@ -1202,7 +1202,20 @@ namespace RaidersHaveFamilies
             // to a real exit; never a random wall along a straight map ray.
             // VIP withdrawal uses the common access authority; a stale independent
             // door search must not authorize an unrelated structural attack.
+            if(op.FortifyPrison && op.PodLaunchCompleted && op.Squad.Exists(p=>Active(p,map) && p.jobs?.curJob?.def?.defName=="NJR_MoveSealCargoR044") &&
+               NJRRescueAccessR040.TryExitDebrisR047(op,map,navigator,now))return;
             if(op.FortifyPrison && NJRRescueAccessR040.TryExitAccess(op,map,navigator,now))return;
+            if(op.FortifyPrison && op.PodLaunchCompleted && op.Squad.Count>1)
+            {
+                for(int offset=0;offset<op.Squad.Count;offset++)
+                {
+                    Pawn member=op.Squad[(now/PlanCadence+offset)%op.Squad.Count];
+                    if(member==navigator || !Active(member,map))continue;
+                    if(NJRRescueAccessR040.TryExitAccess(op,map,member,now))return;
+                    break; // one alternate origin per pulse, not one full-map search per soldier
+                }
+            }
+            if(op.FortifyPrison && op.PodLaunchCompleted && NJRRescueAccessR040.TryExitDebrisR047(op,map,navigator,now))return;
             Building barrier=op.FortifyPrison?null:NJRRescueExitS41.FirstBlockedExitDoor(map,op,navigator);
             if(!op.FortifyPrison && barrier==null && NJRRescueAccessR040.TryExitAccess(op,map,navigator,now))return;
             if(barrier!=null)NJRRescueAccessR040.Clear(op);
@@ -1210,6 +1223,7 @@ namespace RaidersHaveFamilies
             board.Breacher=null;
             IntVec3 progress=NJRRescueExitS41.ReachableProgress(map,op,navigator);
             var reserved=new HashSet<Pawn>();
+            var fallbackSlotsR047=new HashSet<IntVec3>();
             // If a reachable progress cell exists, keep the liberated pair
             // together. If a sealed wall must be breached, shelter the VIP
             // until a physical access route has opened.
@@ -1241,6 +1255,13 @@ namespace RaidersHaveFamilies
                     board.Breacher=soldier;
                     board.Assign(soldier,RHFRoleS41.Breach,barrier,barrier.Position,now);
                     assigned=true;
+                }
+                else if(op.FortifyPrison && op.PodLaunchCompleted)
+                {
+                    IntVec3 point=progress.IsValid?progress:soldier.Position;
+                    IntVec3 slot=NJRRescueFormationR032.SpreadNear(soldier,point,map,fallbackSlotsR047,0,5,true);
+                    if(slot.IsValid){fallbackSlotsR047.Add(slot);board.Assign(soldier,RHFRoleS41.Screen,null,slot,now);}
+                    else {fallbackSlotsR047.Add(soldier.Position);board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);}
                 }
                 else board.Assign(soldier,RHFRoleS41.Withdraw,null,
                     progress.IsValid?progress:anchor.Position,now);
@@ -1314,6 +1335,15 @@ namespace RaidersHaveFamilies
                 // TryFindBestExitSpot per moving pawn causes back-and-forth
                 // between unrelated edges and can strand the VIP in a cave.
                 op.ExitCell=NJRRescueExitS41.Choose(map,op,navigator);
+                if(op.FortifyPrison && op.PodLaunchCompleted && !op.ExitCell.IsValid)
+                    for(int offset=0;offset<op.Squad.Count;offset++)
+                    {
+                        Pawn member=op.Squad[(now/PlanCadence+offset)%op.Squad.Count];
+                        if(member==navigator || !Active(member,map))continue;
+                        IntVec3 alternative=NJRRescueExitS41.Choose(map,op,member);
+                        if(alternative.IsValid)op.ExitCell=alternative;
+                        break;
+                    }
             }
             board.WithdrawalCell=op.ExitCell;
             if(!board.WithdrawalCell.IsValid)
@@ -1323,7 +1353,7 @@ namespace RaidersHaveFamilies
             }
             // A guard outside a newly sealed pocket can reach an edge while the
             // engineer inside cannot. Reopen our exact wall before withdrawal.
-            if(op.FortifyPrison && (op.CompletedBarricades.Count>0 || op.BarricadeCell.IsValid))
+            if(op.FortifyPrison && (op.PodLaunchCompleted || op.CompletedBarricades.Count>0 || op.BarricadeCell.IsValid))
                 foreach(Pawn member in op.Squad)
                     if(Active(member,map) && !member.CanReach(board.WithdrawalCell,PathEndMode.OnCell,Danger.Deadly) &&
                        NJRRescueAccessR040.TryExitAccess(op,map,member,now))return true;
@@ -1449,8 +1479,14 @@ namespace RaidersHaveFamilies
                 }
                 else
                 {
-                    board.Assign(soldier,RHFRoleS41.Withdraw,null,board.WithdrawalCell,now);
-                    if((soldier.Position-board.WithdrawalCell).LengthHorizontalSquared<=10)
+                    IntVec3 destination=board.WithdrawalCell;
+                    if(op.FortifyPrison && op.PodLaunchCompleted && !soldier.CanReach(destination,PathEndMode.OnCell,Danger.Deadly))
+                    {
+                        destination=NJRRescueExitS41.Choose(map,op,soldier);
+                        if(!destination.IsValid){board.Assign(soldier,RHFRoleS41.Hold,null,soldier.Position,now);continue;}
+                    }
+                    board.Assign(soldier,RHFRoleS41.Withdraw,null,destination,now);
+                    if((soldier.Position-destination).LengthHorizontalSquared<=10)
                         RHFRescueCommandV124.MissionExit(soldier);
                 }
             }

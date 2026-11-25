@@ -443,11 +443,13 @@ namespace RaidersHaveFamilies
                         IntVec3 c=RHFObjectiveRouteV128.CardinalR044(at,direction);
                         if(!c.InBounds(map) || c==wall || reserved.Contains(c) || seen.Contains(c) ||
                            Math.Abs(c.x-stand.x)>24 || Math.Abs(c.z-stand.z)>24)continue;
-                        if(!c.Standable(map) || (c.GetEdifice(map) is Building_Door door && !door.Open))continue;
+                        if(!c.Walkable(map) || (c.GetEdifice(map) is Building_Door door && !door.Open))continue;
                         seen.Add(c);queue.Enqueue(c);
                     }
                 }
-                if(!seen.Contains(vip.Position))continue;
+                // Prospective geometry: VIP may still be in the original
+                // prison on the other side of the corridor. Stage him FIRST.
+                if(!seen.Contains(vip.Position) && !vip.CanReach(stand,PathEndMode.OnCell,Danger.Some))continue;
                 bool adjacentInside=false;
                 for(int d2=0;d2<4;d2++)
                     if(seen.Contains(RHFObjectiveRouteV128.CardinalR044(wall,d2)))adjacentInside=true;
@@ -462,7 +464,7 @@ namespace RaidersHaveFamilies
                 foreach(Pawn member in op.Squad)
                 {
                     if(!NativeAliveS311(member,map))continue;
-                    if(seen.Contains(member.Position))
+                    if(seen.Contains(member.Position) || member.CanReach(stand,PathEndMode.OnCell,Danger.Some))
                     {
                         crew++;
                         if(!member.WorkTypeIsDisabled(WorkTypeDefOf.Construction) &&
@@ -473,7 +475,8 @@ namespace RaidersHaveFamilies
                 // No dependence on Room identity of an impassable finished pad.
                 // Require that the current primary engineer remains on this side.
                 Pawn primary=op.BoardS41?.PodEngineerS41;
-                if(NativeAliveS311(primary,map) && !seen.Contains(primary.Position))continue;
+                if(NativeAliveS311(primary,map) && !seen.Contains(primary.Position) &&
+                   !primary.CanReach(stand,PathEndMode.OnCell,Danger.Some))continue;
                 pocket=seen;return true;
             }
             return false;
@@ -626,6 +629,8 @@ namespace RaidersHaveFamilies
                     if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> readyPocket))return null;
                     RHFPodSupplyS41.RememberSealPocketR044(op,target,readyPocket);
                     if(!SealLogisticsR044(op,target,readyPocket,engineer,refueler,out mover,out cargo,out destination))return null;
+                    if(!readyPocket.Contains(vip.Position) || (NativeAliveS311(engineer,map) && !readyPocket.Contains(engineer.Position)) ||
+                       (NativeAliveS311(refueler,map) && !readyPocket.Contains(refueler.Position)))return null;
                     return item;
                 }
             }
@@ -643,6 +648,10 @@ namespace RaidersHaveFamilies
                 }
                 return null;
             }
+            // R047: a prospective seal is not a permit to trap a VIP or an
+            // active engineer. The published pocket drives their movement.
+            if(!pocket.Contains(vip.Position) || (NativeAliveS311(engineer,map) && !pocket.Contains(engineer.Position)) ||
+               (NativeAliveS311(refueler,map) && !pocket.Contains(refueler.Position)))return null;
             if(target.GetFirstPawn(map)!=null || NativeEngineerS311(op,target,engineer,refueler,prepare:false,pocket:pocket)==null)return null;
             try
             {
@@ -693,6 +702,14 @@ namespace RaidersHaveFamilies
                 return;
             }
             if(now%180>=90 || op.PodConstructionStage>3)return;
+            if(op.FortifyPrison && op.BoardS41?.For(vip,false) is RHFOrderS41 planned &&
+               planned.Role==(int)RHFRoleS41.PodAssembly && planned.Cell.IsValid && planned.Cell!=vip.Position &&
+               vip.CanReach(planned.Cell,PathEndMode.OnCell,Danger.Some))
+            {
+                if(vip.jobs.curJob?.def!=JobDefOf.Goto || vip.jobs.curJob.targetA.Cell!=planned.Cell)
+                    vip.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.Goto,planned.Cell));
+                return;
+            }
             IntVec3 target=op.PodLauncherCell;
             if(!target.IsValid || !target.InBounds(map) ||
                (vip.Position-target).LengthHorizontalSquared<36)return;

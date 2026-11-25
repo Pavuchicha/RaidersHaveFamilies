@@ -67,5 +67,5 @@ assert 'distance.TryGetValue(c,out int remaining)' in r and 'i<8' in r and 'p.Ca
 assert 'stalled>=900 && incoming>0 && !laggardProgress && !quorum' in g and 'stalled>=3600' in g
 assert 'Math.Max(range,cached.ObservedRange)' in t and 'TurretRangeR037(turret)' in t and 'ObserveTurretRangeR037(turret,pawn.Position)' in o
 assert 'if(!__result' in o and 'ref bool' not in o
-assert 'engine_log_snapshot' in d and 'raw_log_snapshot' in d and 'CopyPlayerLog("console")' in d and 'CopyPlayerLog("export")' in d and 'baseRevision="R046"' in d
+assert 'engine_log_snapshot' in d and 'raw_log_snapshot' in d and 'CopyPlayerLog("console")' in d and 'CopyPlayerLog("export")' in d and 'baseRevision="R047"' in d
 print('PASS R037: R036 trace (actual roster/stall/20 incoming casts/console), recorded terrain approach, synthetic hazard and timeout policy, source contracts. Not C# or RimWorld/CE execution.')

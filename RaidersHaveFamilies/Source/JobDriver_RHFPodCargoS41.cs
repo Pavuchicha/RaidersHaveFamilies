@@ -126,12 +126,15 @@ namespace RaidersHaveFamilies
         public override bool TryMakePreToilReservations(bool errorOnFailed)
         {return pawn.Reserve(job.GetTarget(TargetIndex.A),job,1,-1,null,errorOnFailed) &&
             pawn.Reserve(job.GetTarget(TargetIndex.B),job,1,-1,null,errorOnFailed);}
+        private static bool MayCarryR047(RHFOperation op,bool debris)
+        {return op!=null && (op.Phase==3 || (debris && op.Phase==2 && op.FortifyPrison && op.PodLaunchCompleted));}
+
         protected override IEnumerable<Toil> MakeNewToils()
         {
             Thing original=job.targetA.Thing;
             bool debris=NJRVipDebrisR045.IsDebris(original);
             this.FailOn(() => pawn.Dead || pawn.Downed || pawn.Map==null ||
-                RHFRescuePlannerS41.MissionFor(pawn.Map,pawn)?.Phase!=3);
+                !MayCarryR047(RHFRescuePlannerS41.MissionFor(pawn.Map,pawn),debris));
             yield return Toils_Goto.GotoThing(TargetIndex.A,PathEndMode.ClosestTouch);
             this.FailOnDestroyedOrNull(TargetIndex.A);
             yield return Toils_Haul.StartCarryThing(TargetIndex.A);

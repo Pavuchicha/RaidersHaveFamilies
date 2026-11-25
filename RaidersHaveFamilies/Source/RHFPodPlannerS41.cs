@@ -71,6 +71,7 @@ namespace RaidersHaveFamilies
                vipOrder.Cell.IsValid && vipOrder.Cell.InBounds(map) &&
                vipOrder.Cell.Standable(map) && op.Vip!=null &&
                !NJRPodSiteClearS41.ReservedFootprint(op,vipOrder.Cell) &&
+               (!op.FortifyPrison || vipOrder.Cell==assembly) &&
                (!assembly.IsValid || assembly.GetRoom(map)==null || vipOrder.Cell.GetRoom(map)==assembly.GetRoom(map)) &&
                op.Vip.CanReach(vipOrder.Cell,PathEndMode.OnCell,Danger.Some))
                 assembly=vipOrder.Cell;
@@ -207,12 +208,30 @@ namespace RaidersHaveFamilies
             // VIP.CanReach for most of them every 120 ticks caused TPS loss.
             IntVec3 best=IntVec3.Invalid;
             Room siteRoom=site.GetRoom(map)??op.PodLauncherCell.GetRoom(map);
+            HashSet<IntVec3> sealPocket=RHFPodSupplyS41.SealPocketR044(op);
+            if(op.FortifyPrison)
+            {
+                // A pad footprint can have no Room or belong to a different
+                // region; choose the actual native reachable boarding side.
+                int localScore=int.MaxValue;
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 stand=RHFObjectiveRouteV128.CardinalR044(site,d);
+                    if(!stand.InBounds(map) || !stand.Standable(map) || stand.GetEdifice(map)!=null ||
+                       NJRPodSiteClearS41.ReservedFootprint(op,stand) || stand==op.BarricadeCell ||
+                       (sealPocket!=null && !sealPocket.Contains(stand)) || !vip.CanReach(stand,PathEndMode.OnCell,Danger.Some))continue;
+                    int cost=(stand-vip.Position).LengthHorizontalSquared;
+                    if(cost<localScore){localScore=cost;best=stand;}
+                }
+                if(best.IsValid)return best;
+            }
             int score=int.MaxValue;
             for(int x=Math.Max(0,site.x-10);x<=Math.Min(map.Size.x-1,site.x+10);x++)
             for(int z=Math.Max(0,site.z-10);z<=Math.Min(map.Size.z-1,site.z+10);z++)
             {
                 IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.Standable(map) || cell.GetEdifice(map)!=null ||
+                   (op.FortifyPrison && (cell==op.BarricadeCell || (sealPocket!=null && !sealPocket.Contains(cell)))) ||
                    InFootprint(cell,op.PodLauncherCell,
                        DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher"),
                        NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell)) ||
@@ -250,15 +269,6 @@ namespace RaidersHaveFamilies
         private static bool ValidGuardCell(IntVec3 cell,RHFOperation op,Map map,
             HashSet<IntVec3> occupied)
         {
-            if(op.FortifyPrison && cell.IsValid && cell.InBounds(map))
-                for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++)
-                {
-                    IntVec3 near=cell+new IntVec3(dx,0,dz);
-                    if(!near.InBounds(map))continue;
-                    Pawn captive=near.GetFirstPawn(map);
-                    if(captive!=null && captive.IsPrisonerOfColony &&
-                       op.Targets?.Contains(captive)!=true)return false;
-                }
             HashSet<IntVec3> pocket=RHFPodSupplyS41.SealPocketR044(op);
             if(pocket!=null && !pocket.Contains(cell))return false;
             return cell.IsValid && cell.InBounds(map) && cell.Standable(map) &&
@@ -290,9 +300,17 @@ namespace RaidersHaveFamilies
                 if(!ValidGuardCell(cell,op,map,occupied))continue;
                 Room room=cell.GetRoom(map);
                 bool atSite=siteRoom!=null && room==siteRoom;
-                if(!atSite && room!=startRoom)continue;
+                if(!atSite && room!=startRoom && !(op.FortifyPrison && RHFPodSupplyS41.SealPocketR044(op)?.Contains(cell)==true))continue;
                 int dist=(pawn.Position-cell).LengthHorizontalSquared;
                 int score=(atSite?0:12000)+dist*3+radius*5;
+                if(op.FortifyPrison)
+                    for(int dx2=-1;dx2<=1;dx2++)for(int dz2=-1;dz2<=1;dz2++)
+                    {
+                        IntVec3 near=cell+new IntVec3(dx2,0,dz2);
+                        if(!near.InBounds(map))continue;
+                        Pawn other=near.GetFirstPawn(map);
+                        if(other!=null && other.IsPrisonerOfColony && op.Targets?.Contains(other)!=true)score+=100;
+                    }
                 if(score>=bestScore)continue;
                 if(!pawn.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
                 best=cell;bestScore=score;

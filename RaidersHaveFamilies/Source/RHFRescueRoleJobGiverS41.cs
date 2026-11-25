@@ -51,6 +51,8 @@ namespace RaidersHaveFamilies
                RHFCombatPlannerV125.IsCombatEmergencyJob(pawn))return null;
             RHFOperation op=RHFRescuePlannerS41.MissionFor(pawn.Map,pawn);
             if(op==null || op.BoardS41==null)return null;
+            Job counter=NJRPrisonerDefenseR047.Counter(op,pawn);
+            if(counter!=null)return counter;
             // S4.1-A/E: Phase 3 orders are authored by RHFPodPlannerS41.
             // Work and EnterTransporter are physically performed by the
             // game's own JobDrivers, selected through this ThinkTree only.
@@ -158,7 +160,7 @@ namespace RaidersHaveFamilies
                     {
                         // VIP stays by the engineer's site, not at the map edge.
                         if(phase3.Cell.IsValid && phase3.Cell.InBounds(pawn.Map) &&
-                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>20 &&
+                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>(op.FortifyPrison?0:20) &&
                            pawn.CanReach(phase3.Cell,PathEndMode.ClosestTouch,Danger.Some))
                             return Task(JobDefOf.Goto,phase3.Cell,90);
                         return Task(JobDefOf.Wait,pawn.Position,90);
@@ -176,7 +178,7 @@ namespace RaidersHaveFamilies
                     }
                     case RHFRoleS41.Screen:
                         if(phase3.Cell.IsValid && phase3.Cell.InBounds(pawn.Map) &&
-                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>(op.PodConstructionStage==0 ||
+                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>(op.FortifyPrison || op.PodConstructionStage==0 ||
                                pawn.Position==op.BarricadeCell ||
                                (RHFPodSupplyS41.SealPocketR044(op) is HashSet<IntVec3> pocket && !pocket.Contains(pawn.Position))?0:9) &&
                            pawn.CanReach(phase3.Cell,PathEndMode.OnCell,Danger.Deadly))
@@ -196,6 +198,13 @@ namespace RaidersHaveFamilies
             // BEFORE following Goto waypoints. Escorts defend locally without
             // abandoning their VIP; convoy guards manoeuvre only if needed.
             RHFRoleS41 role=(RHFRoleS41)order.Role;
+            if(op.Phase==2 && op.FortifyPrison && op.PodLaunchCompleted && role==RHFRoleS41.PodSupply &&
+               NJRVipDebrisR045.IsDebris(order.Objective) && order.Objective.Spawned && order.Cell.IsValid)
+            {
+                JobDef move=DefDatabase<JobDef>.GetNamedSilentFail("NJR_MoveSealCargoR044");
+                if(move==null)return null;
+                Job haul=JobMaker.MakeJob(move,order.Objective,order.Cell);haul.count=order.Objective.stackCount;return haul;
+            }
             if(op.Phase==2 && role==RHFRoleS41.Engineer && NJRRescueAccessR040.IsOwnSealR043(op,order.Objective))
             {
                 JobDef deconstruct=DefDatabase<JobDef>.GetNamedSilentFail("Deconstruct");

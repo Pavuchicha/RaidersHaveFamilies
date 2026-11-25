@@ -19,6 +19,7 @@ namespace RaidersHaveFamilies
             internal int Phase,NextSearch,Started,LastHP,LastProgress;
             internal int ExitDoorFailureR044=-1;
             internal IntVec3 Goal=IntVec3.Invalid;
+            internal int NavigatorId=-1;
             internal readonly HashSet<Pawn> Failed=new HashSet<Pawn>();
         }
         private static readonly ConditionalWeakTable<RHFOperation,State> States=new ConditionalWeakTable<RHFOperation,State>();
@@ -52,13 +53,48 @@ namespace RaidersHaveFamilies
                 if(freed!=null && freed.Spawned && freed.Map==map)used.Add(freed.Position);
             for(int i=0;i<op.Squad.Count;i++)
             {
-                Pawn actor=RHFCombatPlannerV125.SelectBreachOperator(op,map,barrier,excluded);
+                Pawn actor=SelectAccessOperatorR047(op,map,barrier,excluded,used);
                 if(actor==null)break;
-                if(NJRRescueFormationR032.BreachSlot(actor,barrier,map,used,op.Squad,true,
-                    IntVec3.Invalid,true).IsValid)return true;
+                if(AccessSlotR047(op,actor,barrier,map,used,IntVec3.Invalid).IsValid)return true;
                 excluded.Add(actor);
             }
             return false;
+        }
+        private static Pawn SelectAccessOperatorR047(RHFOperation op,Map map,Thing barrier,HashSet<Pawn> excluded,HashSet<IntVec3> used)
+        {
+            Pawn normal=RHFCombatPlannerV125.SelectBreachOperator(op,map,barrier,excluded);
+            if(normal!=null || !op.FortifyPrison || op.Phase!=2)return normal;
+            Pawn best=null;int score=int.MinValue;
+            foreach(Pawn member in op.Squad)
+            {
+                if(!Active(member,map) || excluded.Contains(member) || RHFCombatPlannerV125.IsCombatEmergencyJob(member) ||
+                   member.WorkTagIsDisabled(WorkTags.Violent) || member.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
+                   !AccessSlotR047(op,member,barrier,map,used,IntVec3.Invalid).IsValid)continue;
+                int rank=(RHFTactical.IsBreachAxe(member)?10000:0)+(member.skills?.GetSkill(SkillDefOf.Melee)?.Level??0)*15-
+                    (member.Position-barrier.Position).LengthHorizontalSquared;
+                if(rank>score){best=member;score=rank;}
+            }
+            return best;
+        }
+        private static IntVec3 AccessSlotR047(RHFOperation op,Pawn actor,Thing barrier,Map map,HashSet<IntVec3> used,IntVec3 previous)
+        {
+            IntVec3 slot=NJRRescueFormationR032.BreachSlot(actor,barrier,map,used,op.Squad,true,previous,true);
+            if(slot.IsValid || !op.FortifyPrison || op.Phase!=2)return slot;
+            // The retreat door may be around a bend and in another Room. A
+            // native reachable cardinal strike square is enough for exit work.
+            int best=int.MaxValue;
+            for(int d=0;d<4;d++)
+            {
+                IntVec3 cell=RHFObjectiveRouteV128.CardinalR044(barrier.Position,d);
+                if(used.Contains(cell) || !NJRRescueFormationR032.StrikeCell(map,barrier,cell,actor) ||
+                   RHFObjectiveRouteV128.StagingExposedToTurret(map,cell) ||
+                   !actor.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                Pawn occupant=cell.GetFirstPawn(map);
+                if(occupant!=null && occupant!=actor && !op.Squad.Contains(occupant))continue;
+                int cost=(actor.Position-cell).LengthHorizontalSquared-(cell==previous?10000:0);
+                if(cost<best){best=cost;slot=cell;}
+            }
+            return slot;
         }
         // A safe local interior bend is legal even if the two endpoints do not
         // have straight LOS. Check actual native reachability in BreachSlot too.
@@ -102,7 +138,7 @@ namespace RaidersHaveFamilies
             internal Thing BarrierAt(IntVec3 c)=>First[Id(c)];
         }
         private static int Edge(Map map,IntVec3 c)=>Math.Min(Math.Min(c.x,map.Size.x-1-c.x),Math.Min(c.z,map.Size.z-1-c.z));
-        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false,bool doorsOnly=false,RHFOperation ownExit=null)
+        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false,bool doorsOnly=false,RHFOperation ownExit=null,bool clearDebris=false)
         {
             int count=map.Size.x*map.Size.z;
             if(count<=0 || count>120000)return null;
@@ -134,6 +170,9 @@ namespace RaidersHaveFamilies
                         RHFObjectiveRouteV128.Step(map,next,out obstacle);
                     if(ownExit!=null && IsOwnSealR043(ownExit,next.GetEdifice(map)))
                     {obstacle=next.GetEdifice(map);step=10+obstacle.HitPoints*2;}
+                    if(clearDebris && obstacle==null && NJRVipDebrisR045.ClearableCell(ownExit,map,next) &&
+                       NJRVipDebrisR045.DebrisAt(map,next) is Thing debris)
+                    {obstacle=debris;step=100+Math.Max(0,step);}
                     if(step<0)continue;
                     if(hazards[nid]<0)hazards[nid]=danger(next);
                     step+=hazards[nid];
@@ -380,13 +419,16 @@ namespace RaidersHaveFamilies
             int limit=Math.Min(3,Math.Max(1,mobile-2));
             for(int tries=0;tries<op.Squad.Count && actors.Count<limit;tries++)
             {
-                Pawn actor=RHFCombatPlannerV125.SelectBreachOperator(op,map,barrier,excluded);
+                Pawn actor=op.FortifyPrison && op.Phase==2 && tries==0 && Active(prior,map) &&
+                    !excluded.Contains(prior) && priorOrder?.Objective==barrier &&
+                    AccessSlotR047(op,prior,barrier,map,used,priorOrder.Cell).IsValid ? prior :
+                    SelectAccessOperatorR047(op,map,barrier,excluded,used);
                 if(actor==null)break;
                 excluded.Add(actor);
                 if(actors.Count>0 && actor.equipment?.Primary?.def?.IsMeleeWeapon!=true)continue;
                 RHFOrderS41 old=board.For(actor,false);
-                IntVec3 slot=NJRRescueFormationR032.BreachSlot(actor,barrier,map,used,op.Squad,true,
-                    old!=null && old.Objective==barrier?old.Cell:IntVec3.Invalid,true);
+                IntVec3 slot=AccessSlotR047(op,actor,barrier,map,used,
+                    old!=null && old.Objective==barrier?old.Cell:IntVec3.Invalid);
                 if(!slot.IsValid)continue;
                 used.Add(slot);actors.Add(actor);
                 if(board.Breacher==null)board.Breacher=actor;
@@ -467,6 +509,40 @@ namespace RaidersHaveFamilies
             board.LastPlanTick=now;board.NextReplanTick=now+90;
             return true;
         }
+        internal static bool TryExitDebrisR047(RHFOperation op,Map map,Pawn navigator,int now)
+        {
+            if(!op.FortifyPrison || !op.PodLaunchCompleted || op.Phase!=2)return false;
+            RHFTacticalBoardS41 board=op.BoardS41??=new RHFTacticalBoardS41();
+            Pawn mover=null;Thing chunk=null;IntVec3 destination=IntVec3.Invalid;
+            foreach(Pawn member in op.Squad)
+            {
+                if(!Active(member,map) || member.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044")continue;
+                RHFOrderS41 order=board.For(member,false);
+                if(order?.Objective==null || !NJRVipDebrisR045.IsDebris(order.Objective))continue;
+                mover=member;chunk=order.Objective;destination=order.Cell;break;
+            }
+            if(mover==null)
+            {
+                if((now-op.PhaseStartTick)%270>=90)return false;
+                Field corridor=Search(map,navigator,0,true,true,true,op,true);
+                if(corridor==null || !corridor.Exit.IsValid)return false;
+                chunk=corridor.BarrierAt(corridor.Exit);
+                if(!NJRVipDebrisR045.IsDebris(chunk) || !NJRVipDebrisR045.TryMove(op,map,chunk,null,null,null,out mover,out destination))return false;
+                Log.Message("[NJR][R047][Exit] physically clear corridor debris "+chunk.Position+" -> "+destination);
+            }
+            Clear(op);board.Barrier=null;board.Breacher=null;
+            var used=new HashSet<IntVec3>{destination};
+            foreach(Pawn member in op.Squad)
+            {
+                if(!Active(member,map))continue;
+                if(member==mover){board.Assign(member,RHFRoleS41.PodSupply,chunk,destination,now);continue;}
+                IntVec3 slot=NJRRescueFormationR032.SpreadNear(member,member.Position,map,used,0,5,true);
+                if(slot.IsValid){used.Add(slot);board.Assign(member,RHFRoleS41.Screen,null,slot,now);}
+                else board.Assign(member,RHFRoleS41.Hold,null,member.Position,now);
+            }
+            board.Decision="R047 clear actual exit corridor";board.NextReplanTick=now+90;board.LastPlanTick=now;
+            return true;
+        }
         internal static bool TryExitAccess(RHFOperation op,Map map,Pawn navigator,int now)
         {
             if(States.TryGetValue(op,out State state) && state.Phase==2)
@@ -475,7 +551,7 @@ namespace RaidersHaveFamilies
                    (!op.FortifyPrison || state.Barrier is Building_Door ||
                     state.Barrier.HitPoints<state.Barrier.MaxHitPoints || now<state.NextSearch) &&
                    Assign(op,map,navigator,state,now))return true;
-                if(state.Barrier==null && now<state.NextSearch)return false;
+                if(state.Barrier==null && now<state.NextSearch && (!op.FortifyPrison || state.NavigatorId==navigator.thingIDNumber))return false;
             }
             // The same complete door-only access search precedes destructive fallback
             // after VIP launch or an unavoidable land extraction.
@@ -494,14 +570,14 @@ namespace RaidersHaveFamilies
                     }
                     // A proved door corridor without an available strike cell is
                     // a movement problem, not permission to destroy a nearby corner.
-                    State waiting=Set(op,null,IntVec3.Invalid,now);waiting.ExitDoorFailureR044=-1;
+                    State waiting=Set(op,null,IntVec3.Invalid,now);waiting.ExitDoorFailureR044=-1;waiting.NavigatorId=navigator.thingIDNumber;
                     return false;
                 }
                 RHFObjectiveRouteV128.DoorGridR044(map,navigator.Position,navigator.Position,"exit door proof failed");
                 State retry=States.GetValue(op,_=>new State());
                 if(retry.Phase!=2 || retry.ExitDoorFailureR044<0)
                 {
-                    retry=Set(op,null,IntVec3.Invalid,now);retry.ExitDoorFailureR044=now;
+                    retry=Set(op,null,IntVec3.Invalid,now);retry.ExitDoorFailureR044=now;retry.NavigatorId=navigator.thingIDNumber;
                     retry.NextSearch=now+180;return false;
                 }
                 if(now-retry.ExitDoorFailureR044<180)return false;
@@ -511,7 +587,7 @@ namespace RaidersHaveFamilies
                 f=Search(map,navigator,0,true,op.FortifyPrison,false,op.FortifyPrison?op:null);
             Thing barrier=f!=null && f.Exit.IsValid?f.BarrierAt(f.Exit):null;
             if(IsOwnSealR043(op,barrier))return AssignOwnExitR043(op,map,navigator,barrier,now);
-            if(!CanWork(op,map,barrier)){Set(op,null,IntVec3.Invalid,now);return false;}
+            if(!CanWork(op,map,barrier)){Set(op,null,IntVec3.Invalid,now).NavigatorId=navigator.thingIDNumber;return false;}
             return Assign(op,map,navigator,Set(op,barrier,f.Exit,now),now);
         }
     }
@@ -567,6 +643,10 @@ namespace RaidersHaveFamilies
                 if(other!=null)
                 {
                     if(!op.FortifyPrison || op.Targets?.Contains(other)==true)return;
+                    // Actual recent damage authorizes a bounded melee response, even
+                    // when the prisoner immediately goes back to a Wander job.
+                    if(soldier && !freed && NJRPrisonerDefenseR047.MayDefend(op,pawn,other))
+                    {__0=NJRPrisonerDefenseR047.Counter(op,pawn);return;}
                     // The recorded prisoner initiated a melee fight. Break contact
                     // when possible rather than repeatedly counterattacking.
                     IntVec3 away=DisengageR042(pawn,other);

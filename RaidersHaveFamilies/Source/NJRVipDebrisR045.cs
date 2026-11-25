@@ -137,7 +137,7 @@ namespace RaidersHaveFamilies
         }
         internal static bool SafeDrop(RHFOperation op,Map map,IntVec3 cell,Pawn worker)
         {
-            HashSet<IntVec3> pocket=RHFPodSupplyS41.SealPocketR044(op);
+            HashSet<IntVec3> pocket=op.Phase==3?RHFPodSupplyS41.SealPocketR044(op):null;
             if(!cell.IsValid || !cell.InBounds(map) || !cell.Standable(map) || cell.GetFirstBuilding(map)!=null ||
                (pocket!=null && !pocket.Contains(cell)) ||
                cell==op.BarricadeCell || NJRPodSiteClearS41.ReservedFootprint(op,cell) ||
