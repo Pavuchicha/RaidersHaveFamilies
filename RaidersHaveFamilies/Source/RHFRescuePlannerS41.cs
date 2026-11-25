@@ -207,6 +207,8 @@ namespace RaidersHaveFamilies
                 return true; // event hook re-entry; restore lord/duty if needed
             }
             op.Freed.Add(captive);
+            if(op.FortifyPrison && captive==op.Vip && !op.PodPrisonAnchorR043.IsValid)
+                op.PodPrisonAnchorR043=captive.Position;
             // Clear native Release-to-exit state only after real rescue contact.
             // The status hook can re-enter; Freed membership makes it idempotent.
             if(captive.IsPrisonerOfColony && vanillaReleased)
@@ -1317,6 +1319,12 @@ namespace RaidersHaveFamilies
                 RecoverBlockedExit(op,map,board,anchor,navigator,now);
                 return true;
             }
+            // A guard outside a newly sealed pocket can reach an edge while the
+            // engineer inside cannot. Reopen our exact wall before withdrawal.
+            if(op.FortifyPrison && (op.CompletedBarricades.Count>0 || op.BarricadeCell.IsValid))
+                foreach(Pawn member in op.Squad)
+                    if(Active(member,map) && !member.CanReach(board.WithdrawalCell,PathEndMode.OnCell,Danger.Deadly) &&
+                       NJRRescueAccessR040.TryExitAccess(op,map,member,now))return true;
             // Once a real exit opens, drop any previous access-door permit.
             NJRRescueAccessR040.Clear(op);
             board.Barrier=null;board.Breacher=null;

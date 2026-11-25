@@ -335,6 +335,82 @@ namespace RaidersHaveFamilies
             if(cost>=0 && obstacle!=null && !(obstacle is Building_Door))cost+=12000;
             return cost;
         }
+        // R043: the recorded R042 door route was rejected by the reverse search.
+        // Resolve a local door-only corridor independently, from LIVE assault cells.
+        // A standable square is not a demolition target even if it contains conduit/furniture.
+        internal static int DoorStepR043(Map map,IntVec3 cell,out Thing obstacle)
+        {
+            obstacle=null;
+            foreach(Thing item in map.thingGrid.ThingsListAt(cell))
+            {
+                if(!(item is Building_Door door) || door.Destroyed)continue;
+                if(door.Open)return 10;
+                if(!IsRescueStructuralBarrier(door))return -1;
+                obstacle=door;
+                return 10+DoorBreachBaseR024+RHFCombatPlannerV125.BreachWorkCost(door);
+            }
+            return cell.Standable(map) ? 10 : -1;
+        }
+        private static void ForwardDoorRouteR043(Map map,List<IntVec3> origins,Pawn captive,
+            HashSet<Thing> rejected,RHFRoutePlanV128 plan)
+        {
+            int width=map.Size.x,height=map.Size.z,count=width*height;
+            var costs=new int[count];var parents=new int[count];var hazard=new int[count];
+            Array.Fill(costs,int.MaxValue);Array.Fill(parents,-1);Array.Fill(hazard,-1);
+            var heap=new PriorityQueue<int,int>();
+            IntVec3 goal=captive.Position;
+            var threats=Threats(map,origins[0],goal);
+            foreach(IntVec3 origin in origins)
+            {
+                if(!origin.InBounds(map) || Math.Abs(origin.x-goal.x)>36 || Math.Abs(origin.z-goal.z)>36)continue;
+                int id=origin.z*width+origin.x;
+                if(costs[id]==0)continue;
+                costs[id]=0;heap.Enqueue(id,0);
+            }
+            int finish=-1,goalId=goal.z*width+goal.x;
+            while(heap.TryDequeue(out int id,out int priority))
+            {
+                if(priority!=costs[id])continue;
+                plan.Expanded++;
+                if(id==goalId){finish=id;break;}
+                IntVec3 at=new IntVec3(id%width,0,id/width);
+                foreach(IntVec3 offset in GenAdj.CardinalDirections)
+                {
+                    IntVec3 next=at+offset;
+                    if(!next.InBounds(map) || Math.Abs(next.x-goal.x)>36 || Math.Abs(next.z-goal.z)>36)continue;
+                    int step=DoorStepR043(map,next,out Thing obstacle);
+                    if(step<0 || (obstacle!=null && rejected.Contains(obstacle)))continue;
+                    int nid=next.z*width+next.x;
+                    if(hazard[nid]<0)hazard[nid]=Exposure(map,next,threats,true);
+                    int total=priority+step+hazard[nid];
+                    if(total>=costs[nid])continue;
+                    costs[nid]=total;parents[nid]=id;heap.Enqueue(nid,total);
+                }
+            }
+            if(finish<0){plan.Explanation="R043 local forward door corridor exhausted";return;}
+            var cells=new List<IntVec3>();
+            for(int cursor=finish;cursor>=0;cursor=parents[cursor])cells.Add(new IntVec3(cursor%width,0,cursor/width));
+            cells.Reverse();
+            plan.Cells=cells;plan.From=cells[0];plan.To=goal;plan.TotalCost=costs[finish];
+            for(int n=1;n<cells.Count;n++)
+            {
+                IntVec3 cell=cells[n];
+                if(DoorStepR043(map,cell,out Thing door)<0 || (door!=null && rejected.Contains(door)))return;
+                if(door!=null)
+                {
+                    plan.Doors++;plan.TotalStructuralHP+=door.HitPoints;
+                    if(plan.FirstBarrier==null){plan.FirstBarrier=door;plan.FirstBarrierIndex=n;}
+                }
+                plan.DangerCost+=Math.Max(0,hazard[cell.z*width+cell.x]);
+                if(ExposedToTurret(map,cell,threats,true))
+                {
+                    plan.ExposedTurretCells++;
+                    if(plan.FirstTurretExposureIndex<0)plan.FirstTurretExposureIndex=n;
+                }
+            }
+            plan.RiskFallback=plan.FirstTurretExposureIndex>=0;
+            plan.Valid=true;plan.Explanation="R043 independent door corridor: "+cells.Count+" cells, HP="+plan.TotalStructuralHP;
+        }
         private static int MissionStepR041(Map map,IntVec3 cell,RHFRouteStoreV128 holder,out Thing obstacle)
         {
             int cost=holder.PreferVipDoors ? StepVipR041(map,cell,out obstacle) : Step(map,cell,out obstacle);
@@ -670,15 +746,13 @@ namespace RaidersHaveFamilies
                 new HashSet<Thing>(holder.UnworkableBarriers.Keys),holder);
             // Compare complete paths, not the price of a disconnected nearby door.
             // Restricted to VIP insertion; do not modify accepted Rescue-1.
-            if(holder.PreferVipDoors && fresh.Valid && fresh.Walls>0)
+            if(holder.PreferVipDoors && (!fresh.Valid || fresh.Walls>0))
             {
-                var alternativeStore=new RHFRouteStoreV128 {PreferVipDoors=true,DoorOnlyR042=true};
                 var alternative=new RHFRoutePlanV128 {Tick=now,Captive=captive,From=origins[0],To=captive.Position};
-                PlanBounded(map,origins,captive,alternative,32,
-                    new HashSet<Thing>(holder.UnworkableBarriers.Keys),alternativeStore);
-                Searches.Remove(alternativeStore);
+                ForwardDoorRouteR043(map,origins,captive,
+                    new HashSet<Thing>(holder.UnworkableBarriers.Keys),alternative);
                 bool choose=alternative.Valid &&
-                    (alternative.TotalCost<=fresh.TotalCost ||
+                    (!fresh.Valid || alternative.TotalCost<=fresh.TotalCost ||
                      (alternative.TotalStructuralHP<fresh.TotalStructuralHP &&
                       alternative.Cells.Count<=fresh.Cells.Count+24 &&
                       alternative.ExposedTurretCells<=fresh.ExposedTurretCells &&
@@ -687,7 +761,7 @@ namespace RaidersHaveFamilies
                     " wallHP="+fresh.TotalStructuralHP+" wallRisk="+fresh.DangerCost+
                     " doorValid="+alternative.Valid+" doorCost="+alternative.TotalCost+
                     " doorHP="+alternative.TotalStructuralHP+" doorRisk="+alternative.DangerCost+
-                    " doorCells="+alternative.Cells.Count+" chosen="+(choose?"door":"weighted"));
+                    " doorCells="+alternative.Cells.Count+" doorExpanded="+alternative.Expanded+" doorReason="+alternative.Explanation+" chosen="+(choose?"door":"weighted"));
                 if(choose)fresh=alternative;
             }
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)

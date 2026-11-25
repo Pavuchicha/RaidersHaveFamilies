@@ -1,0 +1,3 @@
+R043 — патч исходников, НЕ установочная сборка.
+Распаковать поверх корня RaidersHaveFamilies (заменить файлы). GitHub Desktop: Summary: R043: Prioritize indoor VIP pads and seal real entrances
+Commit to main, Push origin. Дождаться успешной Actions сборки. Скачать установочный ZIP из artifacts, заменить мод, запускать тест №16 с записью диагностики.

@@ -184,6 +184,13 @@ namespace RaidersHaveFamilies
             // BEFORE following Goto waypoints. Escorts defend locally without
             // abandoning their VIP; convoy guards manoeuvre only if needed.
             RHFRoleS41 role=(RHFRoleS41)order.Role;
+            if(op.Phase==2 && role==RHFRoleS41.Engineer && NJRRescueAccessR040.IsOwnSealR043(op,order.Objective))
+            {
+                JobDef deconstruct=DefDatabase<JobDef>.GetNamedSilentFail("Deconstruct");
+                if(deconstruct!=null && pawn.CanReach(order.Objective,PathEndMode.Touch,Danger.Deadly))
+                    return JobMaker.MakeJob(deconstruct,order.Objective);
+                return null;
+            }
             if(NJRRescueFirebreakR034.Controls(op,pawn))
                 return NJRRescueFirebreakR034.CombatJob(op,pawn,order);
             if(op.Freed==null || !op.Freed.Contains(pawn))

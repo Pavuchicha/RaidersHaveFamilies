@@ -33,7 +33,7 @@ assert 'if(op.PodConstructionStage==2 && op.PodLauncherThing!=null' in p and 're
 assert 'refueler!=engineer && refueler!=fortifier' in b and 'board.Assign(refueler,RHFRoleS41.Engineer,launcher,assembly,now)' in b
 assert 'fuel==null || fuel.IsFull' in b and 'giver.HasJobOnThing(pawn,site,true)' in b
 assert 'active>=(refueler==null?3:4)' in p and 'NativeEngineerS311(op,parallelWall.Position,engineer,refueler)' in p
-assert 'CanSealR041' in p and 'reserved.Contains(c)' in p and '!outside || !seen.Contains(vip.Position)' in p
+assert 'CanSealR041' in p and 'reserved.Contains(c)' in p and '!seen.Contains(vip.Position)' in p
 assert 'if(fortifyWork!=null)return;' not in p
 assert 'pawns.Count>=7?3:2' in f and 'EnsureMinLevelWithMargin(10)' in f and 'p.IsWorldPawn()' in f
 assert 'foreach(Rot4 rotation in NJRPodSiteClearS41.Rotations)' in a and 'WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier)' in a

@@ -6,6 +6,22 @@ namespace RaidersHaveFamilies
 {
     internal static class NJRRescueInteriorS41
     {
+        internal static bool ShelteredPadR043(Map map,IntVec3 launcher,IntVec3 pod)
+        {
+            if(!launcher.InBounds(map) || !pod.InBounds(map))return false;
+            Room room=launcher.GetRoom(map);
+            return (room!=null && !room.PsychologicallyOutdoors && pod.GetRoom(map)==room) ||
+                (launcher.Roofed(map) && pod.Roofed(map));
+        }
+        internal static int PodTierR043(Map map,IntVec3 anchor,IntVec3 launcher,IntVec3 pod)
+        {
+            if(!ShelteredPadR043(map,launcher,pod))return 3;
+            Room prison=anchor.GetRoom(map),room=launcher.GetRoom(map);
+            if(prison!=null && room==prison && (!prison.PsychologicallyOutdoors ||
+                (launcher-anchor).LengthHorizontalSquared<=36))return 0;
+            if(DirectDoor(map,prison,room,anchor))return 1;
+            return 2;
+        }
         internal static bool DirectDoor(Map map,Room prison,Room other,IntVec3 center)
         {
             if(map==null || prison==null || other==null || prison==other)return false;

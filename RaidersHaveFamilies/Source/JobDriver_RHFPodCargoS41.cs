@@ -31,7 +31,7 @@ namespace RaidersHaveFamilies
             IntVec3 center=op.PodLauncherCell;
             Room siteRoom=op.PodCell.GetRoom(map)??center.GetRoom(map);
             IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
-            for(int radius=2;radius<=7;radius++)
+            for(int radius=op.FortifyPrison?1:2;radius<=7;radius++)
             for(int dx=-radius;dx<=radius;dx++)
             for(int dz=-radius;dz<=radius;dz++)
             {
@@ -45,7 +45,8 @@ namespace RaidersHaveFamilies
                    c.GetEdifice(map)!=null ||
                    !pawn.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;
                 int candidate=(pawn.Position-c).LengthHorizontalSquared+
-                    (siteRoom!=null && c.GetRoom(map)!=siteRoom?10000:0)+radius*radius*2;
+                    (siteRoom!=null && c.GetRoom(map)!=siteRoom?10000:0)+radius*radius*2+
+                    (op.FortifyPrison && center.Roofed(map) && !c.Roofed(map)?10000:0);
                 if(candidate<score){best=c;score=candidate;}
             }
             return best;

@@ -149,6 +149,7 @@ namespace RaidersHaveFamilies
         public Thing PodLauncherThing;
         public Thing PodVehicleThing;
         public IntVec3 PodLauncherCell = IntVec3.Invalid;
+        public IntVec3 PodPrisonAnchorR043 = IntVec3.Invalid;
         public int PodConstructionStage;
         public int PodConstructionTick;
         public bool PodReady;
@@ -231,6 +232,7 @@ namespace RaidersHaveFamilies
             Scribe_References.Look(ref PodLauncherThing, "rhfVanillaLauncherV130");
             Scribe_References.Look(ref PodVehicleThing, "rhfVanillaPodV130");
             Scribe_Values.Look(ref PodLauncherCell, "rhfVanillaLauncherCellV130", IntVec3.Invalid);
+            Scribe_Values.Look(ref PodPrisonAnchorR043, "njrPrisonAnchorR043", IntVec3.Invalid);
             Scribe_Values.Look(ref PodConstructionStage, "rhfPodBuildStageV130", 0);
             Scribe_Values.Look(ref PodConstructionTick, "rhfPodBuildTimeV130", 0);
             Scribe_Values.Look(ref PodReady, "podReady", false);
@@ -1455,6 +1457,8 @@ namespace RaidersHaveFamilies
             if(owner!=null && owner!=op)return;
             // Claim BEFORE SetGuestStatus triggers the synchronous release hook.
             if (!op.Freed.Contains(p)) op.Freed.Add(p);
+            if(op.FortifyPrison && p==op.Vip && !op.PodPrisonAnchorR043.IsValid)
+                op.PodPrisonAnchorR043=p.Position;
             bool wasSlave = p.IsSlaveOfColony;
             // A breakout cancels ransom conditions. The player cannot collect payment.
             RHFHostageRecord record = Current.Game?.GetComponent<RHFGameLedger>()?.FindHostage(p);
@@ -2060,12 +2064,12 @@ namespace RaidersHaveFamilies
         // then the least exposed open yard. A thin roof is not magic launch
         // permission: the engineer must remove the pod roof with actual work.
         private bool FindFieldConstructionSite(Pawn vip,ThingDef launcher,ThingDef pod,
-            out IntVec3 launchCell,out IntVec3 podCell)
+            out IntVec3 launchCell,out IntVec3 podCell,bool indoorOnlyR043=false,IntVec3 anchorR043=default)
         {
             launchCell=IntVec3.Invalid;podCell=IntVec3.Invalid;
             if(vip==null || !vip.Spawned || vip.Map!=map)return false;
-            Room prison=vip.Position.GetRoom(map);
-            int bestScore=int.MaxValue;
+            Room prison=(indoorOnlyR043?anchorR043:vip.Position).GetRoom(map);
+            int bestScore=int.MaxValue,bestTier=int.MaxValue;
             // R019: evaluate every real candidate ONCE within a local
             // construction perimeter, not O(mapRadius^3) nested ring scans.
             // When no viable pad exists nearby, ground extraction is honest;
@@ -2111,6 +2115,13 @@ namespace RaidersHaveFamilies
                         !candidate.PsychologicallyOutdoors ? 2 : 3;
                     roomTiers[candidate]=tier;
                 }
+                if(indoorOnlyR043)
+                {
+                    if(!NJRRescueInteriorS41.ShelteredPadR043(map,cell,vehicle))continue;
+                    if(candidate==prison && (!candidate.PsychologicallyOutdoors || (cell-anchorR043).LengthHorizontalSquared<=36))tier=0;
+                    else if(tier!=1)tier=2;
+                    if(tier>bestTier)continue;
+                }
                 int risk=0;
                 foreach(Building turret in activeTurrets)
                 {
@@ -2124,8 +2135,11 @@ namespace RaidersHaveFamilies
                 // unprotected outdoor tile is geometrically closer.
                 int score=tier*100000+risk+dist*6 +
                     (roof!=null ? 150 : 0);
-                if(score<bestScore)
-                {bestScore=score;launchCell=cell;podCell=vehicle;}
+                if((indoorOnlyR043 && tier<bestTier) || score<bestScore)
+                {
+                    if(indoorOnlyR043 && !NJRRescueAccessR040.DirectWorkLaneR043(map,vip,launcher,pod,cell,vehicle))continue;
+                    bestScore=score;bestTier=tier;launchCell=cell;podCell=vehicle;
+                }
             }
             Log.Message("[NJR][R040][PodSite] free="+freeFootprints+" reachable="+reachable+
                 " sameRoom="+sameRoom+" launcher="+launchCell+" pod="+podCell);
