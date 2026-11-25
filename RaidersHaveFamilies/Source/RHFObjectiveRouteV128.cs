@@ -48,6 +48,7 @@ namespace RaidersHaveFamilies
     internal sealed class RHFRouteStoreV128
     {
         internal RHFRoutePlanV128 Plan;
+        internal bool PreferVipDoors;
         // Ephemeral per-operation layout guard, never serialized to a save.
         internal Map LayoutMap;
         internal int TurretLayoutSignature;
@@ -319,6 +320,24 @@ namespace RaidersHaveFamilies
             if(!cell.Standable(map))return -1;
             return 10;
         }
+        // VIP insertion prioritizes existing doorways over shortcuts through
+        // intact prison walls. A long exposed detour can still justify a wall.
+        internal static int StepVipR041(Map map,IntVec3 cell,out Thing obstacle)
+        {
+            foreach(Thing item in map.thingGrid.ThingsListAt(cell))
+                if(item is Building_Door door && !door.Destroyed && (door.Open || IsRescueStructuralBarrier(door)))
+                {
+                    obstacle=door.Open?null:door;
+                    return door.Open?10:10+DoorBreachBaseR024+RHFCombatPlannerV125.BreachWorkCost(door);
+                }
+            int cost=Step(map,cell,out obstacle);
+            if(cost>=0 && obstacle!=null && !(obstacle is Building_Door))cost+=12000;
+            return cost;
+        }
+        private static int MissionStepR041(Map map,IntVec3 cell,RHFRouteStoreV128 holder,out Thing obstacle)
+        {
+            return holder.PreferVipDoors ? StepVipR041(map,cell,out obstacle) : Step(map,cell,out obstacle);
+        }
         // R021: a single multi-source A* represents the WHOLE available assault
         // wing. No selected pawn owns the mission's path or demolition target.
         // All active start positions are genuine standable map cells.
@@ -405,7 +424,7 @@ namespace RaidersHaveFamilies
                 int step=search.Steps[at];
                 if(step==int.MinValue)
                 {
-                    step=Step(map,cell,out obstacle);
+                    step=MissionStepR041(map,cell,holder,out obstacle);
                     if(obstacle!=null && rejectedBarriers.Contains(obstacle))step=-1;
                     search.Steps[at]=step;
                 }
@@ -420,7 +439,7 @@ namespace RaidersHaveFamilies
                     int next=nz*width+nx;
                     if(search.Steps[next]==int.MinValue)
                     {
-                        int entry=Step(map,new IntVec3(nx,0,nz),out obstacle);
+                        int entry=MissionStepR041(map,new IntVec3(nx,0,nz),holder,out obstacle);
                         if(obstacle!=null && rejectedBarriers.Contains(obstacle))entry=-1;
                         search.Steps[next]=entry;
                     }
@@ -461,7 +480,7 @@ namespace RaidersHaveFamilies
             for(int i=1;i<reverse.Count;i++)
             {
                 Thing live;
-                int liveCost=Step(map,reverse[i],out live);
+                int liveCost=MissionStepR041(map,reverse[i],holder,out live);
                 int index=reverse[i].z*width+reverse[i].x;
                 if(liveCost<0 || (live!=null && rejectedBarriers.Contains(live)) ||
                    (search.Steps[index]!=int.MinValue && liveCost>search.Steps[index]))
@@ -482,7 +501,7 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 c=reverse[i];
                 Thing obstacle;
-                Step(map,c,out obstacle);
+                MissionStepR041(map,c,holder,out obstacle);
                 if(obstacle!=null)
                 {
                     plan.TotalStructuralHP+=Math.Max(0,obstacle.HitPoints);
@@ -592,6 +611,7 @@ namespace RaidersHaveFamilies
                captive==null || !captive.Spawned || captive.Map!=map)
                 return new RHFRoutePlanV128{Explanation="неверная цель или карта"};
             RHFRouteStoreV128 holder=Cache.GetValue(op,_=>new RHFRouteStoreV128());
+            holder.PreferVipDoors=op.TryPod && op.FortifyPrison;
             bool layoutChanged=false;
             if(holder.LayoutMap!=map || now>=holder.NextLayoutCheckTick)
             {
@@ -646,6 +666,17 @@ namespace RaidersHaveFamilies
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
                     " sources="+origins.Count+" target="+captive.Position);
+            if(holder.PreferVipDoors && fresh.Valid && fresh.FirstBarrier!=null && !(fresh.FirstBarrier is Building_Door))
+            {
+                var detail=new System.Text.StringBuilder("[NJR][R041][DoorChoice] wall=");
+                detail.Append(fresh.FirstBarrier.Position).Append(" total=").Append(fresh.TotalCost);
+                var risk=AccessExposureR040(map,captive.Position);
+                int doors=0;
+                foreach(Building b in map.listerBuildings.allBuildingsColonist)
+                    if(b is Building_Door && (b.Position-captive.Position).LengthHorizontalSquared<=400 && doors++<16)
+                        detail.Append(" door=").Append(b.Position).Append(" cost=").Append(StepVipR041(map,b.Position,out _)).Append(" exposure=").Append(risk(b.Position));
+                Log.Message(detail.ToString());
+            }
             holder.Plan=fresh;
             return fresh;
         }

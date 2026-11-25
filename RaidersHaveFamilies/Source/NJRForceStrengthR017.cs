@@ -104,7 +104,62 @@ namespace RaidersHaveFamilies
             return pawn!=null && pawn.Faction==faction &&
                 pawn.RaceProps?.Humanlike==true && !pawn.Dead &&
                 pawn.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)==true &&
-                !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction);
+                !pawn.WorkTypeIsDisabled(WorkTypeDefOf.Construction) && pawn.skills?.GetSkill(SkillDefOf.Construction)!=null;
+        }
+
+        private static int EngineerCountR041(List<Pawn> pawns,Faction faction)
+        {return pawns.FindAll(p=>QualifiedPodEngineer(p,faction)).Count;}
+
+        private static void PreparePodRosterR041(RHFOperation op,RHFStrikeParty party,List<Pawn> pawns)
+        {
+            if(!party.Drop || !op.TryPod || party.Role!=(int)RHFStrikeRole.Rescue)return;
+            int desired=pawns.Count>=7?3:2;
+            var eligible=pawns.FindAll(p=>QualifiedPodEngineer(p,party.Faction) &&
+                (!p.IsWorldPawn() && !p.Spawned || p.skills.GetSkill(SkillDefOf.Construction).Level>=10));
+            List<PawnKindDef> kinds=CombatKinds(party.Faction);
+            float spent=0;
+            foreach(Pawn p in pawns)if(p!=null && p.Faction==party.Faction)spent+=Mathf.Max(0f,p.kindDef?.combatPower??0f);
+            float unused=Mathf.Max(0f,party.Points-party.SupplyBudget-party.AnimalBudgetS42-
+                party.LoadoutBudgetS42-op.PodSupplyCost-spent);
+            for(int trial=0;eligible.Count<desired && trial<18 && kinds.Count>0;trial++)
+            {
+                PawnKindDef kind=kinds[trial%kinds.Count];
+                float extra=Mathf.Max(0f,kind.combatPower-unused);
+                if(party.Points+extra>15000f)continue;
+                Pawn p=null;
+                try
+                {
+                    p=PawnGenerator.GeneratePawn(kind,party.Faction);
+                    if(!QualifiedPodEngineer(p,party.Faction) || p.Spawned || p.IsWorldPawn() ||
+                       (!NJRForceCompositionS42.LowTech(party.Faction) && !NJRRescueFirebreakR034.DirectGun(p)))
+                    {
+                        if(p!=null && !p.Spawned && !p.IsWorldPawn())Find.WorldPawns.PassToWorld(p);
+                        continue;
+                    }
+                    pawns.Add(p);eligible.Add(p);
+                    party.Points+=extra;op.ThreatPoints+=extra;
+                    unused=Mathf.Max(0f,unused+extra-kind.combatPower);
+                    Log.Message("[NJR][R041] funded construction specialist "+p.LabelShortCap+" extra="+extra.ToString("F0"));
+                }
+                catch(Exception ex)
+                {
+                    if(p!=null && !p.Spawned && !p.IsWorldPawn() && !pawns.Contains(p))Find.WorldPawns.PassToWorld(p);
+                    Log.Message("[NJR][R041] engineer candidate unavailable: "+ex.Message);
+                }
+            }
+            eligible.Sort((a,b)=>b.skills.GetSkill(SkillDefOf.Construction).Level.CompareTo(a.skills.GetSkill(SkillDefOf.Construction).Level));
+            int selected=Math.Min(desired,eligible.Count),trained=0;
+            // Explicit pre-landing specialization, equivalent in principle to
+            // vanilla siege builders. Never increase skills mid-operation.
+            for(int i=0;i<selected;i++)
+            {
+                Pawn p=eligible[i];
+                if(!p.IsWorldPawn() && !p.Spawned)
+                    p.skills.GetSkill(SkillDefOf.Construction).EnsureMinLevelWithMargin(10);
+                if(p.skills.GetSkill(SkillDefOf.Construction).Level>=10)trained++;
+                Log.Message("[NJR][R041] pod engineer "+p.LabelShortCap+" Construction="+p.skills.GetSkill(SkillDefOf.Construction).Level);
+            }
+            Log.Message("[NJR][R041] specialist roster="+trained+"/"+desired);
         }
 
         private static bool MediumRangeSupport(Pawn p)
@@ -169,7 +224,7 @@ namespace RaidersHaveFamilies
                         // A drop roster must retain at least one real construction-capable soldier.
                         if(party.Drop && op.TryPod && QualifiedPodEngineer(original,party.Faction) &&
                            !QualifiedPodEngineer(candidate,party.Faction) &&
-                           !pawns.Exists(other=>other!=original && QualifiedPodEngineer(other,party.Faction)))
+                           EngineerCountR041(pawns,party.Faction)<=Math.Min(2,humans))
                         {Find.WorldPawns.PassToWorld(candidate);continue;}
                         bool longGun=MediumRangeSupport(candidate);
                         if(pass==1 && !longGun){Find.WorldPawns.PassToWorld(candidate);continue;}
@@ -217,7 +272,7 @@ namespace RaidersHaveFamilies
                     if(QualifiedPodEngineer(pawn,party.Faction))
                     {hasEngineer=true;break;}
             if(humans>=minimum && (!requiresEngineer || hasEngineer))
-            {BalanceGroundRescue(op,party,pawns);return;}
+            {BalanceGroundRescue(op,party,pawns);PreparePodRosterR041(op,party,pawns);return;}
             List<PawnKindDef> kinds=CombatKinds(party.Faction);
             if(kinds.Count==0)
             {
@@ -307,6 +362,7 @@ namespace RaidersHaveFamilies
                         "check faction's native PawnKind labor tags.");
             }
             BalanceGroundRescue(op,party,pawns);
+            PreparePodRosterR041(op,party,pawns);
             Log.Message("[NJR][ForceR017] Native list before arrival: "+
                 party.Faction.Name+", required="+minimum+", actual="+humans+
                 ", native supplements="+added+", point commitment="+

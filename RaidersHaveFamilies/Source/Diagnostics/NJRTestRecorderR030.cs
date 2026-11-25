@@ -69,7 +69,9 @@ namespace RaidersHaveFamilies
                 spawned=t.Spawned, destroyed=t.Destroyed, hp=t.def?.useHitPoints==true?t.HitPoints:(int?)null,
                 maxHP=t.def?.useHitPoints==true?t.MaxHitPoints:(int?)null, stack=t.stackCount,
                 rotation=t.Rotation.AsInt, size=t.def==null?null:new[]{t.def.size.x,t.def.size.z},
-                doorOpen=t is Building_Door door?door.Open:(bool?)null };
+                doorOpen=t is Building_Door door?door.Open:(bool?)null,
+                launcherFuel=t.def?.defName=="PodLauncher" ? (t as ThingWithComps)?.GetComp<CompRefuelable>()?.HasFuel : null,
+                launcherFull=t.def?.defName=="PodLauncher" ? (t as ThingWithComps)?.GetComp<CompRefuelable>()?.IsFull : null };
         }
         private static object Target(LocalTargetInfo t) => new { id=Id(t.Thing), cell=Cell(t.Cell) };
         private static object JobData(Job j) => j==null ? null : new { id=RuntimeHelpers.GetHashCode(j),
@@ -82,7 +84,8 @@ namespace RaidersHaveFamilies
                 slave=p.IsSlaveOfColony, mental=p.InMentalState, job=JobData(p.jobs?.curJob),
                 duty=p.mindState?.duty?.def?.defName, lord=lord==null?-1:RuntimeHelpers.GetHashCode(lord),
                 lordJob=lord?.LordJob?.GetType().Name, weapon=p.equipment?.Primary?.def?.defName,
-                health=p.health?.summaryHealth?.SummaryHealthPercent };
+                health=p.health?.summaryHealth?.SummaryHealthPercent,
+                construction=p.skills?.GetSkill(SkillDefOf.Construction)?.Level };
         }
         private static int[] PawnIds(List<Pawn> pawns) => pawns==null?Array.Empty<int>():pawns.ConvertAll(p=>Id(p)).ToArray();
         private static object BoardData(RHFTacticalBoardS41 b)
@@ -554,7 +557,7 @@ namespace RaidersHaveFamilies
                 catch(Exception e){StopLocked("start failed: "+e.Message);return Status();}
             }
             try{Install();}catch(Exception e){HookResults.Add("INSTALL FAILED: "+e);}
-            Write("session_start",new { revision="R030", baseRevision="R040", tick=LastTick, hooks=HookResults.ToArray(),
+            Write("session_start",new { revision="R030", baseRevision="R041", tick=LastTick, hooks=HookResults.ToArray(),
                 jobTrackerPawnField=TrackerPawn!=null,pathPawnField=PathPawn!=null,pathCurrentField=PathCurrent!=null, sampleTicks=120, objectTicks=600, byteLimit=SessionLimit,
                 note="All Verse console calls; selected engine and NJR events; snapshots. No claim of every internal game action." },true);
             MainObserve(()=>SnapshotEngineLog("session start"));

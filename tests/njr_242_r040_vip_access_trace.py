@@ -45,14 +45,14 @@ cost2,path2,n=search(vip,exit_only=True,allow_wall=False)
 assert any('Door' in structures.get(c,('',0))[0] for c in path2)
 print('Recorded-map model: ingress',cost,path,'exit',cost2,'nodes',n,'doors',[c for c in path2 if c in structures])
 access=(s/'NJRRescueAccessR040.cs').read_text();planner=(s/'RHFRescuePlannerS41.cs').read_text();pod=(s/'RHFVipEvacS311.cs').read_text();force=(s/'NJRForceStrengthR017.cs').read_text();jobs=(s/'RHFRescueRoleJobGiverS41.cs').read_text();pp=(s/'RHFPodPlannerS41.cs').read_text()
-assert 'RHFObjectiveRouteV128.Step(map,next,out Thing obstacle)' in access
+assert 'RHFObjectiveRouteV128.Step(map,next,out obstacle)' in access
 assert 'f.First[nid]=f.First[id]??obstacle' in access and 'if(toEdge && Edge(map,at)==0' in access
 assert 'NJRRescueAccessR040.TryExitAccess(op,map,navigator,now)' in planner
 assert 'NJRRescueAccessR040.TryPodAccess(op,map,vip,launcherDef,podDef,now,' in pod
-assert 'NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip)!=0' in access
+assert 'NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip,rotation)!=0' in access
 assert 'op.Squad?.Contains(pawn)!=true' in access and 'def!="Ignite"' in access
 assert 'party.Drop || party.Role!=(int)RHFStrikeRole.Rescue' not in force
 assert 'op.PodConstructionStage==0' in jobs and 'NJRRescueAccessR040.PermitsExit(op,obstacle)' in jobs
 assert 'fortifier!=engineer' in pp and 'board.Assign(fortifier,RHFRoleS41.Engineer,parallelWall' in pp
-assert 'baseRevision="R040"' in (s/'Diagnostics/NJRTestRecorderR030.cs').read_text()
+assert 'baseRevision="R041"' in (s/'Diagnostics/NJRTestRecorderR030.cs').read_text()
 print('PASS R040: shared structural costs, scoped handoff, access routes and parallel native work source contracts; no runtime proof.')

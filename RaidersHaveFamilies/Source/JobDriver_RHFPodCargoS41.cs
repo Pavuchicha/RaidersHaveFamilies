@@ -29,6 +29,7 @@ namespace RaidersHaveFamilies
             if(pawn==null || op==null || map==null ||
                !op.PodLauncherCell.IsValid)return IntVec3.Invalid;
             IntVec3 center=op.PodLauncherCell;
+            Room siteRoom=op.PodCell.GetRoom(map)??center.GetRoom(map);
             IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
             for(int radius=2;radius<=7;radius++)
             for(int dx=-radius;dx<=radius;dx++)
@@ -38,19 +39,13 @@ namespace RaidersHaveFamilies
                 IntVec3 c=center+new IntVec3(dx,0,dz);
                 // Delivery stacks must never block the actual physical
                 // launcher/pod footprints while the engineer is building.
-                ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher");
-                ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod");
-                bool launcherFloor=op.PodLauncherCell.IsValid && launcher!=null &&
-                    c.x>=op.PodLauncherCell.x && c.x<op.PodLauncherCell.x+launcher.size.x &&
-                    c.z>=op.PodLauncherCell.z && c.z<op.PodLauncherCell.z+launcher.size.z;
-                bool podFloor=op.PodCell.IsValid && pod!=null &&
-                    c.x>=op.PodCell.x && c.x<op.PodCell.x+pod.size.x &&
-                    c.z>=op.PodCell.z && c.z<op.PodCell.z+pod.size.z;
-                if(launcherFloor || podFloor ||
+                if(NJRPodSiteClearS41.ReservedFootprint(op,c) ||
+                   c==op.BarricadeCell ||
                    !c.InBounds(map) || !c.Standable(map) ||
                    c.GetEdifice(map)!=null ||
                    !pawn.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;
-                int candidate=(pawn.Position-c).LengthHorizontalSquared;
+                int candidate=(pawn.Position-c).LengthHorizontalSquared+
+                    (siteRoom!=null && c.GetRoom(map)!=siteRoom?10000:0)+radius*radius*2;
                 if(candidate<score){best=c;score=candidate;}
             }
             return best;

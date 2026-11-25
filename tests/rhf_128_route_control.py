@@ -13,7 +13,7 @@ for required in (
     'internal static bool TryObjective(',
     'internal static IntVec3 Waypoint(',
     'BreachWorkCost(building)',
-    'step=Step(map,cell,out obstacle)',
+    'step=MissionStepR041(map,cell,holder,out obstacle)',
     'hazard[at]=Exposure(map,cell,threats)',
     'GenSight.LineOfSight(t.Origin,cell,map)',
     'plan.FirstBarrier=obstacle',

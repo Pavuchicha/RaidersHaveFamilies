@@ -2041,13 +2041,11 @@ namespace RaidersHaveFamilies
             return cost;
         }
 
-        private bool FieldFootprintFree(IntVec3 cell, ThingDef def, Pawn vip)
+        private bool FieldFootprintFree(IntVec3 cell, ThingDef def, Pawn vip,Rot4 rotation=default)
         {
             if(def==null || !cell.IsValid)return false;
-            for(int dx=0;dx<def.size.x;dx++)
-            for(int dz=0;dz<def.size.z;dz++)
+            foreach(IntVec3 c in GenAdj.OccupiedRect(cell,rotation,def.size))
             {
-                IntVec3 c=cell+new IntVec3(dx,0,dz);
                 RoofDef roof=c.InBounds(map) ? map.roofGrid.RoofAt(c) : null;
                 if(!c.InBounds(map) || !c.Standable(map) ||
                     (roof!=null && roof.isThickRoof) ||

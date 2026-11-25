@@ -101,7 +101,7 @@ namespace RaidersHaveFamilies
             internal Thing BarrierAt(IntVec3 c)=>First[Id(c)];
         }
         private static int Edge(Map map,IntVec3 c)=>Math.Min(Math.Min(c.x,map.Size.x-1-c.x),Math.Min(c.z,map.Size.z-1-c.z));
-        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge)
+        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false)
         {
             int count=map.Size.x*map.Size.z;
             if(count<=0 || count>120000)return null;
@@ -127,7 +127,9 @@ namespace RaidersHaveFamilies
                     if(!next.InBounds(map) || (!toEdge &&
                         (Math.Abs(next.x-navigator.Position.x)>radius || Math.Abs(next.z-navigator.Position.z)>radius)))continue;
                     int nid=f.Id(next);if(closed[nid])continue;
-                    int step=RHFObjectiveRouteV128.Step(map,next,out Thing obstacle);
+                    Thing obstacle;
+                    int step=preferVipDoors ? RHFObjectiveRouteV128.StepVipR041(map,next,out obstacle) :
+                        RHFObjectiveRouteV128.Step(map,next,out obstacle);
                     if(step<0)continue;
                     if(hazards[nid]<0)hazards[nid]=danger(next);
                     step+=hazards[nid];
@@ -138,48 +140,121 @@ namespace RaidersHaveFamilies
             }
             return f;
         }
-        private static Thing FindPodBarrier(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,bool indoorOnly,out IntVec3 goal)
+        // Compare ALL local pads, including those behind a verified door,
+        // in one cost field. No outdoor-first short circuit or arbitrary rotation.
+        private static Thing FindPodBarrier(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,
+            out IntVec3 goal,out IntVec3 podGoal)
         {
-            goal=IntVec3.Invalid;
-            Field f=Search(map,vip,32,false);if(f==null)return null;
+            goal=podGoal=IntVec3.Invalid;
+            Field f=Search(map,vip,24,false,true);if(f==null)return null;
             Room prison=vip.Position.GetRoom(map);
             Thing best=null;long scoreBest=long.MaxValue;
             var canWork=new Dictionary<Thing,bool>();
             var roomTiers=new Dictionary<Room,int>();
-            var guns=new List<Building>();
-            foreach(Building gun in map.listerBuildings.allBuildingsColonist)
-                if(RHFCombatPlannerV125.IsTurret(gun))guns.Add(gun);
-            for(int x=Math.Max(0,vip.Position.x-32);x<=Math.Min(map.Size.x-1,vip.Position.x+32);x++)
-            for(int z=Math.Max(0,vip.Position.z-32);z<=Math.Min(map.Size.z-1,vip.Position.z+32);z++)
+            var exposure=RHFObjectiveRouteV128.AccessExposureR040(map,vip.Position);
+            var riskCache=new Dictionary<IntVec3,int>();
+            int checkedPads=0,validPads=0;
+            int Risk(IntVec3 c)
             {
-                IntVec3 cell=new IntVec3(x,0,z),vehicle=FuelingPortUtility.GetFuelingPortCell(cell,Rot4.North);
+                if(!riskCache.TryGetValue(c,out int risk))riskCache[c]=risk=exposure(c);
+                return risk;
+            }
+            for(int x=Math.Max(0,vip.Position.x-24);x<=Math.Min(map.Size.x-1,vip.Position.x+24);x++)
+            for(int z=Math.Max(0,vip.Position.z-24);z<=Math.Min(map.Size.z-1,vip.Position.z+24);z++)
+            foreach(Rot4 rotation in NJRPodSiteClearS41.Rotations)
+            {
+                if(rotation!=Rot4.North && !launcher.rotatable)continue;
+                IntVec3 cell=new IntVec3(x,0,z),vehicle=FuelingPortUtility.GetFuelingPortCell(cell,rotation);
                 if(!vehicle.InBounds(map) || f.At(cell)==int.MaxValue || f.At(vehicle)==int.MaxValue)continue;
                 Room room=cell.GetRoom(map);
-                if(room==null || vehicle.GetRoom(map)!=room || (indoorOnly && room.PsychologicallyOutdoors))continue;
-                // Do not enlarge the footprint by smashing furniture or walls.
-                if(NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip)!=0)continue;
+                if(room==null || vehicle.GetRoom(map)!=room)continue;
+                checkedPads++;
+                if(NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip,rotation)!=0)continue;
+                var footprint=new HashSet<IntVec3>();
+                foreach(IntVec3 tile in GenAdj.OccupiedRect(cell,rotation,launcher.size))footprint.Add(tile);
+                foreach(IntVec3 tile in GenAdj.OccupiedRect(vehicle,Rot4.North,pod.size))footprint.Add(tile);
+                bool sameRoom=true;
+                foreach(IntVec3 tile in footprint)
+                    if(tile.GetRoom(map)!=room){sameRoom=false;break;}
+                if(!sameRoom)continue;
+                // Two distinct free work positions, one adjacent to each
+                // structure. Do not let a footprint consume the sole access.
+                var launchSlots=new HashSet<IntVec3>();var podSlots=new HashSet<IntVec3>();
+                foreach(IntVec3 tile in footprint)
+                foreach(IntVec3 offset in GenAdj.CardinalDirections)
+                {
+                    IntVec3 slot=tile+offset;
+                    if(!slot.InBounds(map) || footprint.Contains(slot) || !slot.Standable(map) ||
+                       slot.GetEdifice(map)!=null || slot.GetFirstBuilding(map)!=null ||
+                       slot.GetRoom(map)!=room || f.At(slot)==int.MaxValue)continue;
+                    if(NJRPodSiteClearS41.Contains(tile,cell,launcher,rotation))launchSlots.Add(slot);
+                    if(NJRPodSiteClearS41.Contains(tile,vehicle,pod,Rot4.North))podSlots.Add(slot);
+                }
+                if(launchSlots.Count==0 || podSlots.Count==0)continue;
+                var slots=new HashSet<IntVec3>(launchSlots);slots.UnionWith(podSlots);
+                if(slots.Count<2)continue;
                 Thing barrier=f.BarrierAt(cell)??f.BarrierAt(vehicle);
-                if(barrier==null)continue; // direct native site search owns these candidates
-                if(!canWork.TryGetValue(barrier,out bool possible))
-                    canWork[barrier]=possible=CanWork(op,map,barrier);
-                if(!possible)continue;
-                bool exposed=false;
-                foreach(Building gun in guns)
-                    if(RHFObjectiveRouteV128.TurretCoversR037(gun,map,cell) ||
-                       RHFObjectiveRouteV128.TurretCoversR037(gun,map,vehicle)){exposed=true;break;}
-                if(exposed)continue;
+                if(barrier!=null)
+                {
+                    if(!canWork.TryGetValue(barrier,out bool possible))
+                        canWork[barrier]=possible=CanWork(op,map,barrier);
+                    if(!possible)continue;
+                }
                 if(!roomTiers.TryGetValue(room,out int tier))
                 {
-                    tier=room==prison?0:!room.PsychologicallyOutdoors &&
-                        NJRRescueInteriorS41.DirectDoor(map,prison,room,vip.Position)?1:
+                    tier=room==prison && !room.PsychologicallyOutdoors?0:
+                        !room.PsychologicallyOutdoors && NJRRescueInteriorS41.DirectDoor(map,prison,room,vip.Position)?1:
                         !room.PsychologicallyOutdoors?2:3;
                     roomTiers[room]=tier;
                 }
-                long score=tier*100000L+Math.Max(f.At(cell),f.At(vehicle))+
-                    (vehicle-vip.Position).LengthHorizontalSquared*6L;
-                if(score<scoreBest){scoreBest=score;best=barrier;goal=cell;}
+                int risk=Risk(cell)+Risk(vehicle);
+                // Prefer a sheltered site; never accept a stronger exposure
+                // just to gain a slightly closer room. Work slots matter too.
+                long score=tier*100000L+risk*200L+Math.Max(f.At(cell),f.At(vehicle))+
+                    (vehicle-vip.Position).LengthHorizontalSquared*20L+
+                    (vehicle.Roofed(map)?150:0)-Math.Min(8,slots.Count)*80L;
+                if(score>=scoreBest)continue;
+                // Validate access with BOTH future footprints excluded. The
+                // earlier point-only test could choose a pad that sealed its own
+                // supply/boarding path. Native reach is also required for a
+                // direct site; a planned breach may be traversed in preview.
+                if(!WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier))continue;
+                validPads++;
+                scoreBest=score;best=barrier;goal=cell;podGoal=vehicle;
             }
+            Log.Message("[NJR][R041][PodSite] checked="+checkedPads+" valid="+validPads+
+                " launcher="+goal+" pod="+podGoal+" barrier="+(best?.LabelShortCap.ToString()??"none")+
+                " score="+scoreBest);
             return best;
+        }
+        private static bool WorkLaneR041(Map map,Pawn vip,HashSet<IntVec3> footprint,
+            HashSet<IntVec3> launchSlots,HashSet<IntVec3> podSlots,Thing barrier)
+        {
+            var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
+            seen.Add(vip.Position);queue.Enqueue(vip.Position);
+            IntVec3 launch=IntVec3.Invalid,pod=IntVec3.Invalid;
+            while(queue.Count>0)
+            {
+                IntVec3 at=queue.Dequeue();
+                bool isLaunch=launchSlots.Contains(at),isPod=podSlots.Contains(at);
+                if((isLaunch || isPod) && (barrier!=null || vip.CanReach(at,PathEndMode.OnCell,Danger.Deadly)))
+                {
+                    if(isLaunch && pod.IsValid && at!=pod || isPod && launch.IsValid && at!=launch)return true;
+                    if(isLaunch && !launch.IsValid)launch=at;
+                    if(isPod && !pod.IsValid)pod=at;
+                }
+                foreach(IntVec3 dir in GenAdj.CardinalDirections)
+                {
+                    IntVec3 c=at+dir;
+                    if(!c.InBounds(map) || footprint.Contains(c) || seen.Contains(c) ||
+                       Math.Abs(c.x-vip.Position.x)>26 || Math.Abs(c.z-vip.Position.z)>26)continue;
+                    Building edifice=c.GetEdifice(map);
+                    if(!c.Standable(map) && !(barrier!=null && (edifice==barrier || edifice is Building_Door)))continue;
+                    if(edifice is Building_Door door && !door.Open && barrier==null && RHFObjectiveRouteV128.IsRescueStructuralBarrier(door))continue;
+                    seen.Add(c);queue.Enqueue(c);
+                }
+            }
+            return false;
         }
         private static State Set(RHFOperation op,Thing barrier,IntVec3 goal,int now)
         {
@@ -258,13 +333,16 @@ namespace RaidersHaveFamilies
                !Live(state.Barrier,map) || now-state.Started>4500)return false;
             return Assign(op,map,vip,state,now);
         }
-        internal static bool TryPodAccess(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,int now,bool indoorOnly)
+        internal static bool TryPodAccess(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,int now,
+            out IntVec3 goal,out IntVec3 podGoal)
         {
+            goal=podGoal=IntVec3.Invalid;
             if(now-op.PhaseStartTick>9000)return false;
             if(ContinuePodAccess(op,map,vip,now))return true;
-            Thing barrier=FindPodBarrier(op,map,vip,launcher,pod,indoorOnly,out IntVec3 goal);
-            if(barrier==null)return false;
-            return Assign(op,map,vip,Set(op,barrier,goal,now),now);
+            Thing barrier=FindPodBarrier(op,map,vip,launcher,pod,out goal,out podGoal);
+            if(barrier==null)return false; // valid coordinates mean direct pad
+            if(Assign(op,map,vip,Set(op,barrier,goal,now),now))return true;
+            goal=podGoal=IntVec3.Invalid;return false;
         }
         internal static bool TryExitAccess(RHFOperation op,Map map,Pawn navigator,int now)
         {

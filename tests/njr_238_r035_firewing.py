@@ -12,7 +12,7 @@ regroup=next(x for x in a['console'] if 'regroup before second attempt' in x['ms
 assert len(wave)==2 and wave[1]['tick']-regroup['tick']==90
 assert sum(x['job']=='RunForCover' for x in a['jobs'])==9
 force=(s/'NJRForceStrengthR017.cs').read_text();combat=(s/'NJRRescueFirebreakR034.cs').read_text();tactics=(s/'RHFTactical.cs').read_text();emergency=(s/'RHFCombatPlannerV125.cs').read_text()
-assert 'if(humans>=minimum && (!requiresEngineer || hasEngineer))\n            {BalanceGroundRescue(op,party,pawns);return;}' in force
+assert 'if(humans>=minimum && (!requiresEngineer || hasEngineer))\n            {BalanceGroundRescue(op,party,pawns);PreparePodRosterR041(op,party,pawns);return;}' in force
 assert 'kind.combatPower<=cap+remaining' in force and 'remaining+cap-candidate.kindDef.combatPower' in force
 assert 'using RimWorld.Planet;' in force
 assert 'original.IsWorldPawn()' in force and 'PawnDiscardDecideMode.KeepForever' in force

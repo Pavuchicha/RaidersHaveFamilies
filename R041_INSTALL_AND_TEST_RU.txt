@@ -1,0 +1,1 @@
+Распаковать патч поверх репозитория R040 с заменой. Summary: R041: Coordinate VIP engineers, fortification and parallel refueling. Commit to main / Push origin. Дождаться GitHub Actions и скачать установочный ZIP. Тест 16 с диагностикой.

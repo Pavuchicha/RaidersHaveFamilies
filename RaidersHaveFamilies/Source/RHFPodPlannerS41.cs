@@ -40,12 +40,12 @@ namespace RaidersHaveFamilies
         }
 
         internal static void Plan(RHFOperation op,Map map,Pawn engineer,Thing work,int now,
-            Pawn fortifier=null,Thing parallelWall=null)
+            Pawn fortifier=null,Thing parallelWall=null,Pawn refueler=null,Thing launcher=null)
         {
             if(op==null || map==null || op.Phase!=3 || op.Finished)return;
             RHFTacticalBoardS41 board=op.BoardS41 ??= new RHFTacticalBoardS41();
             board.Prune(map);
-            if(board.ObservedPhase!=3)
+            if(board.ObservedPhase!=3 || (board.PodWorkStageS41<1 && op.PodConstructionStage>=1))
             {
                 board.ObservedPhase=3;
                 board.LastPlanTick=0;
@@ -54,7 +54,7 @@ namespace RaidersHaveFamilies
             }
             if(now<board.NextReplanTick && board.LastPlanTick>0 &&
                board.PodWorkTargetS41==work && board.PodWorkStageS41==op.PodConstructionStage &&
-               fortifier==null && !HasParallelOrder(board,engineer))
+               fortifier==null && refueler==null && !HasParallelOrder(board,engineer))
                 return;
             board.PodWorkTargetS41=work;
             board.PodWorkStageS41=op.PodConstructionStage;
@@ -68,6 +68,8 @@ namespace RaidersHaveFamilies
             if(vipOrder!=null && vipOrder.Role==(int)RHFRoleS41.PodAssembly &&
                vipOrder.Cell.IsValid && vipOrder.Cell.InBounds(map) &&
                vipOrder.Cell.Standable(map) && op.Vip!=null &&
+               !NJRPodSiteClearS41.ReservedFootprint(op,vipOrder.Cell) &&
+               (!assembly.IsValid || assembly.GetRoom(map)==null || vipOrder.Cell.GetRoom(map)==assembly.GetRoom(map)) &&
                op.Vip.CanReach(vipOrder.Cell,PathEndMode.OnCell,Danger.Some))
                 assembly=vipOrder.Cell;
             var occupied=new HashSet<Pawn>();
@@ -116,6 +118,13 @@ namespace RaidersHaveFamilies
                 board.Assign(fortifier,RHFRoleS41.Engineer,parallelWall,assembly,now);
                 occupied.Add(fortifier);
             }
+            if(refueler!=null && refueler!=engineer && refueler!=fortifier && !occupied.Contains(refueler) &&
+               launcher!=null && launcher.Spawned && launcher.Map==map &&
+               RHFRescuePlannerS41.ActiveForRoleS41(refueler,map))
+            {
+                board.Assign(refueler,RHFRoleS41.Engineer,launcher,assembly,now);
+                occupied.Add(refueler);
+            }
             // The VIP may board only in the real native CompTransporter stage.
             // No external TryTakeOrderedJob or artificial removal from the map.
             if(op.Vip!=null && op.Freed!=null && op.Freed.Contains(op.Vip) &&
@@ -149,6 +158,10 @@ namespace RaidersHaveFamilies
             // Guard slots are distinct accessible cells; do not overwrite an
             // engineer, escort or existing physical rescue job.
             var positions=new HashSet<IntVec3>();
+            if(assembly.IsValid)positions.Add(assembly);
+            ReserveWorkCellR041(engineer,work,map,positions,op);
+            ReserveWorkCellR041(fortifier,parallelWall,map,positions,op);
+            ReserveWorkCellR041(refueler,launcher,map,positions,op);
             for(int i=0;i<op.Squad.Count;i++)
             {
                 Pawn soldier=op.Squad[i];
@@ -160,6 +173,8 @@ namespace RaidersHaveFamilies
                 // a continuously moving waypoint calculated from current feet.
                 if(previous!=null && previous.Role==(int)RHFRoleS41.Screen &&
                    ValidGuardCell(previous.Cell,op,map,positions) &&
+                   assembly.IsValid && (previous.Cell-assembly).LengthHorizontalSquared<=144 &&
+                   previous.Cell.GetRoom(map)==assembly.GetRoom(map) &&
                    soldier.CanReach(previous.Cell,PathEndMode.OnCell,Danger.Some))
                 {cell=previous.Cell;positions.Add(cell);}
                 else cell=GuardCell(soldier,assembly,map,positions,op);
@@ -182,6 +197,7 @@ namespace RaidersHaveFamilies
             // Pod assembly is LOCAL. Searching all map cells and calling
             // VIP.CanReach for most of them every 120 ticks caused TPS loss.
             IntVec3 best=IntVec3.Invalid;
+            Room siteRoom=site.GetRoom(map)??op.PodLauncherCell.GetRoom(map);
             int score=int.MaxValue;
             for(int x=Math.Max(0,site.x-10);x<=Math.Min(map.Size.x-1,site.x+10);x++)
             for(int z=Math.Max(0,site.z-10);z<=Math.Min(map.Size.z-1,site.z+10);z++)
@@ -189,31 +205,47 @@ namespace RaidersHaveFamilies
                 IntVec3 cell=new IntVec3(x,0,z);
                 if(!cell.Standable(map) || cell.GetEdifice(map)!=null ||
                    InFootprint(cell,op.PodLauncherCell,
-                       DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher")) ||
+                       DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher"),
+                       NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell)) ||
                    InFootprint(cell,op.PodCell,
                        DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod")) ||
                    !vip.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
                 int candidate=(site-cell).LengthHorizontalSquared*4+
-                    (vip.Position-cell).LengthHorizontalSquared;
+                    (vip.Position-cell).LengthHorizontalSquared+
+                    (siteRoom!=null && cell.GetRoom(map)!=siteRoom?10000:0);
                 if(candidate<score){best=cell;score=candidate;}
             }
             return best.IsValid ? best : vip.Position;
         }
 
-        private static bool InFootprint(IntVec3 cell,IntVec3 origin,ThingDef def)
+        private static bool InFootprint(IntVec3 cell,IntVec3 origin,ThingDef def,Rot4 rotation=default)
         {
             return origin.IsValid && def!=null &&
-                cell.x>=origin.x && cell.x<origin.x+def.size.x &&
-                cell.z>=origin.z && cell.z<origin.z+def.size.z;
+                NJRPodSiteClearS41.Contains(cell,origin,def,rotation);
         }
 
+        private static void ReserveWorkCellR041(Pawn pawn,Thing target,Map map,HashSet<IntVec3> occupied,RHFOperation op)
+        {
+            if(pawn==null || target==null || !target.Spawned)return;
+            IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
+            foreach(IntVec3 tile in GenAdj.OccupiedRect(target.Position,target.Rotation,target.def.size))
+            foreach(IntVec3 dir in GenAdj.CardinalDirections)
+            {
+                IntVec3 c=tile+dir;
+                if(!ValidGuardCell(c,op,map,occupied) || !pawn.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;
+                int n=(pawn.Position-c).LengthHorizontalSquared;
+                if(n<score){best=c;score=n;}
+            }
+            if(best.IsValid)occupied.Add(best);
+        }
         private static bool ValidGuardCell(IntVec3 cell,RHFOperation op,Map map,
             HashSet<IntVec3> occupied)
         {
             return cell.IsValid && cell.InBounds(map) && cell.Standable(map) &&
-                cell.GetEdifice(map)==null && !occupied.Contains(cell) &&
+                cell.GetEdifice(map)==null && !occupied.Contains(cell) && cell!=op.BarricadeCell &&
                 !InFootprint(cell,op.PodLauncherCell,
-                    DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher")) &&
+                    DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher"),
+                    NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell)) &&
                 !InFootprint(cell,op.PodCell,
                     DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod"));
         }
@@ -263,6 +295,11 @@ namespace RaidersHaveFamilies
                 JobDef roof=DefDatabase<JobDef>.GetNamedSilentFail("NJR_RemovePodRoofS41");
                 return roof!=null ? JobMaker.MakeJob(roof,site.Position) : null;
             }
+            if(!(site is Blueprint_Build) && !(site is Frame))
+            {
+                CompRefuelable fuel=(site as ThingWithComps)?.GetComp<CompRefuelable>();
+                if(fuel==null || fuel.IsFull)return null;
+            }
             string[] names=site is Blueprint_Build ?
                 new[]{"ConstructDeliverResourcesToBlueprints"} :
                 site is Frame ?
@@ -274,6 +311,7 @@ namespace RaidersHaveFamilies
                 if(!(def?.Worker is WorkGiver_Scanner giver))continue;
                 try
                 {
+                    if(names[i]=="Refuel" && !giver.HasJobOnThing(pawn,site,true))continue;
                     Job result=giver.JobOnThing(pawn,site,true);
                     if(result!=null)return result;
                 }

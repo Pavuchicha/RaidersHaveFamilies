@@ -26,8 +26,8 @@ assert 'else if(obstacle==null && !route.Valid &&' in plan
 assert 'soldier.CanReach(captive,PathEndMode.Touch,Danger.Deadly)' in plan
 assert 'board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);' in plan
 assert 'if(!route.Valid)obstacle=null;' in plan
-assert 'if(op.PodConstructionStage==3 &&' in fort
-assert 'NativeEscapeLaneS41(op.PodLauncherCell,cell)' in fort
+assert 'op.PodConstructionStage>=1 &&' in fort
+assert 'CanSealR041(op,vip,cell,protectedRoom)' in fort
 assert 'adjacentDoor' in fort and 'cell.GetRoom(map)!=protectedRoom' in fort
 assert 'NJRPodSiteClearS41.Blocker(op,map,launcherDef,podDef,vip)' not in fort
 assert 'NJRRescueExitS41.Choose(map,op,navigator)' in (S/'RHFRescuePlannerS41.cs').read_text()

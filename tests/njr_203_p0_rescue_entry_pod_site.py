@@ -48,11 +48,10 @@ assert 'leadCost' not in plan
 # Guard/haul assignments remain stable and avoid the native footprint.
 assert 'ValidGuardCell(previous.Cell,op,map,positions)' in pod
 assert 'InFootprint(cell,op.PodCell,' in pod
-assert 'bool launcherFloor=' in supply and 'bool podFloor=' in supply
-assert 'if(launcherFloor || podFloor ||' in supply
+assert 'NJRPodSiteClearS41.ReservedFootprint(op,c)' in supply
 # Narrow actual passages, not decorative lawn walls, with bounded job time.
-assert 'if(!(n&&s) && !(e&&w))continue;' in air
-assert 'if(seenDoors==0 ||' in air
-assert air.index('if(!(n&&s) && !(e&&w))continue;') < air.index('!OpenRouteExcept(vip.Position,op.PodCell,cell)')
-assert 'op.PodStageStartedTickS311=now;' in air
+assert 'if(!throat && !adjacentDoor)continue;' in air
+assert 'bool seal=throat && CanSealR041(op,vip,cell,protectedRoom)' in air
+assert 'reserved.Contains(c)' in air and '!outside || !seen.Contains(vip.Position)' in air
+assert 'op.PodStageStartedTickS311 = now;' in air
 print('PASS NJR S4.1 P0: safe entry, active rally, non-destructive pod, stable guards and real corridor checks (STATIC ONLY).')

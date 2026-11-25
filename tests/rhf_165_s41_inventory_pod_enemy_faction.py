@@ -35,7 +35,7 @@ def verify(p=P,b=B,j=J,role=ROLE,t=T,o=O,x=X,w=W):
     assert 'owner.Faction==Faction.OfPlayer' in p
     assert 'site.Faction!=owner.Faction || engineer.Faction!=owner.Faction' in p
     assert 'GenConstruct.PlaceBlueprintForBuild(requested, cell,' in p
-    assert 'map, Rot4.North, owner.Faction, null' in p
+    assert 'map, first ? NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell) : Rot4.North, owner.Faction, null' in p
     assert 'NativeLaunchReadyS41(launch,op.PodLauncherThing,owner.Faction)' in p
     assert 'return launch.CanLaunch();' in p
     assert 'FuelingPortSource' not in p and 'fuelingPortSource' not in p
@@ -47,7 +47,7 @@ mutations=[
     ('p','MassUtility.WillBeOverEncumberedAfterPickingUp','true /* ignoring encumbrance */'),
     ('p','op.PodCargoStacksS41.Add(stack);','// cargo not recorded'),
     ('p','site.Faction!=owner.Faction || engineer.Faction!=owner.Faction','false'),
-    ('p','map, Rot4.North, owner.Faction, null','map, Rot4.North, Faction.OfPlayer, null'),
+    ('p','map, first ? NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell) : Rot4.North, owner.Faction, null','map, first ? NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell) : Rot4.North, Faction.OfPlayer, null'),
     ('p','return launch.CanLaunch();','return true;'),
     ('p','EnsureMinLevelWithMargin(required)','EnsureMinLevelWithMargin(0)'),
     ('b','RHFPodSupplyS41.UnloadCell(carrier,op,map)','IntVec3.Invalid'),
