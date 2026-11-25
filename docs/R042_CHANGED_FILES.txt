@@ -1,0 +1,17 @@
+.github/workflows/build.yml
+R042_INSTALL_AND_TEST_RU.txt
+RaidersHaveFamilies/Source/Diagnostics/NJRTestRecorderR030.cs
+RaidersHaveFamilies/Source/NJRRescueAccessR040.cs
+RaidersHaveFamilies/Source/RHFObjectiveRouteV128.cs
+RaidersHaveFamilies/Source/RHFPodPlannerS41.cs
+RaidersHaveFamilies/Source/RHFRescuePlannerS41.cs
+RaidersHaveFamilies/Source/RHFVipEvacS311.cs
+docs/NJR_R042_VIP_RECOVERY_RU.md
+docs/R042_CHANGED_FILES.txt
+tests/fixtures/r042_vip_trace.json
+tests/njr_237_r034_firebreak.py
+tests/njr_239_r037_rally_deadlock.py
+tests/njr_240_r038_reversible_suppression.py
+tests/njr_242_r040_vip_access_trace.py
+tests/njr_244_r042_vip_recovery.py
+tests/rhf_128_route_control.py

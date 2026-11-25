@@ -635,10 +635,34 @@ namespace RaidersHaveFamilies
                 if (!vip.Spawned || vip.Map != map)
                 { NativeFallBackS311(op, now, "VIP absent at site search"); return; }
                 if(NJRRescueAccessR040.ContinuePodAccess(op,map,vip,now))return;
+                if(op.PodStageStartedTickS311>=op.PhaseStartTick && now-op.PodStageStartedTickS311<450 && now-op.PhaseStartTick>90)
+                {RHFPodPlannerS41.Plan(op,map,null,null,now);return;}
+                op.PodStageStartedTickS311=now;
                 if(NJRRescueAccessR040.TryPodAccess(op,map,vip,launcherDef,podDef,now,
                     out IntVec3 launchCell,out IntVec3 podCell))return;
                 if(!launchCell.IsValid || !podCell.IsValid)
-                { NativeFallBackS311(op, now, "no physical build site or recoverable access route"); return; }
+                {
+                    // R040 completed a real launch using the independent native
+                    // direct-site search. Never discard it because the stricter
+                    // R041 parallel-work layout search found zero candidates.
+                    bool direct=FindFieldConstructionSite(vip,launcherDef,podDef,
+                        out launchCell,out podCell);
+                    if(!direct || launchCell.GetRoom(map)?.PsychologicallyOutdoors==true)
+                    {
+                        if(NJRRescueAccessR040.TryPodFallbackR042(op,map,vip,launcherDef,podDef,now,direct))return;
+                    }
+                    if(!direct)
+                    {
+                        if(now-op.PhaseStartTick<1800)
+                        {
+                            RHFPodPlannerS41.Plan(op,map,null,null,now);
+                            Log.Message("[NJR][R042][PodSite] retry before land fallback");
+                            return;
+                        }
+                        NativeFallBackS311(op, now, "no physical build site or recoverable access route after retry");return;
+                    }
+                    Log.Message("[NJR][R042][PodSite] verified R040 native direct fallback "+launchCell+" "+podCell);
+                }
                 NJRRescueAccessR040.Clear(op);
                 op.PodLauncherCell = launchCell;
                 op.PodCell = podCell;

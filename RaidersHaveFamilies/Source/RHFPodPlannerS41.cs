@@ -241,6 +241,15 @@ namespace RaidersHaveFamilies
         private static bool ValidGuardCell(IntVec3 cell,RHFOperation op,Map map,
             HashSet<IntVec3> occupied)
         {
+            if(op.FortifyPrison && cell.IsValid && cell.InBounds(map))
+                for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++)
+                {
+                    IntVec3 near=cell+new IntVec3(dx,0,dz);
+                    if(!near.InBounds(map))continue;
+                    Pawn captive=near.GetFirstPawn(map);
+                    if(captive!=null && captive.IsPrisonerOfColony &&
+                       op.Targets?.Contains(captive)!=true)return false;
+                }
             return cell.IsValid && cell.InBounds(map) && cell.Standable(map) &&
                 cell.GetEdifice(map)==null && !occupied.Contains(cell) && cell!=op.BarricadeCell &&
                 !InFootprint(cell,op.PodLauncherCell,

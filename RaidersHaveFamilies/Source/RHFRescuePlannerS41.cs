@@ -1198,8 +1198,11 @@ namespace RaidersHaveFamilies
             board.Decision="no open exit: engage or breach toward nearest map edge";
             // The only legal retreat breach is a door on a validated route
             // to a real exit; never a random wall along a straight map ray.
-            Building barrier=NJRRescueExitS41.FirstBlockedExitDoor(map,op,navigator);
-            if(barrier==null && NJRRescueAccessR040.TryExitAccess(op,map,navigator,now))return;
+            // VIP withdrawal uses the common access authority; a stale independent
+            // door search must not authorize an unrelated structural attack.
+            if(op.FortifyPrison && NJRRescueAccessR040.TryExitAccess(op,map,navigator,now))return;
+            Building barrier=op.FortifyPrison?null:NJRRescueExitS41.FirstBlockedExitDoor(map,op,navigator);
+            if(!op.FortifyPrison && barrier==null && NJRRescueAccessR040.TryExitAccess(op,map,navigator,now))return;
             if(barrier!=null)NJRRescueAccessR040.Clear(op);
             board.Barrier=barrier;
             board.Breacher=null;

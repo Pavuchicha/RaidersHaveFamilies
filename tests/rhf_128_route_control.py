@@ -14,7 +14,7 @@ for required in (
     'internal static IntVec3 Waypoint(',
     'BreachWorkCost(building)',
     'step=MissionStepR041(map,cell,holder,out obstacle)',
-    'hazard[at]=Exposure(map,cell,threats)',
+    'hazard[at]=Exposure(map,cell,threats,holder.PreferVipDoors)',
     'GenSight.LineOfSight(t.Origin,cell,map)',
     'plan.FirstBarrier=obstacle',
     'RHFRouteDiagnosticsV128',

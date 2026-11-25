@@ -49,6 +49,7 @@ namespace RaidersHaveFamilies
     {
         internal RHFRoutePlanV128 Plan;
         internal bool PreferVipDoors;
+        internal bool DoorOnlyR042;
         // Ephemeral per-operation layout guard, never serialized to a save.
         internal Map LayoutMap;
         internal int TurretLayoutSignature;
@@ -239,12 +240,12 @@ namespace RaidersHaveFamilies
             threat.AddRange(shooters);
             return threat;
         }
-        internal static Func<IntVec3,int> AccessExposureR040(Map map,IntVec3 origin)
+        internal static Func<IntVec3,int> AccessExposureR040(Map map,IntVec3 origin,bool visibleOnly=false)
         {
             var threats=Threats(map,origin,origin);
-            return cell=>Exposure(map,cell,threats);
+            return cell=>Exposure(map,cell,threats,visibleOnly);
         }
-        private static int Exposure(Map map,IntVec3 cell,List<Emitter> threats)
+        private static int Exposure(Map map,IntVec3 cell,List<Emitter> threats,bool visibleOnly=false)
         {
             int cost=0;
             for(int i=0;i<threats.Count;i++)
@@ -255,7 +256,7 @@ namespace RaidersHaveFamilies
                 // A closed door can conceal a turret until the first soldier
                 // breaks it. Its adjacent ROOM is still a dangerous corridor.
                 Room gunRoom=t.Importance>=2?t.Origin.GetRoom(map):null;
-                bool sameGunRoom=gunRoom!=null && !gunRoom.PsychologicallyOutdoors &&
+                bool sameGunRoom=!visibleOnly && gunRoom!=null && !gunRoom.PsychologicallyOutdoors &&
                     gunRoom==cell.GetRoom(map);
                 if(!sameGunRoom && !GenSight.LineOfSight(t.Origin,cell,map))continue;
                 cost+=ExposedCost*t.Importance;
@@ -267,7 +268,7 @@ namespace RaidersHaveFamilies
         // This is an objective safety gate, not a synthetic movement cost.
         // Only actual, visible stationary guns cause a hard advance hold;
         // human defenders are handled by the tactical combat wing.
-        private static bool ExposedToTurret(Map map,IntVec3 cell,List<Emitter> threats)
+        private static bool ExposedToTurret(Map map,IntVec3 cell,List<Emitter> threats,bool visibleOnly=false)
         {
             for(int i=0;i<threats.Count;i++)
             {
@@ -276,7 +277,7 @@ namespace RaidersHaveFamilies
                 int distance=(cell-source.Origin).LengthHorizontalSquared;
                 if(distance>source.RangeSquared || distance<=1)continue;
                 Room turretRoom=source.Origin.GetRoom(map);
-                if(turretRoom!=null && !turretRoom.PsychologicallyOutdoors &&
+                if(!visibleOnly && turretRoom!=null && !turretRoom.PsychologicallyOutdoors &&
                    turretRoom==cell.GetRoom(map))return true;
                 if(GenSight.LineOfSight(source.Origin,cell,map))return true;
             }
@@ -336,7 +337,9 @@ namespace RaidersHaveFamilies
         }
         private static int MissionStepR041(Map map,IntVec3 cell,RHFRouteStoreV128 holder,out Thing obstacle)
         {
-            return holder.PreferVipDoors ? StepVipR041(map,cell,out obstacle) : Step(map,cell,out obstacle);
+            int cost=holder.PreferVipDoors ? StepVipR041(map,cell,out obstacle) : Step(map,cell,out obstacle);
+            if(holder.DoorOnlyR042 && obstacle!=null && !(obstacle is Building_Door))return -1;
+            return cost;
         }
         // R021: a single multi-source A* represents the WHOLE available assault
         // wing. No selected pawn owns the mission's path or demolition target.
@@ -429,13 +432,15 @@ namespace RaidersHaveFamilies
                     search.Steps[at]=step;
                 }
                 if(step<0)continue;
-                if(hazard[at]<0)hazard[at]=Exposure(map,cell,threats);
+                if(hazard[at]<0)hazard[at]=Exposure(map,cell,threats,holder.PreferVipDoors);
                 step+=hazard[at];
                 for(int direction=0;direction<4;direction++)
                 {
                     int nx=cx+(direction==0?1:direction==1?-1:0);
                     int nz=cz+(direction==2?1:direction==3?-1:0);
                     if(nx<0 || nx>=width || nz<0 || nz>=height)continue;
+                    if(holder.DoorOnlyR042 && (Math.Abs(nx-search.Goal.x)>32 ||
+                        Math.Abs(nz-search.Goal.z)>32))continue;
                     int next=nz*width+nx;
                     if(search.Steps[next]==int.MinValue)
                     {
@@ -511,7 +516,7 @@ namespace RaidersHaveFamilies
                 }
                 int index=(c.z-minZ)*width+c.x-minX;
                 if(hazard[index]>=0)plan.DangerCost+=hazard[index];
-                if(ExposedToTurret(map,c,threats))
+                if(ExposedToTurret(map,c,threats,holder.PreferVipDoors))
                 {
                     plan.ExposedTurretCells++;
                     if(plan.FirstTurretExposureIndex<0)
@@ -663,6 +668,28 @@ namespace RaidersHaveFamilies
             PlanBounded(map,origins,captive,fresh,
                 Math.Max(map.Size.x,map.Size.z),
                 new HashSet<Thing>(holder.UnworkableBarriers.Keys),holder);
+            // Compare complete paths, not the price of a disconnected nearby door.
+            // Restricted to VIP insertion; do not modify accepted Rescue-1.
+            if(holder.PreferVipDoors && fresh.Valid && fresh.Walls>0)
+            {
+                var alternativeStore=new RHFRouteStoreV128 {PreferVipDoors=true,DoorOnlyR042=true};
+                var alternative=new RHFRoutePlanV128 {Tick=now,Captive=captive,From=origins[0],To=captive.Position};
+                PlanBounded(map,origins,captive,alternative,32,
+                    new HashSet<Thing>(holder.UnworkableBarriers.Keys),alternativeStore);
+                Searches.Remove(alternativeStore);
+                bool choose=alternative.Valid &&
+                    (alternative.TotalCost<=fresh.TotalCost ||
+                     (alternative.TotalStructuralHP<fresh.TotalStructuralHP &&
+                      alternative.Cells.Count<=fresh.Cells.Count+24 &&
+                      alternative.ExposedTurretCells<=fresh.ExposedTurretCells &&
+                      alternative.DangerCost<=fresh.DangerCost+600));
+                Log.Message("[NJR][R042][DoorRoute] wallCost="+fresh.TotalCost+
+                    " wallHP="+fresh.TotalStructuralHP+" wallRisk="+fresh.DangerCost+
+                    " doorValid="+alternative.Valid+" doorCost="+alternative.TotalCost+
+                    " doorHP="+alternative.TotalStructuralHP+" doorRisk="+alternative.DangerCost+
+                    " doorCells="+alternative.Cells.Count+" chosen="+(choose?"door":"weighted"));
+                if(choose)fresh=alternative;
+            }
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+
                     " sources="+origins.Count+" target="+captive.Position);

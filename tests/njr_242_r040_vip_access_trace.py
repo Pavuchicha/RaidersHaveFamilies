@@ -50,9 +50,9 @@ assert 'f.First[nid]=f.First[id]??obstacle' in access and 'if(toEdge && Edge(map
 assert 'NJRRescueAccessR040.TryExitAccess(op,map,navigator,now)' in planner
 assert 'NJRRescueAccessR040.TryPodAccess(op,map,vip,launcherDef,podDef,now,' in pod
 assert 'NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip,rotation)!=0' in access
-assert 'op.Squad?.Contains(pawn)!=true' in access and 'def!="Ignite"' in access
+assert 'op.Squad?.Contains(pawn)==true' in access and 'if(!soldier && !beast)continue;' in access and 'def!="Ignite"' in access
 assert 'party.Drop || party.Role!=(int)RHFStrikeRole.Rescue' not in force
 assert 'op.PodConstructionStage==0' in jobs and 'NJRRescueAccessR040.PermitsExit(op,obstacle)' in jobs
 assert 'fortifier!=engineer' in pp and 'board.Assign(fortifier,RHFRoleS41.Engineer,parallelWall' in pp
-assert 'baseRevision="R041"' in (s/'Diagnostics/NJRTestRecorderR030.cs').read_text()
+assert 'baseRevision="R042"' in (s/'Diagnostics/NJRTestRecorderR030.cs').read_text()
 print('PASS R040: shared structural costs, scoped handoff, access routes and parallel native work source contracts; no runtime proof.')

@@ -39,7 +39,7 @@ namespace RaidersHaveFamilies
                 RHFObjectiveRouteV128.IsRescueStructuralBarrier(barrier);
         }
         internal static bool PermitsExit(RHFOperation op,Thing barrier)
-        {return barrier!=null && (barrier is Building_Door || IsAssignedAccess(op,barrier));}
+        {return op!=null && barrier!=null && (IsAssignedAccess(op,barrier) || (!op.FortifyPrison && barrier is Building_Door));}
         private static bool Active(Pawn pawn,Map map)=>RHFRescuePlannerS41.ActiveForRoleS41(pawn,map);
         private static bool Live(Thing barrier,Map map)=>barrier!=null && barrier.Spawned &&
             barrier.Map==map && !barrier.Destroyed && RHFObjectiveRouteV128.IsRescueStructuralBarrier(barrier);
@@ -101,7 +101,7 @@ namespace RaidersHaveFamilies
             internal Thing BarrierAt(IntVec3 c)=>First[Id(c)];
         }
         private static int Edge(Map map,IntVec3 c)=>Math.Min(Math.Min(c.x,map.Size.x-1-c.x),Math.Min(c.z,map.Size.z-1-c.z));
-        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false)
+        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false,bool doorsOnly=false)
         {
             int count=map.Size.x*map.Size.z;
             if(count<=0 || count>120000)return null;
@@ -109,7 +109,7 @@ namespace RaidersHaveFamilies
             var heap=new PriorityQueue<int,int>();
             var closed=new bool[count];
             var hazards=new int[count];Array.Fill(hazards,-1);
-            var danger=RHFObjectiveRouteV128.AccessExposureR040(map,navigator.Position);
+            var danger=RHFObjectiveRouteV128.AccessExposureR040(map,navigator.Position,preferVipDoors);
             int start=f.Id(navigator.Position);f.Cost[start]=0;
             heap.Enqueue(start,toEdge?Edge(map,navigator.Position)*10:0);
             int expanded=0;
@@ -130,7 +130,7 @@ namespace RaidersHaveFamilies
                     Thing obstacle;
                     int step=preferVipDoors ? RHFObjectiveRouteV128.StepVipR041(map,next,out obstacle) :
                         RHFObjectiveRouteV128.Step(map,next,out obstacle);
-                    if(step<0)continue;
+                    if(step<0 || (doorsOnly && obstacle!=null && !(obstacle is Building_Door)))continue;
                     if(hazards[nid]<0)hazards[nid]=danger(next);
                     step+=hazards[nid];
                     if(f.Cost[id]>int.MaxValue-step || f.Cost[id]+step>=f.Cost[nid])continue;
@@ -153,7 +153,7 @@ namespace RaidersHaveFamilies
             var roomTiers=new Dictionary<Room,int>();
             var exposure=RHFObjectiveRouteV128.AccessExposureR040(map,vip.Position);
             var riskCache=new Dictionary<IntVec3,int>();
-            int checkedPads=0,validPads=0;
+            int checkedPads=0,validPads=0,blockedFootprint=0,roomMismatch=0,noSlots=0,noWorker=0,noLane=0;
             int Risk(IntVec3 c)
             {
                 if(!riskCache.TryGetValue(c,out int risk))riskCache[c]=risk=exposure(c);
@@ -169,14 +169,15 @@ namespace RaidersHaveFamilies
                 Room room=cell.GetRoom(map);
                 if(room==null || vehicle.GetRoom(map)!=room)continue;
                 checkedPads++;
-                if(NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip,rotation)!=0)continue;
+                if(NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip,rotation)!=0)
+                {blockedFootprint++;continue;}
                 var footprint=new HashSet<IntVec3>();
                 foreach(IntVec3 tile in GenAdj.OccupiedRect(cell,rotation,launcher.size))footprint.Add(tile);
                 foreach(IntVec3 tile in GenAdj.OccupiedRect(vehicle,Rot4.North,pod.size))footprint.Add(tile);
                 bool sameRoom=true;
                 foreach(IntVec3 tile in footprint)
                     if(tile.GetRoom(map)!=room){sameRoom=false;break;}
-                if(!sameRoom)continue;
+                if(!sameRoom){roomMismatch++;continue;}
                 // Two distinct free work positions, one adjacent to each
                 // structure. Do not let a footprint consume the sole access.
                 var launchSlots=new HashSet<IntVec3>();var podSlots=new HashSet<IntVec3>();
@@ -190,15 +191,15 @@ namespace RaidersHaveFamilies
                     if(NJRPodSiteClearS41.Contains(tile,cell,launcher,rotation))launchSlots.Add(slot);
                     if(NJRPodSiteClearS41.Contains(tile,vehicle,pod,Rot4.North))podSlots.Add(slot);
                 }
-                if(launchSlots.Count==0 || podSlots.Count==0)continue;
+                if(launchSlots.Count==0 || podSlots.Count==0){noSlots++;continue;}
                 var slots=new HashSet<IntVec3>(launchSlots);slots.UnionWith(podSlots);
-                if(slots.Count<2)continue;
+                if(slots.Count<2){noSlots++;continue;}
                 Thing barrier=f.BarrierAt(cell)??f.BarrierAt(vehicle);
                 if(barrier!=null)
                 {
                     if(!canWork.TryGetValue(barrier,out bool possible))
                         canWork[barrier]=possible=CanWork(op,map,barrier);
-                    if(!possible)continue;
+                    if(!possible){noWorker++;continue;}
                 }
                 if(!roomTiers.TryGetValue(room,out int tier))
                 {
@@ -218,13 +219,14 @@ namespace RaidersHaveFamilies
                 // earlier point-only test could choose a pad that sealed its own
                 // supply/boarding path. Native reach is also required for a
                 // direct site; a planned breach may be traversed in preview.
-                if(!WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier))continue;
+                if(!WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier)){noLane++;continue;}
                 validPads++;
                 scoreBest=score;best=barrier;goal=cell;podGoal=vehicle;
             }
             Log.Message("[NJR][R041][PodSite] checked="+checkedPads+" valid="+validPads+
                 " launcher="+goal+" pod="+podGoal+" barrier="+(best?.LabelShortCap.ToString()??"none")+
-                " score="+scoreBest);
+                " score="+scoreBest+" footprintRejected="+blockedFootprint+" roomRejected="+roomMismatch+
+                " slotsRejected="+noSlots+" workerRejected="+noWorker+" laneRejected="+noLane);
             return best;
         }
         private static bool WorkLaneR041(Map map,Pawn vip,HashSet<IntVec3> footprint,
@@ -255,6 +257,49 @@ namespace RaidersHaveFamilies
                 }
             }
             return false;
+        }
+        private static Thing FindPodBarrierFallbackR042(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,bool indoorOnly,out IntVec3 goal)
+        {
+            goal=IntVec3.Invalid;
+            Field f=Search(map,vip,32,false,true);if(f==null)return null;
+            Room prison=vip.Position.GetRoom(map);
+            Thing best=null;long scoreBest=long.MaxValue;
+            var canWork=new Dictionary<Thing,bool>();
+            var roomTiers=new Dictionary<Room,int>();
+            var guns=new List<Building>();
+            foreach(Building gun in map.listerBuildings.allBuildingsColonist)
+                if(RHFCombatPlannerV125.IsTurret(gun))guns.Add(gun);
+            for(int x=Math.Max(0,vip.Position.x-32);x<=Math.Min(map.Size.x-1,vip.Position.x+32);x++)
+            for(int z=Math.Max(0,vip.Position.z-32);z<=Math.Min(map.Size.z-1,vip.Position.z+32);z++)
+            {
+                IntVec3 cell=new IntVec3(x,0,z),vehicle=FuelingPortUtility.GetFuelingPortCell(cell,Rot4.North);
+                if(!vehicle.InBounds(map) || f.At(cell)==int.MaxValue || f.At(vehicle)==int.MaxValue)continue;
+                Room room=cell.GetRoom(map);
+                if(room==null || vehicle.GetRoom(map)!=room || (indoorOnly && room.PsychologicallyOutdoors))continue;
+                // Do not enlarge the footprint by smashing furniture or walls.
+                if(NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip)!=0)continue;
+                Thing barrier=f.BarrierAt(cell)??f.BarrierAt(vehicle);
+                if(barrier==null)continue; // direct native site search owns these candidates
+                if(!canWork.TryGetValue(barrier,out bool possible))
+                    canWork[barrier]=possible=CanWork(op,map,barrier);
+                if(!possible)continue;
+                bool exposed=false;
+                foreach(Building gun in guns)
+                    if(RHFObjectiveRouteV128.TurretCoversR037(gun,map,cell) ||
+                       RHFObjectiveRouteV128.TurretCoversR037(gun,map,vehicle)){exposed=true;break;}
+                if(exposed)continue;
+                if(!roomTiers.TryGetValue(room,out int tier))
+                {
+                    tier=room==prison?0:!room.PsychologicallyOutdoors &&
+                        NJRRescueInteriorS41.DirectDoor(map,prison,room,vip.Position)?1:
+                        !room.PsychologicallyOutdoors?2:3;
+                    roomTiers[room]=tier;
+                }
+                long score=tier*100000L+Math.Max(f.At(cell),f.At(vehicle))+
+                    (vehicle-vip.Position).LengthHorizontalSquared*6L;
+                if(score<scoreBest){scoreBest=score;best=barrier;goal=cell;}
+            }
+            return best;
         }
         private static State Set(RHFOperation op,Thing barrier,IntVec3 goal,int now)
         {
@@ -344,6 +389,13 @@ namespace RaidersHaveFamilies
             if(Assign(op,map,vip,Set(op,barrier,goal,now),now))return true;
             goal=podGoal=IntVec3.Invalid;return false;
         }
+        internal static bool TryPodFallbackR042(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,int now,bool indoorOnly)
+        {
+            Thing barrier=FindPodBarrierFallbackR042(op,map,vip,launcher,pod,indoorOnly,out IntVec3 goal);
+            if(barrier==null)return false;
+            Log.Message("[NJR][R042][PodSite] R040 accessible alternative via "+barrier.Position+" to "+goal);
+            return Assign(op,map,vip,Set(op,barrier,goal,now),now);
+        }
         internal static bool TryExitAccess(RHFOperation op,Map map,Pawn navigator,int now)
         {
             if(States.TryGetValue(op,out State state) && state.Phase==2)
@@ -351,7 +403,11 @@ namespace RaidersHaveFamilies
                 if(Live(state.Barrier,map) && now-state.Started<=9000 && Assign(op,map,navigator,state,now))return true;
                 if(state.Barrier==null && now<state.NextSearch)return false;
             }
-            Field f=Search(map,navigator,0,true);
+            // The same complete door-only access search precedes destructive fallback
+            // after VIP launch or an unavoidable land extraction.
+            Field f=op.FortifyPrison?Search(map,navigator,0,true,true,true):null;
+            if(f==null || !f.Exit.IsValid)
+                f=Search(map,navigator,0,true,op.FortifyPrison);
             Thing barrier=f!=null && f.Exit.IsValid?f.BarrierAt(f.Exit):null;
             if(!CanWork(op,map,barrier)){Set(op,null,IntVec3.Invalid,now);return false;}
             return Assign(op,map,navigator,Set(op,barrier,f.Exit,now),now);
@@ -365,10 +421,33 @@ namespace RaidersHaveFamilies
     internal static class NJRRescueStructureGateR040
     {
         private static readonly FieldInfo PawnField=AccessTools.Field(typeof(Pawn_JobTracker),"pawn");
+        private static IntVec3 DisengageR042(Pawn pawn,Pawn other)
+        {
+            if(pawn?.Map==null || other?.Map!=pawn.Map || pawn.Downed)return IntVec3.Invalid;
+            Map map=pawn.Map;
+            IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
+            for(int dx=-5;dx<=5;dx++)for(int dz=-5;dz<=5;dz++)
+            {
+                IntVec3 cell=pawn.Position+new IntVec3(dx,0,dz);
+                if(!cell.InBounds(map) || !cell.Standable(map) ||
+                   cell.GetEdifice(map)!=null || cell.GetFirstPawn(map)!=null ||
+                   (cell-other.Position).LengthHorizontalSquared<9 ||
+                   cell.GetRoom(map)!=pawn.Position.GetRoom(map) ||
+                   RHFObjectiveRouteV128.StagingExposedToTurret(map,cell) ||
+                   !pawn.CanReach(cell,PathEndMode.OnCell,Danger.Some))continue;
+                int cost=dx*dx+dz*dz;
+                if(cost<score){score=cost;best=cell;}
+            }
+            return best;
+        }
         private static void Prefix(Pawn_JobTracker __instance,ref Job __0)
         {
-            if(__0==null || PawnField==null || !(__0.targetA.Thing is Building structure) ||
-               RHFCombatPlannerV125.IsTurret(structure))return;
+            if(__0==null || PawnField==null)return;
+            Thing target=__0.targetA.Thing;
+            Building structure=target as Building;
+            Pawn other=target as Pawn;
+            if(structure==null && !(other?.IsPrisonerOfColony==true))return;
+            if(structure!=null && RHFCombatPlannerV125.IsTurret(structure))return;
             string def=__0.def?.defName??"";
             if(def!="AttackMelee" && def!="AttackStatic" && def!="Ignite" && def!="UseVerbOnThing")return;
             Pawn pawn=PawnField.GetValue(__instance) as Pawn;
@@ -378,9 +457,29 @@ namespace RaidersHaveFamilies
             foreach(RHFOperation op in operations)
             {
                 if(op==null || op.Finished || !op.Deployed || op.Type!=(int)RHFOperationType.Rescue ||
-                   op.Phase>3 || op.Squad?.Contains(pawn)!=true)continue;
+                   op.Phase>3)continue;
+                bool soldier=op.Squad?.Contains(pawn)==true;
+                bool beast=op.FortifyPrison && op.NativeAnimalsS41?.Contains(pawn)==true;
+                if(!soldier && !beast)continue;
+                if(other!=null)
+                {
+                    if(!op.FortifyPrison || op.Targets?.Contains(other)==true)return;
+                    // The recorded prisoner initiated a melee fight. Break contact
+                    // when possible rather than repeatedly counterattacking.
+                    IntVec3 away=DisengageR042(pawn,other);
+                    if(away.IsValid)
+                    {
+                        __0=JobMaker.MakeJob(JobDefOf.Goto,away);__0.expiryInterval=180;
+                        return;
+                    }
+                    bool activeThreat=other.jobs?.curJob?.targetA.Thing==pawn &&
+                        (other.jobs.curJob.def?.defName??"").StartsWith("Attack");
+                    if(!activeThreat)
+                    {__0=JobMaker.MakeJob(JobDefOf.Wait,pawn.Position);__0.expiryInterval=30;}
+                    return;
+                }
                 RHFOrderS41 order=op.BoardS41?.For(pawn,false);
-                bool permitted=def!="Ignite" && RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure) &&
+                bool permitted=soldier && def!="Ignite" && RHFObjectiveRouteV128.IsRescueStructuralBarrier(structure) &&
                     (op.Phase==1 && op.BoardS41?.PermitsAssaultBreach(pawn,structure)==true ||
                      op.Phase==2 && op.BoardS41?.PermitsAssaultBreach(pawn,structure)==true &&
                          NJRRescueAccessR040.PermitsExit(op,structure) ||

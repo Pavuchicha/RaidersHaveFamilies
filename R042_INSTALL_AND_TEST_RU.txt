@@ -1,0 +1,3 @@
+R042 — патч поверх R041. Распаковать с заменой файлов в корень репозитория.
+Summary: R042: Restore VIP construction fallback and compare complete door routes
+Проверить GitHub Actions, затем установить свежий CI ZIP. Тест №16: диагностика до вызова, дождаться завершения, архив сюда. R042 не проверен в RimWorld.
