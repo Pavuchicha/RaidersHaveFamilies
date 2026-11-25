@@ -75,7 +75,7 @@ fort=vp[vp.index('private bool CanSealR041'):vp.index('private bool SolidFlankS4
 assert '!outside' not in fort and 'bool outside' not in fort
 assert 'if(!seen.Contains(vip.Position))continue;' in fort and 'if(!launcherWork)continue;' in fort
 assert 'ThingDef material=ThingDefOf.Wall' in fort and 'GetNamedSilentFail("Barricade")' not in fort
-assert 'if(crew<2 || builders<1)continue;' in fort and 'seen.Contains(stack.Position)' in fort
+assert 'if(crew<2 || builders<1)continue;' in fort and 'pocket.Contains(stack.Position)' in fort and 'SealLogisticsR044' in fort
 assert 'IsOwnSealR043(op,barrier)' in ac and 'op.CompletedBarricades.Contains(wall.Position)' in ac
 assert 'GetNamedSilentFail("Deconstruct")' in job and 'IsOwnSealR043(op,order.Objective)' in job
 assert 'TryExitAccess(op,map,member,now)' in rp

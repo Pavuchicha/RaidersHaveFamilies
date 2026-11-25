@@ -50,6 +50,8 @@ namespace RaidersHaveFamilies
         internal RHFRoutePlanV128 Plan;
         internal bool PreferVipDoors;
         internal bool DoorOnlyR042;
+        internal RHFRouteStoreV128 DoorProofR044;
+        internal int WallProofStartedR044=-1;
         // Ephemeral per-operation layout guard, never serialized to a save.
         internal Map LayoutMap;
         internal int TurretLayoutSignature;
@@ -340,16 +342,34 @@ namespace RaidersHaveFamilies
         // A standable square is not a demolition target even if it contains conduit/furniture.
         internal static int DoorStepR043(Map map,IntVec3 cell,out Thing obstacle)
         {
-            obstacle=null;
-            foreach(Thing item in map.thingGrid.ThingsListAt(cell))
+            // Use the same edifice classification as the weighted planner, including
+            // a door returned by the edifice grid rather than the thing list.
+            int cost=StepVipR041(map,cell,out obstacle);
+            if(obstacle!=null && !(obstacle is Building_Door))return -1;
+            return cost;
+        }
+        internal static IntVec3 CardinalR044(IntVec3 at,int direction)
+        {
+            return new IntVec3(at.x+(direction==0?1:direction==1?-1:0),0,
+                at.z+(direction==2?1:direction==3?-1:0));
+        }
+        // Live diagnostics of the exact solver input, not an old map snapshot.
+        internal static void DoorGridR044(Map map,IntVec3 origin,IntVec3 goal,string phase)
+        {
+            int minX=Math.Max(0,Math.Min(origin.x,goal.x)-8),maxX=Math.Min(map.Size.x-1,Math.Max(origin.x,goal.x)+8);
+            int minZ=Math.Max(0,Math.Min(origin.z,goal.z)-8),maxZ=Math.Min(map.Size.z-1,Math.Max(origin.z,goal.z)+8);
+            if(maxX-minX>48 || maxZ-minZ>48)return;
+            var text=new StringBuilder("[NJR][R044][DoorGrid] "+phase+" x="+minX+" z="+minZ+" origin="+origin+" goal="+goal+" rows=");
+            for(int z=minZ;z<=maxZ;z++)
             {
-                if(!(item is Building_Door door) || door.Destroyed)continue;
-                if(door.Open)return 10;
-                if(!IsRescueStructuralBarrier(door))return -1;
-                obstacle=door;
-                return 10+DoorBreachBaseR024+RHFCombatPlannerV125.BreachWorkCost(door);
+                if(z>minZ)text.Append('/');
+                for(int x=minX;x<=maxX;x++)
+                {
+                    IntVec3 c=new IntVec3(x,0,z);int step=DoorStepR043(map,c,out Thing obstacle);
+                    text.Append(c==origin?'S':c==goal?'G':step<0?'#':obstacle is Building_Door?'D':'.');
+                }
             }
-            return cell.Standable(map) ? 10 : -1;
+            Log.Message(text.ToString());
         }
         private static void ForwardDoorRouteR043(Map map,List<IntVec3> origins,Pawn captive,
             HashSet<Thing> rejected,RHFRoutePlanV128 plan)
@@ -374,9 +394,9 @@ namespace RaidersHaveFamilies
                 plan.Expanded++;
                 if(id==goalId){finish=id;break;}
                 IntVec3 at=new IntVec3(id%width,0,id/width);
-                foreach(IntVec3 offset in GenAdj.CardinalDirections)
+                for(int direction=0;direction<4;direction++)
                 {
-                    IntVec3 next=at+offset;
+                    IntVec3 next=CardinalR044(at,direction);
                     if(!next.InBounds(map) || Math.Abs(next.x-goal.x)>36 || Math.Abs(next.z-goal.z)>36)continue;
                     int step=DoorStepR043(map,next,out Thing obstacle);
                     if(step<0 || (obstacle!=null && rejected.Contains(obstacle)))continue;
@@ -410,6 +430,60 @@ namespace RaidersHaveFamilies
             }
             plan.RiskFallback=plan.FirstTurretExposureIndex>=0;
             plan.Valid=true;plan.Explanation="R043 independent door corridor: "+cells.Count+" cells, HP="+plan.TotalStructuralHP;
+        }
+        // Native door-pass mode is an independent confirmation of real
+        // navigation, including engine-handled corners. No destroyable-wall mode.
+        private static RHFRoutePlanV128 NativeDoorProofR044(RHFOperation op,Map map,
+            List<IntVec3> origins,Pawn captive,HashSet<Thing> rejected,int now)
+        {
+            if(!Enum.TryParse<TraverseMode>("PassDoors",out TraverseMode mode))return null;
+            var actors=new List<Pawn>();
+            foreach(Pawn p in op.Squad)
+                if(p!=null && p.Spawned && p.Map==map && !p.Downed && !p.Dead && origins.Contains(p.Position))actors.Add(p);
+            actors.Sort((a,b)=>(a.Position-captive.Position).LengthHorizontalSquared.CompareTo((b.Position-captive.Position).LengthHorizontalSquared));
+            RHFRoutePlanV128 best=null;
+            for(int n=0;n<actors.Count && n<3;n++)
+            {
+                Pawn actor=actors[n];
+                try
+                {
+                    using(PawnPath path=map.pathFinder.FindPathNow(actor.Position,captive,
+                        TraverseParms.For(actor,Danger.Deadly,mode),null,PathEndMode.OnCell))
+                    {
+                        if(path==null || !path.Found)continue;
+                        var property=path.GetType().GetProperty("NodesReversed",BindingFlags.Instance|BindingFlags.Public|BindingFlags.NonPublic);
+                        var raw=property?.GetValue(path) as System.Collections.IEnumerable;
+                        if(raw==null)continue;
+                        var cells=new List<IntVec3>();
+                        foreach(object node in raw)if(node is IntVec3 c)cells.Add(c);
+                        if(cells.Count<2)continue;
+                        if(cells[cells.Count-1]==actor.Position)cells.Reverse();
+                        if(cells[0]!=actor.Position || cells[cells.Count-1]!=captive.Position)continue;
+                        var route=new RHFRoutePlanV128{Tick=now,Captive=captive,From=actor.Position,To=captive.Position,Cells=cells};
+                        var threats=Threats(map,actor.Position,captive.Position);bool valid=true;
+                        for(int i=1;i<cells.Count;i++)
+                        {
+                            IntVec3 cell=cells[i];int step=DoorStepR043(map,cell,out Thing obstacle);
+                            if(step<0 || (obstacle!=null && rejected.Contains(obstacle))){valid=false;break;}
+                            int risk=Exposure(map,cell,threats,true);route.DangerCost+=risk;route.TotalCost+=step+risk;
+                            if(obstacle!=null)
+                            {
+                                route.Doors++;route.TotalStructuralHP+=obstacle.HitPoints;
+                                if(route.FirstBarrier==null){route.FirstBarrier=obstacle;route.FirstBarrierIndex=i;}
+                            }
+                            if(ExposedToTurret(map,cell,threats,true))
+                            {route.ExposedTurretCells++;if(route.FirstTurretExposureIndex<0)route.FirstTurretExposureIndex=i;}
+                        }
+                        if(!valid)continue;
+                        route.Valid=true;route.RiskFallback=route.FirstTurretExposureIndex>=0;
+                        route.Explanation="R044 engine PassDoors path; revalidated all cells";
+                        if(best==null || route.TotalCost<best.TotalCost)best=route;
+                    }
+                }
+                catch(Exception ex)
+                {if(RHFMod.Settings?.VerboseLogging==true)Log.Message("[NJR][R044] native door proof unavailable: "+ex.GetBaseException().Message);}
+            }
+            return best;
         }
         private static int MissionStepR041(Map map,IntVec3 cell,RHFRouteStoreV128 holder,out Thing obstacle)
         {
@@ -733,6 +807,8 @@ namespace RaidersHaveFamilies
                (prior.FirstBarrier==null ||
                 (prior.FirstBarrier.Spawned &&
                  RHFCombatPlannerV125.RequiresBreach(prior.FirstBarrier))) &&
+               (!holder.PreferVipDoors || prior.Walls==0 || now-prior.Tick<300 ||
+                (prior.FirstBarrier!=null && prior.FirstBarrier.HitPoints<prior.FirstBarrier.MaxHitPoints)) &&
                (!prior.Valid || (prior.Cells.Count>0 &&
                                    NearAnyOrigin(prior,origins,144))))
                 return prior;
@@ -749,8 +825,29 @@ namespace RaidersHaveFamilies
             if(holder.PreferVipDoors && (!fresh.Valid || fresh.Walls>0))
             {
                 var alternative=new RHFRoutePlanV128 {Tick=now,Captive=captive,From=origins[0],To=captive.Position};
-                ForwardDoorRouteR043(map,origins,captive,
-                    new HashSet<Thing>(holder.UnworkableBarriers.Keys),alternative);
+                var rejected=new HashSet<Thing>(holder.UnworkableBarriers.Keys);
+                // The previously accepted reverse planner also gets a separate
+                // resumable door-only frontier. Never share its cached wall path.
+                RHFRouteStoreV128 proof=holder.DoorProofR044??=new RHFRouteStoreV128{PreferVipDoors=true,DoorOnlyR042=true};
+                PlanBounded(map,origins,captive,alternative,Math.Max(map.Size.x,map.Size.z),rejected,proof);
+                if(!alternative.Valid && !alternative.SearchPending)
+                {
+                    alternative=new RHFRoutePlanV128 {Tick=now,Captive=captive,From=origins[0],To=captive.Position};
+                    ForwardDoorRouteR043(map,origins,captive,rejected,alternative);
+                    if(!alternative.Valid)
+                    {
+                        RHFRoutePlanV128 native=NativeDoorProofR044(op,map,origins,captive,rejected,now);
+                        if(native!=null)alternative=native;
+                    }
+                }
+                if(!alternative.Valid && (alternative.SearchPending || (fresh.Valid && fresh.Walls>0 &&
+                   (holder.WallProofStartedR044<0 || now-holder.WallProofStartedR044<180))))
+                {
+                    if(holder.WallProofStartedR044<0)holder.WallProofStartedR044=now;
+                    if(!alternative.SearchPending)DoorGridR044(map,fresh.From,captive.Position,"entry pending");
+                    alternative.SearchPending=true;alternative.BudgetExceeded=true;
+                    holder.Plan=alternative;return alternative;
+                }
                 bool choose=alternative.Valid &&
                     (!fresh.Valid || alternative.TotalCost<=fresh.TotalCost ||
                      (alternative.TotalStructuralHP<fresh.TotalStructuralHP &&
@@ -763,6 +860,8 @@ namespace RaidersHaveFamilies
                     " doorHP="+alternative.TotalStructuralHP+" doorRisk="+alternative.DangerCost+
                     " doorCells="+alternative.Cells.Count+" doorExpanded="+alternative.Expanded+" doorReason="+alternative.Explanation+" chosen="+(choose?"door":"weighted"));
                 if(choose)fresh=alternative;
+                else if(fresh.Valid && fresh.Walls>0)DoorGridR044(map,fresh.From,captive.Position,"entry wall fallback");
+                holder.WallProofStartedR044=-1;
             }
             if(!fresh.Valid && RHFMod.Settings?.VerboseLogging==true)
                 Log.Warning("[RHF][RouteV128] " +fresh.Explanation+

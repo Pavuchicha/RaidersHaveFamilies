@@ -40,7 +40,8 @@ namespace RaidersHaveFamilies
         }
 
         internal static void Plan(RHFOperation op,Map map,Pawn engineer,Thing work,int now,
-            Pawn fortifier=null,Thing parallelWall=null,Pawn refueler=null,Thing launcher=null)
+            Pawn fortifier=null,Thing parallelWall=null,Pawn refueler=null,Thing launcher=null,
+            Pawn sealMover=null,Thing sealCargo=null,IntVec3 sealDestination=default)
         {
             if(op==null || map==null || op.Phase!=3 || op.Finished)return;
             RHFTacticalBoardS41 board=op.BoardS41 ??= new RHFTacticalBoardS41();
@@ -54,7 +55,7 @@ namespace RaidersHaveFamilies
             }
             if(now<board.NextReplanTick && board.LastPlanTick>0 &&
                board.PodWorkTargetS41==work && board.PodWorkStageS41==op.PodConstructionStage &&
-               fortifier==null && refueler==null && !HasParallelOrder(board,engineer))
+               fortifier==null && refueler==null && sealMover==null && !HasParallelOrder(board,engineer))
                 return;
             board.PodWorkTargetS41=work;
             board.PodWorkStageS41=op.PodConstructionStage;
@@ -85,6 +86,12 @@ namespace RaidersHaveFamilies
                 if(!unload.IsValid)continue;
                 board.Assign(carrier,RHFRoleS41.PodSupply,null,unload,now);
                 occupied.Add(carrier);
+            }
+            if(sealMover!=null && sealMover!=engineer && sealMover!=refueler &&
+               !occupied.Contains(sealMover) && sealCargo!=null && sealDestination.IsValid)
+            {
+                board.Assign(sealMover,RHFRoleS41.PodSupply,sealCargo,sealDestination,now);
+                occupied.Add(sealMover);
             }
             if(work is Building wall &&
                RHFCombatPlannerV125.RequiresBreach(wall))
@@ -159,6 +166,7 @@ namespace RaidersHaveFamilies
             // engineer, escort or existing physical rescue job.
             var positions=new HashSet<IntVec3>();
             if(assembly.IsValid)positions.Add(assembly);
+            if(sealDestination.IsValid)positions.Add(sealDestination);
             ReserveWorkCellR041(engineer,work,map,positions,op);
             ReserveWorkCellR041(fortifier,parallelWall,map,positions,op);
             ReserveWorkCellR041(refueler,launcher,map,positions,op);
@@ -250,6 +258,8 @@ namespace RaidersHaveFamilies
                     if(captive!=null && captive.IsPrisonerOfColony &&
                        op.Targets?.Contains(captive)!=true)return false;
                 }
+            HashSet<IntVec3> pocket=RHFPodSupplyS41.SealPocketR044(op);
+            if(pocket!=null && !pocket.Contains(cell))return false;
             return cell.IsValid && cell.InBounds(map) && cell.Standable(map) &&
                 cell.GetEdifice(map)==null && !occupied.Contains(cell) && cell!=op.BarricadeCell &&
                 !InFootprint(cell,op.PodLauncherCell,

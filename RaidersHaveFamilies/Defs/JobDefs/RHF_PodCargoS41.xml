@@ -6,4 +6,10 @@
     <reportString>unloading mission construction supplies.</reportString>
     <casualInterruptible>false</casualInterruptible>
   </JobDef>
+  <JobDef>
+    <defName>NJR_MoveSealCargoR044</defName>
+    <driverClass>RaidersHaveFamilies.JobDriver_NJRMoveSealCargoR044</driverClass>
+    <reportString>moving mission supplies inside the fortified perimeter.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
 </Defs>

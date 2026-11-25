@@ -17,6 +17,7 @@ namespace RaidersHaveFamilies
         {
             internal Thing Barrier;
             internal int Phase,NextSearch,Started,LastHP,LastProgress;
+            internal int ExitDoorFailureR044=-1;
             internal IntVec3 Goal=IntVec3.Invalid;
             internal readonly HashSet<Pawn> Failed=new HashSet<Pawn>();
         }
@@ -119,11 +120,11 @@ namespace RaidersHaveFamilies
                 IntVec3 at=new IntVec3(id%f.Width,0,id/f.Width);
                 if(priority!=f.Cost[id]+(toEdge?Edge(map,at)*10:0))continue;
                 closed[id]=true;expanded++;
-                if(toEdge && Edge(map,at)==0 && at.Standable(map) && at.GetEdifice(map)==null && !at.Roofed(map))
+                if(toEdge && Edge(map,at)<=(preferVipDoors?1:0) && at.Standable(map) && at.GetEdifice(map)==null && !at.Roofed(map))
                 {f.Exit=at;break;}
-                foreach(IntVec3 offset in GenAdj.CardinalDirections)
+                for(int direction=0;direction<4;direction++)
                 {
-                    IntVec3 next=at+offset;
+                    IntVec3 next=RHFObjectiveRouteV128.CardinalR044(at,direction);
                     if(!next.InBounds(map) || (!toEdge &&
                         (Math.Abs(next.x-navigator.Position.x)>radius || Math.Abs(next.z-navigator.Position.z)>radius)))continue;
                     int nid=f.Id(next);if(closed[nid])continue;
@@ -470,12 +471,42 @@ namespace RaidersHaveFamilies
         {
             if(States.TryGetValue(op,out State state) && state.Phase==2)
             {
-                if(Live(state.Barrier,map) && now-state.Started<=9000 && Assign(op,map,navigator,state,now))return true;
+                if(Live(state.Barrier,map) && now-state.Started<=9000 &&
+                   (!op.FortifyPrison || state.Barrier is Building_Door ||
+                    state.Barrier.HitPoints<state.Barrier.MaxHitPoints || now<state.NextSearch) &&
+                   Assign(op,map,navigator,state,now))return true;
                 if(state.Barrier==null && now<state.NextSearch)return false;
             }
             // The same complete door-only access search precedes destructive fallback
             // after VIP launch or an unavoidable land extraction.
             Field f=op.FortifyPrison?Search(map,navigator,0,true,true,true,op):null;
+            if(op.FortifyPrison && (f==null || !f.Exit.IsValid))
+            {
+                // Independent established Rescue-1 solver: door-only full edge proof.
+                Building_Door door=NJRRescueExitS41.FirstBlockedExitDoor(map,op,navigator);
+                if(door!=null)
+                {
+                    if(CanWork(op,map,door))
+                    {
+                        Log.Message("[NJR][R044][Exit] native door corridor fallback "+door.Position);
+                        State proved=Set(op,door,IntVec3.Invalid,now);proved.ExitDoorFailureR044=-1;
+                        return Assign(op,map,navigator,proved,now);
+                    }
+                    // A proved door corridor without an available strike cell is
+                    // a movement problem, not permission to destroy a nearby corner.
+                    State waiting=Set(op,null,IntVec3.Invalid,now);waiting.ExitDoorFailureR044=-1;
+                    return false;
+                }
+                RHFObjectiveRouteV128.DoorGridR044(map,navigator.Position,navigator.Position,"exit door proof failed");
+                State retry=States.GetValue(op,_=>new State());
+                if(retry.Phase!=2 || retry.ExitDoorFailureR044<0)
+                {
+                    retry=Set(op,null,IntVec3.Invalid,now);retry.ExitDoorFailureR044=now;
+                    retry.NextSearch=now+180;return false;
+                }
+                if(now-retry.ExitDoorFailureR044<180)return false;
+                retry.ExitDoorFailureR044=-1;
+            }
             if(f==null || !f.Exit.IsValid)
                 f=Search(map,navigator,0,true,op.FortifyPrison,false,op.FortifyPrison?op:null);
             Thing barrier=f!=null && f.Exit.IsValid?f.BarrierAt(f.Exit):null;

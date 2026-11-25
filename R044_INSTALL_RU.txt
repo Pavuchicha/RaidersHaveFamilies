@@ -1,0 +1,2 @@
+NJR R044. Распаковать патч в корень репозитория поверх R043, разрешить замену файлов. GitHub Desktop: Commit to main, Push origin. Summary: R044: Verify door corridors and physically prepare VIP seals
+Дождаться результата Actions. Скачать установочный ZIP из успешной сборки. В игре вызвать #16 с диагностикой. Сохранить ZIP после эвакуации, в частности строки R044 DoorGrid, Fortify, moved mission cargo.

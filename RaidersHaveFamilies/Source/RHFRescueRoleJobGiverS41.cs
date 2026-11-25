@@ -1,6 +1,7 @@
 // RHF S4.1-B: the ONLY routine rescue job issuer.
 // It is executed by the pawn's mission ThinkTree, not by MapComponentTick.
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using RimWorld;
 using Verse;
@@ -121,6 +122,15 @@ namespace RaidersHaveFamilies
                     }
                     case RHFRoleS41.PodSupply:
                     {
+                        if(phase3.Objective is Thing cargo && cargo.Spawned &&
+                           op.PodCargoStacksS41.Contains(cargo) && phase3.Cell.IsValid && cargo.Position!=phase3.Cell)
+                        {
+                            JobDef move=DefDatabase<JobDef>.GetNamedSilentFail("NJR_MoveSealCargoR044");
+                            if(move==null)return null;
+                            Job haul=JobMaker.MakeJob(move,cargo,phase3.Cell);
+                            haul.count=cargo.stackCount;
+                            return haul;
+                        }
                         JobDef unload=DefDatabase<JobDef>.GetNamedSilentFail(
                             "RHF_UnloadPodCargoS41");
                         if(unload==null || !phase3.Cell.IsValid ||
@@ -166,7 +176,9 @@ namespace RaidersHaveFamilies
                     }
                     case RHFRoleS41.Screen:
                         if(phase3.Cell.IsValid && phase3.Cell.InBounds(pawn.Map) &&
-                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>(op.PodConstructionStage==0?0:9) &&
+                           (pawn.Position-phase3.Cell).LengthHorizontalSquared>(op.PodConstructionStage==0 ||
+                               pawn.Position==op.BarricadeCell ||
+                               (RHFPodSupplyS41.SealPocketR044(op) is HashSet<IntVec3> pocket && !pocket.Contains(pawn.Position))?0:9) &&
                            pawn.CanReach(phase3.Cell,PathEndMode.OnCell,Danger.Deadly))
                             return Task(JobDefOf.Goto,phase3.Cell,90);
                         return null;
