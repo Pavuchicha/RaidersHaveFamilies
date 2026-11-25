@@ -149,13 +149,14 @@ namespace RaidersHaveFamilies
             {
                 RHFOperation op=RHFRescuePlannerS41.MissionFor(pawn.Map,pawn);
                 if(op==null || pawn.carryTracker?.CarriedThing==null)return;
+                if(debris && !NJRVipDebrisR045.SafeDrop(op,pawn.Map,job.targetB.Cell,pawn))return;
                 if(!pawn.carryTracker.TryDropCarriedThing(job.targetB.Cell,ThingPlaceMode.Direct,out Thing dropped))
                     return; // native job cleanup safely releases carry; next plan rechecks actual cell
                 if(dropped==null)return;
                 if(debris)
                 {
                     NJRVipDebrisR045.Completed(op,original,dropped);
-                    Log.Message("[NJR][R045] physically cleared drop debris "+dropped.Position);
+                    Log.Message("[NJR][R046] physically cleared drop debris "+dropped.Position);
                     return;
                 }
                 if(!op.PodCargoStacksS41.Contains(dropped))op.PodCargoStacksS41.Add(dropped);

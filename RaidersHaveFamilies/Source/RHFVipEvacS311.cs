@@ -71,7 +71,7 @@ namespace RaidersHaveFamilies
             Pawn best=null;int score=int.MaxValue;
             foreach(Pawn p in op.Squad)
             {
-                if(p==excluded || p==excluded2 || !NativeAliveS311(p,map) || p.InMentalState ||
+                if(p==excluded || p==excluded2 || p?.jobs?.curJob?.def?.defName=="NJR_MoveSealCargoR044" || !NativeAliveS311(p,map) || p.InMentalState ||
                    p.Faction!=op.PodCargoOwnerFactionS311 || p.WorkTypeIsDisabled(WorkTypeDefOf.Hauling) ||
                    RHFPodSupplyS41.HasCargo(op,p) || RHFCombatPlannerV125.IsCombatEmergencyJob(p) ||
                    p.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
@@ -482,7 +482,6 @@ namespace RaidersHaveFamilies
             Pawn engineer,Pawn refueler,out Pawn mover,out Thing cargo,out IntVec3 destination)
         {
             mover=null;cargo=null;destination=IntVec3.Invalid;
-            if(op.PodCargoStacksS41==null)return true;
             // Hold the same hauling assignment across planning pulses, including
             // the interval when the stack is carried rather than spawned.
             foreach(Pawn running in op.Squad)
@@ -493,6 +492,17 @@ namespace RaidersHaveFamilies
                 destination=running.jobs.curJob.targetB.Cell;
                 return false;
             }
+            // R046: a chunk on the planned wall is clearance work even if
+            // it was never part of the mission cargo. Do this before testing
+            // native standability or creating a wall blueprint.
+            Thing debris=NJRVipDebrisR045.DebrisAt(map,wall);
+            if(debris!=null)
+            {
+                cargo=debris;
+                NJRVipDebrisR045.TryMove(op,map,debris,pocket,engineer,refueler,out mover,out destination);
+                return false;
+            }
+            if(op.PodCargoStacksS41==null)return true;
             foreach(Pawn carrier in op.Squad)
                 if(NativeAliveS311(carrier,map) && !pocket.Contains(carrier.Position) &&
                    (RHFPodSupplyS41.HasCargo(op,carrier) || (carrier.carryTracker?.CarriedThing!=null &&
@@ -551,8 +561,7 @@ namespace RaidersHaveFamilies
                 {
                     if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
                     IntVec3 cell=op.PodLauncherCell+new IntVec3(dx,0,dz);
-                    if(!cell.InBounds(map) || !cell.Standable(map) ||
-                       cell.GetEdifice(map)!=null || cell.GetFirstBuilding(map)!=null ||
+                    if(!NJRVipDebrisR045.ClearableCell(op,map,cell) ||
                        !cell.Roofed(map) ||
                        op.CompletedBarricades.Contains(cell) ||
                        NJRPodSiteClearS41.ReservedFootprint(op,cell))continue;
@@ -620,7 +629,7 @@ namespace RaidersHaveFamilies
                     return item;
                 }
             }
-            if(!target.Standable(map) || NJRPodSiteClearS41.ReservedFootprint(op,target))
+            if(!NJRVipDebrisR045.ClearableCell(op,map,target) || NJRPodSiteClearS41.ReservedFootprint(op,target))
             {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
             if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> pocket))
             {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
@@ -845,7 +854,22 @@ namespace RaidersHaveFamilies
             int active=0;
             foreach(Pawn candidate in op.Squad)if(NativeAliveS311(candidate,map))active++;
             // Keep a guard, a builder, and if needed the distinct fuel carrier.
-            if(RHFRescuePlannerS41.Enabled && op.PodConstructionStage>=1 &&
+            Thing footprintDebris=NJRVipDebrisR045.FootprintDebris(op,map);
+            // Preserve a live physical move even after picking up the last
+            // blocker (it is no longer present in the source thing grid).
+            if(op.FortifyPrison && op.PodConstructionStage>=1 && op.PodConstructionStage<=4)
+            foreach(Pawn running in op.Squad)
+            {
+                if(!NativeAliveS311(running,map) || running.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044")continue;
+                sealMover=running;sealCargo=op.BoardS41?.For(running,false)?.Objective??running.jobs.curJob.targetA.Thing;
+                sealDestination=running.jobs.curJob.targetB.Cell;break;
+            }
+            if(footprintDebris!=null && sealMover==null && active>=(refueler==null?3:4))
+            {
+                sealCargo=footprintDebris;
+                NJRVipDebrisR045.TryMove(op,map,footprintDebris,RHFPodSupplyS41.SealPocketR044(op),engineer,refueler,out sealMover,out sealDestination);
+            }
+            if(footprintDebris==null && sealMover==null && RHFRescuePlannerS41.Enabled && op.PodConstructionStage>=1 &&
                op.PodConstructionStage<=4 && op.FortifyPrison && op.BarricadesBuilt<2 &&
                engineer!=null && active>=(refueler==null?3:4))
             {
@@ -884,6 +908,13 @@ namespace RaidersHaveFamilies
                     return;
                 }
                 Thing site = NativeWorkSiteS311(map, cell, owner.Faction);
+                if(footprintDebris!=null && now-op.PodStageStartedTickS311<=4500)
+                {
+                    if(now%900<90)Log.Message("[NJR][R046] footprint clearance pending: "+footprintDebris+" mover="+sealMover);
+                    return;
+                }
+                if(footprintDebris!=null)
+                {NativeFallBackS311(op,now,"footprint debris could not be physically relocated");return;}
                 if (site == null)
                 {
                     if (!FieldFootprintFree(cell, requested, vip,first ?

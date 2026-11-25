@@ -1,0 +1,3 @@
+Распаковать поверх репозитория R045. GitHub Desktop: Commit to main, Push origin.
+Summary: R046: Clear debris before sealing VIP entrances
+Проверить успешную сборку GitHub Actions и установить её ZIP. Тест №16, диагностика включена.

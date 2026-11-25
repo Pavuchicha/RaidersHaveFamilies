@@ -18,6 +18,7 @@ namespace RaidersHaveFamilies
         {
             Pawn p=op?.BoardS41?.PodEngineerS41;
             return p!=null && op.Squad!=null && op.Squad.Contains(p) &&
+                p.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044" &&
                 RHFRescuePlannerS41.ActiveForRoleS41(p,map) &&
                 p.health?.capacities!=null &&
                 p.health.capacities.CapableOf(PawnCapacityDefOf.Manipulation) &&

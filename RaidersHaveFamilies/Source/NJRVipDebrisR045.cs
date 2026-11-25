@@ -1,4 +1,4 @@
-// R045: bounded physical clearance of drop slag, not demolition of furnishings.
+// R046: common physical debris clearance for site search, footprints and seals.
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -18,10 +18,51 @@ namespace RaidersHaveFamilies
             internal readonly HashSet<Thing> Tried=new HashSet<Thing>();
         }
         private static readonly ConditionalWeakTable<RHFOperation,State> States=new ConditionalWeakTable<RHFOperation,State>();
-        internal static bool IsDebris(Thing thing)=>thing?.def?.defName=="ChunkSlagSteel";
-        internal static bool IsAssigned(RHFOperation op,Pawn worker,Thing thing)=>
-            op!=null && op.FortifyPrison && op.Phase==3 && op.PodConstructionStage==0 && IsDebris(thing) &&
-            States.TryGetValue(op,out State state) && state.Worker==worker && state.Debris==thing;
+        internal static bool IsDebris(Thing thing)=>thing?.def?.category==ThingCategory.Item &&
+            (thing.def.defName=="ChunkSlagSteel" || thing.def.defName.StartsWith("Chunk",StringComparison.Ordinal));
+        internal static bool IsAssigned(RHFOperation op,Pawn worker,Thing thing)
+        {
+            if(op==null || !op.FortifyPrison || op.Phase!=3 || !IsDebris(thing))return false;
+            if(op.PodConstructionStage==0)
+                return States.TryGetValue(op,out State state) && state.Worker==worker && state.Debris==thing;
+            if(op.PodConstructionStage<1 || op.PodConstructionStage>4)return false;
+            RHFOrderS41 order=op.BoardS41?.For(worker,false);
+            return order!=null && order.Role==(int)RHFRoleS41.PodSupply && order.Objective==thing &&
+                order.Cell.IsValid && (thing.Position==op.BarricadeCell || NJRPodSiteClearS41.ReservedFootprint(op,thing.Position));
+        }
+        // A loose chunk is a recoverable obstruction, not a permanent wall.
+        // Reject actual terrain/buildings and all non-debris impassable things.
+        internal static bool ClearableCell(RHFOperation op,Map map,IntVec3 cell)
+        {
+            if(!cell.InBounds(map) || map.terrainGrid.TerrainAt(cell)?.passability==Traversability.Impassable)return false;
+            if(cell.GetEdifice(map)!=null || cell.GetFirstBuilding(map)!=null)return false;
+            bool debris=false;
+            foreach(Thing item in map.thingGrid.ThingsListAt(cell))
+            {
+                if(IsDebris(item)){debris=true;continue;}
+                if(item.def?.passability==Traversability.Impassable)return false;
+            }
+            return cell.Standable(map) || debris;
+        }
+        internal static Thing DebrisAt(Map map,IntVec3 cell)
+        {
+            if(!cell.IsValid || !cell.InBounds(map))return null;
+            foreach(Thing item in map.thingGrid.ThingsListAt(cell))
+                if(IsDebris(item) && item.Spawned && !item.Destroyed)return item;
+            return null;
+        }
+        internal static Thing FootprintDebris(RHFOperation op,Map map)
+        {
+            if(op==null || !op.FortifyPrison || op.Phase!=3 || op.PodConstructionStage<1 || op.PodConstructionStage>2)return null;
+            ThingDef def=DefDatabase<ThingDef>.GetNamedSilentFail(op.PodConstructionStage==1?"PodLauncher":"TransportPod");
+            if(def==null)return null;
+            IntVec3 origin=op.PodConstructionStage==1?op.PodLauncherCell:op.PodCell;
+            if(!origin.IsValid)return null;
+            Rot4 rotation=op.PodConstructionStage==1?NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell):Rot4.North;
+            foreach(IntVec3 c in GenAdj.OccupiedRect(origin,rotation,def.size))
+            {Thing chunk=DebrisAt(map,c);if(chunk!=null)return chunk;}
+            return null;
+        }
         internal static void Completed(RHFOperation op,Thing original,Thing dropped)
         {
             if(op==null || !States.TryGetValue(op,out State state))return;
@@ -64,6 +105,56 @@ namespace RaidersHaveFamilies
             foreach(IntVec3 n in neighbors)if(!seen.Contains(n))return false;
             return true;
         }
+        // Only a dedicated free soldier may move chunks; never steal the
+        // primary builder or the concurrent refueler. No demolition, no teleport.
+        internal static bool TryMove(RHFOperation op,Map map,Thing chunk,HashSet<IntVec3> pocket,
+            Pawn engineer,Pawn refueler,out Pawn worker,out IntVec3 destination)
+        {
+            worker=null;destination=IntVec3.Invalid;
+            if(!IsDebris(chunk) || !chunk.Spawned || chunk.Map!=map)return false;
+            int best=int.MaxValue;
+            foreach(Pawn candidate in op.Squad)
+            {
+                if(candidate==engineer || candidate==refueler || !RHFRescuePlannerS41.ActiveForRoleS41(candidate,map) ||
+                   candidate.Faction!=op.PodCargoOwnerFactionS311 || candidate.InMentalState || candidate.carryTracker==null ||
+                   candidate.carryTracker.CarriedThing!=null || RHFPodSupplyS41.HasCargo(op,candidate) ||
+                   RHFCombatPlannerV125.IsCombatEmergencyJob(candidate) || candidate.WorkTypeIsDisabled(WorkTypeDefOf.Hauling) ||
+                   candidate.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
+                   !candidate.CanReach(chunk,PathEndMode.ClosestTouch,Danger.Deadly))continue;
+                for(int dx=-7;dx<=7;dx++)for(int dz=-7;dz<=7;dz++)
+                {
+                    IntVec3 c=chunk.Position+new IntVec3(dx,0,dz);
+                    if(dx*dx+dz*dz<4 || (pocket!=null && !pocket.Contains(c)) ||
+                       !SafeDrop(op,map,c,candidate) || !candidate.CanReach(c,PathEndMode.OnCell,Danger.Deadly))continue;
+                    int score=(candidate.Position-chunk.Position).LengthHorizontalSquared+dx*dx+dz*dz+
+                        (candidate.skills?.GetSkill(SkillDefOf.Construction)?.Level??0)*40+
+                        (op.PodCell.IsValid && op.PodCell.Roofed(map) && !c.Roofed(map)?10000:0);
+                    if(score>=best)continue;
+                    best=score;worker=candidate;destination=c;
+                }
+            }
+            return worker!=null;
+        }
+        internal static bool SafeDrop(RHFOperation op,Map map,IntVec3 cell,Pawn worker)
+        {
+            HashSet<IntVec3> pocket=RHFPodSupplyS41.SealPocketR044(op);
+            if(!cell.IsValid || !cell.InBounds(map) || !cell.Standable(map) || cell.GetFirstBuilding(map)!=null ||
+               (pocket!=null && !pocket.Contains(cell)) ||
+               cell==op.BarricadeCell || NJRPodSiteClearS41.ReservedFootprint(op,cell) ||
+               (cell.GetFirstPawn(map)!=null && cell.GetFirstPawn(map)!=worker) ||
+               (op.Vip!=null && op.Vip.Spawned && (cell-op.Vip.Position).LengthHorizontalSquared<4) ||
+               RHFObjectiveRouteV128.StagingExposedToTurret(map,cell))return false;
+            foreach(Thing item in map.thingGrid.ThingsListAt(cell))if(item.def.category==ThingCategory.Item)return false;
+            int free=0;
+            for(int i=0;i<4;i++)
+            {
+                IntVec3 n=RHFObjectiveRouteV128.CardinalR044(cell,i);
+                if(!n.InBounds(map))continue;
+                if(n.GetEdifice(map) is Building_Door)return false;
+                if(n.Walkable(map))free++;
+            }
+            return free>0 && (free==1 || LocalBypass(map,cell));
+        }
         internal static bool TryStart(RHFOperation op,Map map,Pawn vip,int now)
         {
             if(op==null || !op.FortifyPrison || op.Phase!=3 || op.PodConstructionStage!=0)return false;
@@ -86,25 +177,12 @@ namespace RaidersHaveFamilies
                     for(int dx=-7;dx<=7;dx++)for(int dz=-7;dz<=7;dz++)
                     {
                         IntVec3 cell=chunk.Position+new IntVec3(dx,0,dz);
-                        if(dx*dx+dz*dz<9 || !cell.InBounds(map) || !cell.Standable(map) ||
-                           cell.GetFirstBuilding(map)!=null || cell.GetFirstPawn(map)!=null ||
-                           (cell-vip.Position).LengthHorizontalSquared<16 ||
-                           RHFObjectiveRouteV128.StagingExposedToTurret(map,cell))continue;
-                        bool occupied=false;
-                        foreach(Thing item in map.thingGrid.ThingsListAt(cell))
-                            if(item.def.category==ThingCategory.Item){occupied=true;break;}
-                        if(occupied)continue;
-                        int free=0;bool door=false;
-                        for(int i=0;i<4;i++)
-                        {
-                            IntVec3 near=RHFObjectiveRouteV128.CardinalR044(cell,i);
-                            if(!near.InBounds(map))continue;
-                            if(near.GetEdifice(map) is Building_Door)door=true;
-                            if(near.Walkable(map))free++;
-                        }
-                        // Never drop debris in a one-cell through corridor or next to a door.
-                        if(door || free==0 || (free>1 && !LocalBypass(map,cell)) ||
+                        if(dx*dx+dz*dz<9 || (cell-vip.Position).LengthHorizontalSquared<16 ||
+                           !SafeDrop(op,map,cell,candidate) ||
                            !candidate.CanReach(cell,PathEndMode.OnCell,Danger.Deadly))continue;
+                        int free=0;
+                        for(int i=0;i<4;i++)
+                        {IntVec3 n=RHFObjectiveRouteV128.CardinalR044(cell,i);if(n.InBounds(map) && n.Walkable(map))free++;}
                         int score=free*500+(candidate.Position-chunk.Position).LengthHorizontalSquared+dx*dx+dz*dz;
                         if(score<bestScore){bestScore=score;best=chunk;worker=candidate;destination=cell;}
                     }
