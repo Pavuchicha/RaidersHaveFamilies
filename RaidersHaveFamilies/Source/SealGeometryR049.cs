@@ -11,12 +11,14 @@ namespace RaidersHaveFamilies
         private readonly HashSet<IntVec3> passable=new HashSet<IntVec3>();
         private readonly HashSet<IntVec3> doors=new HashSet<IntVec3>();
         private readonly HashSet<IntVec3> exterior=new HashSet<IntVec3>();
+        private readonly HashSet<IntVec3> unroofed=new HashSet<IntVec3>();
         private readonly HashSet<IntVec3> seeds=new HashSet<IntVec3>();
         private readonly HashSet<IntVec3> interior;
         private readonly HashSet<IntVec3> gates;
         private readonly Dictionary<IntVec3,int> baseline;
         internal int SeedCount=>seeds.Count;
         internal int ExteriorCount=>exterior.Count;
+        internal bool HasShelteredSeed { get; private set; }
         internal SealGeometryR049(RHFOperation op,Map map)
         {
             // Use the true 1x2 launcher rotation and pod footprint, not only their origins.
@@ -28,13 +30,45 @@ namespace RaidersHaveFamilies
                 if(!door && !c.Walkable(map) && !NJRVipDebrisR045.ClearableCell(op,map,c))continue;
                 passable.Add(c);
                 if(door)doors.Add(c);
-                if(!c.Roofed(map))exterior.Add(c);
+                if(!c.Roofed(map))unroofed.Add(c);
+            }
+            // The pod crew deliberately removes the roof. A skylight in an
+            // enclosed room is not an exterior ingress. Trace the genuinely
+            // exposed ground from the perimeter, without walking through doors.
+            var outside=new Queue<IntVec3>();
+            foreach(IntVec3 c in unroofed)
+            {
+                if(doors.Contains(c))continue;
+                if(Math.Abs(c.x-op.PodCell.x)==20 || Math.Abs(c.z-op.PodCell.z)==20 ||
+                   c.x==0 || c.z==0 || c.x==map.Size.x-1 || c.z==map.Size.z-1)
+                    if(exterior.Add(c))outside.Enqueue(c);
+            }
+            while(outside.Count>0)
+            {
+                IntVec3 c=outside.Dequeue();
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 n=RHFObjectiveRouteV128.CardinalR044(c,d);
+                    if(unroofed.Contains(n) && !doors.Contains(n) && exterior.Add(n))outside.Enqueue(n);
+                }
             }
             for(int d=0;d<4;d++)
             {
                 IntVec3 c=RHFObjectiveRouteV128.CardinalR044(op.PodCell,d);
-                if(passable.Contains(c) && !doors.Contains(c) && !exterior.Contains(c) && c.Standable(map))seeds.Add(c);
+                if(passable.Contains(c) && !doors.Contains(c) && c.Standable(map))seeds.Add(c);
             }
+            // Actual boarding square is the anchor, regardless of roofing.
+            // If all immediate squares have loose chunks, permit prospective
+            // geometry; CanSealR041 still requires a real free work square.
+            if(seeds.Count==0)
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 c=RHFObjectiveRouteV128.CardinalR044(op.PodCell,d);
+                    if(passable.Contains(c) && !doors.Contains(c) &&
+                       NJRVipDebrisR045.ClearableCell(op,map,c))seeds.Add(c);
+                }
+            foreach(IntVec3 c in seeds)if(!exterior.Contains(c))HasShelteredSeed=true;
+            exterior.ExceptWith(seeds);
             gates=Gates(IntVec3.Invalid,out interior);
             // Exterior trace may traverse hostile doors, but never the defended room.
             var sources=Distances(exterior,IntVec3.Invalid,interior);

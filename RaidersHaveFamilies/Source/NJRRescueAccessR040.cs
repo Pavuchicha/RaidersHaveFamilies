@@ -705,7 +705,7 @@ namespace RaidersHaveFamilies
                 if(!soldier && !beast && !freed)continue;
                 if(other!=null)
                 {
-                    if(!op.FortifyPrison || op.Targets?.Contains(other)==true)return;
+                    if(!op.FortifyPrison)return;
                     // Actual recent damage authorizes a bounded melee response, even
                     // when the prisoner immediately goes back to a Wander job.
                     if(soldier && !freed && NJRPrisonerDefenseR047.MayDefend(op,pawn,other))
@@ -718,10 +718,9 @@ namespace RaidersHaveFamilies
                         __0=JobMaker.MakeJob(JobDefOf.Goto,away);__0.expiryInterval=180;
                         return;
                     }
-                    bool activeThreat=other.jobs?.curJob?.targetA.Thing==pawn &&
-                        (other.jobs.curJob.def?.defName??"").StartsWith("Attack");
-                    if(freed || !activeThreat)
-                    {__0=JobMaker.MakeJob(JobDefOf.Wait,pawn.Position);__0.expiryInterval=30;}
+                    // No verified incoming contact: never initiate an attack
+                    // on another captive, even if vanilla considers them hostile.
+                    __0=JobMaker.MakeJob(JobDefOf.Wait,pawn.Position);__0.expiryInterval=30;
                     return;
                 }
                 RHFOrderS41 order=op.BoardS41?.For(pawn,false);

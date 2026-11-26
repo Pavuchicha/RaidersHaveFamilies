@@ -551,14 +551,20 @@ namespace RaidersHaveFamilies
                !op.FortifyPrison || op.BarricadesBuilt>=2)return null;
             ThingDef requested=ThingDefOf.Wall;
             Room protectedRoom=ProtectedPodRoomR041(op);
-            if((protectedRoom==null || protectedRoom.PsychologicallyOutdoors) &&
-               !NJRRescueInteriorS41.ShelteredPadR043(map,op.PodLauncherCell,op.PodCell))return null;
+            // A launch roof clearance must not revoke the previously chosen
+            // enclosed site. The geometry below verifies structural shelter.
             if(!op.BarricadeCell.IsValid)
             {
                 // Retry after cargo unloading, a door breach or room topology change.
-                if(op.FortifyStartedTick>0 && now-op.FortifyStartedTick<600)return null;
+                if(op.FortifyStartedTick>0 && now-op.FortifyStartedTick<150)return null;
                 IntVec3 best=IntVec3.Invalid;ThingDef bestDef=null;int bestScore=int.MaxValue;int candidates=0,viable=0,noBenefit=0,noPocket=0,noWorker=0;
                 var geometry=new SealGeometryR049(op,map);
+                if(!geometry.HasShelteredSeed)
+                {
+                    op.FortifyStartedTick=now;
+                    Log.Message("[NJR][R050][Fortify] no sheltered work anchor; seeds="+geometry.SeedCount+" exterior="+geometry.ExteriorCount);
+                    return null;
+                }
                 for(int radius=1;radius<=12;radius++)
                 for(int dx=-radius;dx<=radius;dx++)
                 for(int dz=-radius;dz<=radius;dz++)
@@ -566,7 +572,6 @@ namespace RaidersHaveFamilies
                     if(Math.Max(Math.Abs(dx),Math.Abs(dz))!=radius)continue;
                     IntVec3 cell=op.PodLauncherCell+new IntVec3(dx,0,dz);
                     if(!NJRVipDebrisR045.ClearableCell(op,map,cell) ||
-                       !cell.Roofed(map) ||
                        op.CompletedBarricades.Contains(cell) ||
                        NJRPodSiteClearS41.ReservedFootprint(op,cell))continue;
                     Pawn occupant=cell.GetFirstPawn(map);
@@ -592,7 +597,7 @@ namespace RaidersHaveFamilies
                     int benefit=geometry.Benefit(cell);
                     if(benefit<=0){noBenefit++;continue;}
                     if(!CanSealR041(op,vip,cell,protectedRoom,out HashSet<IntVec3> candidatePocket))
-                    {noPocket++;Log.Message("[NJR][R049][Fortify] useful but unsafe cell="+cell+" benefit="+benefit);continue;}
+                    {noPocket++;Log.Message("[NJR][R050][Fortify] useful but unsafe cell="+cell+" benefit="+benefit);continue;}
                     ThingDef material=ThingDefOf.Wall;
                     Pawn worker=NativeEngineerS311(op,cell,engineer,refueler,prepare:false);
                     if(worker==null || !worker.CanReach(cell,PathEndMode.Touch,Danger.Deadly))
@@ -606,11 +611,11 @@ namespace RaidersHaveFamilies
                 op.FortifyStartedTick=now;
                 if(!best.IsValid)
                 {
-                    Log.Message("[NJR][R049][Fortify] no geometric seal yet; candidates="+candidates+" viable="+viable+" noBenefit="+noBenefit+" noPocket="+noPocket+" noWorker="+noWorker+" seeds="+geometry.SeedCount+" exterior="+geometry.ExteriorCount);
+                    Log.Message("[NJR][R050][Fortify] no geometric seal yet; candidates="+candidates+" viable="+viable+" noBenefit="+noBenefit+" noPocket="+noPocket+" noWorker="+noWorker+" seeds="+geometry.SeedCount+" exterior="+geometry.ExteriorCount);
                     return null;
                 }
                 op.BarricadeCell=best;requested=bestDef;
-                Log.Message("[NJR][R049][Fortify] selected="+best+" score="+bestScore+" viable="+viable+" noBenefit="+noBenefit+" noPocket="+noPocket+" noWorker="+noWorker);
+                Log.Message("[NJR][R050][Fortify] selected="+best+" score="+bestScore+" viable="+viable+" noBenefit="+noBenefit+" noPocket="+noPocket+" noWorker="+noWorker);
             }
             IntVec3 target=op.BarricadeCell;
             foreach(Thing item in map.thingGrid.ThingsListAt(target))
@@ -636,7 +641,10 @@ namespace RaidersHaveFamilies
             if(!NJRVipDebrisR045.ClearableCell(op,map,target) || NJRPodSiteClearS41.ReservedFootprint(op,target))
             {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
             if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> pocket) || new SealGeometryR049(op,map).Benefit(target)<=0)
-            {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
+            {
+                Log.Message("[NJR][R050][Fortify] selected cell invalidated by pocket/topology: "+target);
+                op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;
+            }
             RHFPodSupplyS41.RememberSealPocketR044(op,target,pocket);
             if(!SealLogisticsR044(op,target,pocket,engineer,refueler,out mover,out cargo,out destination))
             {
@@ -653,7 +661,7 @@ namespace RaidersHaveFamilies
                (NativeAliveS311(refueler,map) && !pocket.Contains(refueler.Position)))return null;
             if(target.GetFirstPawn(map)!=null || NativeEngineerS311(op,target,engineer,refueler,prepare:false,pocket:pocket)==null)
             {
-                if(now-op.FortifyStartedTick>=600){Log.Message("[NJR][R049][Fortify] awaiting empty target/inside builder: "+target);op.FortifyStartedTick=now;}
+                if(now-op.FortifyStartedTick>=600){Log.Message("[NJR][R050][Fortify] awaiting empty target/inside builder: "+target);op.FortifyStartedTick=now;}
                 return null;
             }
             try

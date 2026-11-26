@@ -1,0 +1,3 @@
+Распаковать поверх корня репозитория R049. GitHub Desktop: Commit to main -> Push origin.
+Summary: R050: Fix roofless VIP seals and squad prisoner defense
+Тест №16: реальная стена, R050 Fortify (seeds > 0, selected, blueprint, completed), R050 PrisonerDefense (incoming, assist), VIP и отход. Сборку DLL проверить в CI.

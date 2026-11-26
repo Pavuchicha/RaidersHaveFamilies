@@ -44,7 +44,7 @@ assert 'now-op.PhaseStartTick<1800' in vp and 'now-op.PodStageStartedTickS311<45
 assert vp.index('bool direct=FindFieldConstructionSite(vip,launcherDef,podDef,')<vp.index('no physical build site or recoverable access route after retry')
 assert 'footprintRejected=' in ac and 'laneRejected=' in ac
 assert 'op.NativeAnimalsS41?.Contains(pawn)==true' in ac and 'DisengageR042(pawn,other)' in ac
-assert 'other.jobs?.curJob?.targetA.Thing==pawn' in ac
+assert 'NJRPrisonerDefenseR047.MayDefend' in ac and 'No verified incoming contact' in ac
 assert 'op.FortifyPrison?Search(map,navigator,0,true,true,true,op)' in ac
 assert 'op.FortifyPrison && NJRRescueAccessR040.TryExitAccess' in rp
 assert 'refueler=NativeRefuelerR041(op,engineer)' in vp and 'fortifier!=engineer' in pp

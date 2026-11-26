@@ -28,7 +28,7 @@ assert 'board.Assign(soldier,RHFRoleS41.Advance,captive,IntVec3.Invalid,now);' i
 assert 'if(!route.Valid)obstacle=null;' in plan
 assert 'op.PodConstructionStage>=1 &&' in fort
 assert 'CanSealR041(op,vip,cell,protectedRoom,out HashSet<IntVec3> candidatePocket)' in fort
-assert 'adjacentDoor' in fort and '!cell.Roofed(map)' in fort and 'CanSealR041(op,vip,cell,protectedRoom,out HashSet<IntVec3> candidatePocket)' in fort
+assert 'adjacentDoor' in fort and 'geometry.HasShelteredSeed' in fort and 'CanSealR041(op,vip,cell,protectedRoom,out HashSet<IntVec3> candidatePocket)' in fort
 assert 'NJRPodSiteClearS41.Blocker(op,map,launcherDef,podDef,vip)' not in fort
 assert 'NJRRescueExitS41.Choose(map,op,navigator)' in (S/'RHFRescuePlannerS41.cs').read_text()
 assert '_release/NJR-NotJustRaiders' in release
