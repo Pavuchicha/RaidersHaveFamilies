@@ -26,7 +26,7 @@ assert 'JobDefOf.AttackMelee' in d and 'job.expiryInterval=90' in d
 assert 'AccessSlotR047' in ac and 'priorOrder?.Objective==barrier' in ac
 assert 'fallbackSlotsR047' in rp and 'TryExitDebrisR047' in rp
 assert 'corridor.BarrierAt(corridor.Exit)' in ac and 'TryMove(op,map,chunk,null,null,null' in ac
-assert 'op.Phase==2 && op.FortifyPrison && op.PodLaunchCompleted' in driver
+assert 'op.Phase==2 && op.PodLaunchCompleted' in driver
 # simple state model tests for the actual transition, not pathfinder emulation
 pocket={(121,151),(122,151),(123,152)};vip=(118,152);builder=(121,151);refueler=(122,151)
 def seal_ready(v,b,f,cargo_clear):return v in pocket and b in pocket and f in pocket and cargo_clear

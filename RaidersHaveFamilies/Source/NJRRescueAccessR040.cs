@@ -62,6 +62,7 @@ namespace RaidersHaveFamilies
         }
         private static Pawn SelectAccessOperatorR047(RHFOperation op,Map map,Thing barrier,HashSet<Pawn> excluded,HashSet<IntVec3> used)
         {
+            if(op.FortifyPrison)return SelectVipPairR048(op,map,barrier,excluded,used,null,out _);
             Pawn normal=RHFCombatPlannerV125.SelectBreachOperator(op,map,barrier,excluded);
             if(normal!=null || !op.FortifyPrison || op.Phase!=2)return normal;
             Pawn best=null;int score=int.MinValue;
@@ -76,12 +77,14 @@ namespace RaidersHaveFamilies
             }
             return best;
         }
-        private static IntVec3 AccessSlotR047(RHFOperation op,Pawn actor,Thing barrier,Map map,HashSet<IntVec3> used,IntVec3 previous)
+        internal static IntVec3 AccessSlotR047(RHFOperation op,Pawn actor,Thing barrier,Map map,HashSet<IntVec3> used,IntVec3 previous)
         {
-            IntVec3 slot=NJRRescueFormationR032.BreachSlot(actor,barrier,map,used,op.Squad,true,previous,true);
-            if(slot.IsValid || !op.FortifyPrison || op.Phase!=2)return slot;
-            // The retreat door may be around a bend and in another Room. A
-            // native reachable cardinal strike square is enough for exit work.
+            IntVec3 slot=IntVec3.Invalid;
+            if(!op.FortifyPrison || !(barrier is Building_Door))
+                slot=NJRRescueFormationR032.BreachSlot(actor,barrier,map,used,op.Squad,true,previous,true);
+            if(slot.IsValid || !op.FortifyPrison || (op.Phase!=1 && op.Phase!=2 && op.Phase!=3))return slot;
+            // A native reachable cardinal strike square is enough: a turn
+            // around a wall must not be rejected as a blocked straight ray.
             int best=int.MaxValue;
             for(int d=0;d<4;d++)
             {
@@ -95,6 +98,66 @@ namespace RaidersHaveFamilies
                 if(cost<best){best=cost;slot=cell;}
             }
             return slot;
+        }
+        // R048: choose a pawn AND a working strike cell, not a nominal axe
+        // holder who cannot reach any of the actual squares beside the door.
+        internal static Pawn SelectVipPairR048(RHFOperation op,Map map,Thing barrier,
+            HashSet<Pawn> excluded,HashSet<IntVec3> used,Pawn preferred,out IntVec3 slot)
+        {
+            slot=IntVec3.Invalid;Pawn best=null;int score=int.MinValue;
+            foreach(Pawn p in op.Squad)
+            {
+                if(!Active(p,map) || excluded.Contains(p) || RHFCombatPlannerV125.IsCombatEmergencyJob(p) ||
+                   p.WorkTagIsDisabled(WorkTags.Violent) || p.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true)continue;
+                RHFOrderS41 previous=op.BoardS41?.For(p,false);
+                IntVec3 c=AccessSlotR047(op,p,barrier,map,used,
+                    previous?.Objective==barrier?previous.Cell:IntVec3.Invalid);
+                if(!c.IsValid)continue;
+                int rank=(RHFTactical.IsBreachAxe(p)?10000:0)+(p.equipment?.Primary?.def?.IsMeleeWeapon==true?1200:0)+
+                    (p.skills?.GetSkill(SkillDefOf.Melee)?.Level??0)*15-(p.Position-c).LengthHorizontalSquared*4+
+                    (p==preferred?20000:0);
+                if(rank>score){score=rank;best=p;slot=c;}
+            }
+            return best;
+        }
+        internal static bool TryEntryDebrisR048(RHFOperation op,Map map,RHFRoutePlanV128 route,int now)
+        {
+            if(!op.FortifyPrison || op.Phase!=1 || !route.Valid || route.FirstBarrierIndex<0 ||
+               route.Cells==null || route.FirstBarrierIndex>=route.Cells.Count)return false;
+            var board=op.BoardS41;
+            Pawn mover=null;Thing chunk=null;IntVec3 dest=IntVec3.Invalid;
+            foreach(Pawn p in op.Squad)
+            {
+                if(!Active(p,map) || p.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044")continue;
+                RHFOrderS41 prior=board.For(p,false);
+                if(prior?.Objective==null || !NJRVipDebrisR045.IsDebris(prior.Objective))continue;
+                mover=p;chunk=prior.Objective;dest=prior.Cell;break;
+            }
+            if(mover==null)
+            {
+                var forbidden=new HashSet<IntVec3>(route.Cells);
+                foreach(IntVec3 offset in NJRRescueFormationR032.Adjacent)forbidden.Add(route.FirstBarrier.Position+offset);
+                for(int i=Math.Max(0,route.FirstBarrierIndex-12);i<route.FirstBarrierIndex;i++)
+                {
+                    Thing obstruction=NJRVipDebrisR045.DebrisAt(map,route.Cells[i]);
+                    if(obstruction==null || !NJRVipDebrisR045.TryMove(op,map,obstruction,null,null,null,out mover,out dest,forbidden))continue;
+                    chunk=obstruction;break;
+                }
+                if(mover==null)return false;
+                Log.Message("[NJR][R048][Entry] clear route debris "+chunk.Position+" -> "+dest);
+            }
+            board.Breacher=null;board.Barrier=null;
+            var used=new HashSet<IntVec3>{dest};
+            foreach(Pawn p in op.Squad)
+            {
+                if(!Active(p,map))continue;
+                if(p==mover){board.Assign(p,RHFRoleS41.PodSupply,chunk,dest,now);continue;}
+                IntVec3 c=NJRRescueFormationR032.SpreadNear(p,p.Position,map,used,0,4,true);
+                if(c.IsValid){used.Add(c);board.Assign(p,RHFRoleS41.Screen,null,c,now);}
+                else board.Assign(p,RHFRoleS41.Hold,null,p.Position,now);
+            }
+            board.Decision="R048 clear actual entry corridor";board.NextReplanTick=now+90;board.LastPlanTick=now;
+            return true;
         }
         // A safe local interior bend is legal even if the two endpoints do not
         // have straight LOS. Check actual native reachability in BreachSlot too.

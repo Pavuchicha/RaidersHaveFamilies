@@ -588,7 +588,7 @@ namespace RaidersHaveFamilies
             // A perfectly costed route is useless if its first demolition
             // cannot be executed by any soldier. Try ONE alternative plan
             // excluding this barrier instead of waiting 27,000 ticks.
-            if(obstacle!=null &&
+            if(obstacle!=null && !op.FortifyPrison &&
                RHFCombatPlannerV125.SelectBreachOperator(op,map,obstacle,
                    escortedDuringAssault)==null)
             {
@@ -638,6 +638,10 @@ namespace RaidersHaveFamilies
                 return;
             }
             if(NJRRescueFirebreakR034.TryControl(op,map,board,route,routeGun,escortedDuringAssault,now))
+            {CancelObsoleteStructureJobs(op,map,board);return;}
+            if(op.FortifyPrison && obstacle!=null && op.Squad.Exists(p=>Active(p,map) &&
+                p.jobs?.curJob?.def?.defName=="NJR_MoveSealCargoR044") &&
+                NJRRescueAccessR040.TryEntryDebrisR048(op,map,route,now))
             {CancelObsoleteStructureJobs(op,map,board);return;}
             bool firebreakBeforeBreach=route.Valid && !route.RiskFallback &&
                 route.FirstTurretExposureIndex>=0 &&
@@ -710,6 +714,23 @@ namespace RaidersHaveFamilies
                 {
                     IntVec3 cell=obstacle.Position+offset;
                     if(NJRRescueFormationR032.StrikeCell(map,obstacle,cell,board.Breacher))allocated.Add(cell);
+                }
+            }
+            // R048: the route is not executable merely because it names a door.
+            // If nominal allocation is empty, use another reachable cardinal
+            // operator (including a rifle butt), or physically clear the prefix.
+            if(op.FortifyPrison && obstacle!=null && !firebreakBeforeBreach && breachSlots.Count==0)
+            {
+                var blocked=new HashSet<Pawn>(escortedDuringAssault);
+                var strikeUsed=new HashSet<IntVec3>();
+                Pawn actor= NJRRescueAccessR040.SelectVipPairR048(op,map,obstacle,blocked,strikeUsed,board.Breacher,out IntVec3 cell);
+                bool hauling=op.Squad.Exists(p=>Active(p,map) && p.jobs?.curJob?.def?.defName=="NJR_MoveSealCargoR044");
+                if((hauling || actor==null) && NJRRescueAccessR040.TryEntryDebrisR048(op,map,route,now))
+                {CancelObsoleteStructureJobs(op,map,board);return;}
+                if(actor!=null)
+                {
+                    board.Breacher=actor;breachSlots.Add(actor,cell);allocated.Add(cell);
+                    NJRRescueRallyR033.NoteOnce(op,"[NJR][R048][Entry] executable door operator="+actor.LabelShortCap+" slot="+cell,obstacle.thingIDNumber^480018);
                 }
             }
             int screened=0;

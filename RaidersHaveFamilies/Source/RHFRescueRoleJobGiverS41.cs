@@ -198,7 +198,7 @@ namespace RaidersHaveFamilies
             // BEFORE following Goto waypoints. Escorts defend locally without
             // abandoning their VIP; convoy guards manoeuvre only if needed.
             RHFRoleS41 role=(RHFRoleS41)order.Role;
-            if(op.Phase==2 && op.FortifyPrison && op.PodLaunchCompleted && role==RHFRoleS41.PodSupply &&
+            if(op.FortifyPrison && (op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)) && role==RHFRoleS41.PodSupply &&
                NJRVipDebrisR045.IsDebris(order.Objective) && order.Objective.Spawned && order.Cell.IsValid)
             {
                 JobDef move=DefDatabase<JobDef>.GetNamedSilentFail("NJR_MoveSealCargoR044");

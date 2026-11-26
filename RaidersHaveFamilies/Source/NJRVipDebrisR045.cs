@@ -108,7 +108,7 @@ namespace RaidersHaveFamilies
         // Only a dedicated free soldier may move chunks; never steal the
         // primary builder or the concurrent refueler. No demolition, no teleport.
         internal static bool TryMove(RHFOperation op,Map map,Thing chunk,HashSet<IntVec3> pocket,
-            Pawn engineer,Pawn refueler,out Pawn worker,out IntVec3 destination)
+            Pawn engineer,Pawn refueler,out Pawn worker,out IntVec3 destination,HashSet<IntVec3> forbidden=null)
         {
             worker=null;destination=IntVec3.Invalid;
             if(!IsDebris(chunk) || !chunk.Spawned || chunk.Map!=map)return false;
@@ -117,14 +117,14 @@ namespace RaidersHaveFamilies
             {
                 if(candidate==engineer || candidate==refueler || !RHFRescuePlannerS41.ActiveForRoleS41(candidate,map) ||
                    candidate.Faction!=op.PodCargoOwnerFactionS311 || candidate.InMentalState || candidate.carryTracker==null ||
-                   candidate.carryTracker.CarriedThing!=null || RHFPodSupplyS41.HasCargo(op,candidate) ||
+                   candidate.carryTracker.CarriedThing!=null || (op.Phase!=1 && RHFPodSupplyS41.HasCargo(op,candidate)) ||
                    RHFCombatPlannerV125.IsCombatEmergencyJob(candidate) || candidate.WorkTypeIsDisabled(WorkTypeDefOf.Hauling) ||
                    candidate.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
                    !candidate.CanReach(chunk,PathEndMode.ClosestTouch,Danger.Deadly))continue;
                 for(int dx=-7;dx<=7;dx++)for(int dz=-7;dz<=7;dz++)
                 {
                     IntVec3 c=chunk.Position+new IntVec3(dx,0,dz);
-                    if(dx*dx+dz*dz<4 || (pocket!=null && !pocket.Contains(c)) ||
+                    if(dx*dx+dz*dz<4 || (forbidden!=null && forbidden.Contains(c)) || (pocket!=null && !pocket.Contains(c)) ||
                        !SafeDrop(op,map,c,candidate) || !candidate.CanReach(c,PathEndMode.OnCell,Danger.Deadly))continue;
                     int score=(candidate.Position-chunk.Position).LengthHorizontalSquared+dx*dx+dz*dz+
                         (candidate.skills?.GetSkill(SkillDefOf.Construction)?.Level??0)*40+

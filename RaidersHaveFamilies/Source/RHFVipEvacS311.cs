@@ -481,6 +481,83 @@ namespace RaidersHaveFamilies
             }
             return false;
         }
+        // R048: an attractive throat is not necessarily a defensive seal.
+        // From a real boarding/work square count doors and exterior approaches
+        // accessible WITHOUT crossing another door. Chunks are movable, but
+        // completed walls and reserved pad footprints are solid in this graph.
+        private HashSet<IntVec3> SealGatesR048(RHFOperation op,IntVec3 seed,IntVec3 blocked,
+            out HashSet<IntVec3> interior)
+        {
+            interior=new HashSet<IntVec3>();
+            var gates=new HashSet<IntVec3>();var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
+            if(!seed.IsValid || seed==blocked)return gates;
+            seen.Add(seed);interior.Add(seed);queue.Enqueue(seed);
+            while(queue.Count>0)
+            {
+                IntVec3 at=queue.Dequeue();
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 c=RHFObjectiveRouteV128.CardinalR044(at,d);
+                    if(!c.InBounds(map) || c==blocked || !seen.Add(c) ||
+                       Math.Abs(c.x-op.PodCell.x)>16 || Math.Abs(c.z-op.PodCell.z)>16 ||
+                       NJRPodSiteClearS41.ReservedFootprint(op,c))continue;
+                    if(c.GetEdifice(map) is Building_Door){gates.Add(c);continue;}
+                    if(!c.Walkable(map) && !NJRVipDebrisR045.ClearableCell(op,map,c))continue;
+                    if(!c.Roofed(map)){gates.Add(c);continue;}
+                    interior.Add(c);queue.Enqueue(c);
+                }
+            }
+            return gates;
+        }
+        // Doors into a dead-end closet or already-connected interior do not
+        // defend the pad. Trace the opposite side back to an exterior approach
+        // without using the protected interior as a shortcut.
+        private HashSet<IntVec3> ExteriorSealApproachR048(RHFOperation op,HashSet<IntVec3> interior)
+        {
+            var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
+            bool Traversable(IntVec3 c)=>c.InBounds(map) && !interior.Contains(c) &&
+                Math.Abs(c.x-op.PodCell.x)<=16 && Math.Abs(c.z-op.PodCell.z)<=16 &&
+                !NJRPodSiteClearS41.ReservedFootprint(op,c) &&
+                (c.GetEdifice(map) is Building_Door || c.Walkable(map) || NJRVipDebrisR045.ClearableCell(op,map,c));
+            for(int dx=-16;dx<=16;dx++)for(int dz=-16;dz<=16;dz++)
+            {
+                IntVec3 c=op.PodCell+new IntVec3(dx,0,dz);
+                if(Traversable(c) && !c.Roofed(map) && seen.Add(c))queue.Enqueue(c);
+            }
+            while(queue.Count>0)
+            {
+                IntVec3 at=queue.Dequeue();
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 c=RHFObjectiveRouteV128.CardinalR044(at,d);
+                    if(Traversable(c) && seen.Add(c))queue.Enqueue(c);
+                }
+            }
+            return seen;
+        }
+        private int SealBenefitR048(RHFOperation op,IntVec3 wall,HashSet<IntVec3> pocket)
+        {
+            IntVec3 seed=IntVec3.Invalid;
+            for(int d=0;d<4;d++)
+            {
+                IntVec3 c=RHFObjectiveRouteV128.CardinalR044(op.PodCell,d);
+                if(pocket.Contains(c) && c!=wall && c.Roofed(map) && c.Standable(map)) {seed=c;break;}
+            }
+            if(!seed.IsValid)return 0;
+            var before=SealGatesR048(op,seed,IntVec3.Invalid,out HashSet<IntVec3> interior);
+            var after=SealGatesR048(op,seed,wall,out _);
+            var exterior=ExteriorSealApproachR048(op,interior);
+            int benefit=0;
+            foreach(IntVec3 gate in before)
+            {
+                if(after.Contains(gate) || !exterior.Contains(gate))continue;
+                // An exterior-connected doorway is a much stronger reason
+                // to spend the wall budget than an isolated interior door.
+                bool door=gate.GetEdifice(map) is Building_Door;
+                benefit+=door?100:10;
+            }
+            return benefit;
+        }
         private bool SealLogisticsR044(RHFOperation op,IntVec3 wall,HashSet<IntVec3> pocket,
             Pawn engineer,Pawn refueler,out Pawn mover,out Thing cargo,out IntVec3 destination)
         {
@@ -594,14 +671,17 @@ namespace RaidersHaveFamilies
                     // The mission calls for an IMPASSABLE wall, not a shooting barricade.
                     // An adjacent door is a valid throat if the wall closes its approach.
                     candidates++;
-                    bool seal=(throat || adjacentDoor) && CanSealR041(op,vip,cell,protectedRoom,out _);
+                    HashSet<IntVec3> candidatePocket=null;
+                    bool seal=(throat || adjacentDoor) && CanSealR041(op,vip,cell,protectedRoom,out candidatePocket);
                     if(!seal)continue;
+                    int benefit=SealBenefitR048(op,cell,candidatePocket);
+                    if(benefit<=0)continue; // never wall a dead end or a bypassable throat
                     viable++;
                     ThingDef material=ThingDefOf.Wall;
                     Pawn worker=NativeEngineerS311(op,cell,prepare:false);
                     if(worker==null || !worker.CanReach(cell,PathEndMode.Touch,Danger.Some))continue;
                     bool realGap=(n&&s)||(e&&w);
-                    int score=(realGap?0:throat?500:1000)+(adjacentDoor?0:100)+radius*20+
+                    int score=-Math.Min(1000,benefit)*1000+(adjacentDoor?0:2000)+(realGap?0:throat?500:1000)+radius*20+
                         (vip.Position-cell).LengthHorizontalSquared;
                     if(score<bestScore){best=cell;bestDef=material;bestScore=score;}
                 }
@@ -636,7 +716,7 @@ namespace RaidersHaveFamilies
             }
             if(!NJRVipDebrisR045.ClearableCell(op,map,target) || NJRPodSiteClearS41.ReservedFootprint(op,target))
             {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
-            if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> pocket))
+            if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> pocket) || SealBenefitR048(op,target,pocket)<=0)
             {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
             RHFPodSupplyS41.RememberSealPocketR044(op,target,pocket);
             if(!SealLogisticsR044(op,target,pocket,engineer,refueler,out mover,out cargo,out destination))

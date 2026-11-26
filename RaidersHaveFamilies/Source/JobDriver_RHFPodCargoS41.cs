@@ -127,7 +127,7 @@ namespace RaidersHaveFamilies
         {return pawn.Reserve(job.GetTarget(TargetIndex.A),job,1,-1,null,errorOnFailed) &&
             pawn.Reserve(job.GetTarget(TargetIndex.B),job,1,-1,null,errorOnFailed);}
         private static bool MayCarryR047(RHFOperation op,bool debris)
-        {return op!=null && (op.Phase==3 || (debris && op.Phase==2 && op.FortifyPrison && op.PodLaunchCompleted));}
+        {return op!=null && (op.Phase==3 || (debris && op.FortifyPrison && (op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted))));}
 
         protected override IEnumerable<Toil> MakeNewToils()
         {
