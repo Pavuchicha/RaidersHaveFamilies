@@ -51,7 +51,7 @@ assert 'InFootprint(cell,op.PodCell,' in pod
 assert 'NJRPodSiteClearS41.ReservedFootprint(op,c)' in supply
 # Narrow actual passages, not decorative lawn walls, with bounded job time.
 assert 'if(!throat && !adjacentDoor)continue;' in air
-assert 'bool seal=(throat || adjacentDoor) && CanSealR041(op,vip,cell,protectedRoom,out candidatePocket)' in air
+assert 'CanSealR041(op,vip,cell,protectedRoom,out HashSet<IntVec3> candidatePocket)' in air
 assert 'reserved.Contains(c)' in air and '!seen.Contains(vip.Position)' in air
 assert 'op.PodStageStartedTickS311 = now;' in air
 print('PASS NJR S4.1 P0: safe entry, active rally, non-destructive pod, stable guards and real corridor checks (STATIC ONLY).')

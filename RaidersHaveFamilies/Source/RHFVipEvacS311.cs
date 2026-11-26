@@ -443,7 +443,7 @@ namespace RaidersHaveFamilies
                         IntVec3 c=RHFObjectiveRouteV128.CardinalR044(at,direction);
                         if(!c.InBounds(map) || c==wall || reserved.Contains(c) || seen.Contains(c) ||
                            Math.Abs(c.x-stand.x)>24 || Math.Abs(c.z-stand.z)>24)continue;
-                        if(!c.Walkable(map) || (c.GetEdifice(map) is Building_Door door && !door.Open))continue;
+                        if((!c.Walkable(map) && !NJRVipDebrisR045.ClearableCell(op,map,c)) || (c.GetEdifice(map) is Building_Door door && !door.Open))continue;
                         seen.Add(c);queue.Enqueue(c);
                     }
                 }
@@ -458,7 +458,7 @@ namespace RaidersHaveFamilies
                 foreach(IntVec3 tile in GenAdj.OccupiedRect(op.PodLauncherCell,
                     NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell),launcherDef.size))
                 for(int d3=0;d3<4;d3++)
-                    if(seen.Contains(RHFObjectiveRouteV128.CardinalR044(tile,d3)))launcherWork=true;
+                    if(seen.Contains(RHFObjectiveRouteV128.CardinalR044(tile,d3)) && RHFObjectiveRouteV128.CardinalR044(tile,d3).Standable(map))launcherWork=true;
                 if(!launcherWork)continue;
                 int crew=0,builders=0;
                 foreach(Pawn member in op.Squad)
@@ -480,83 +480,6 @@ namespace RaidersHaveFamilies
                 pocket=seen;return true;
             }
             return false;
-        }
-        // R048: an attractive throat is not necessarily a defensive seal.
-        // From a real boarding/work square count doors and exterior approaches
-        // accessible WITHOUT crossing another door. Chunks are movable, but
-        // completed walls and reserved pad footprints are solid in this graph.
-        private HashSet<IntVec3> SealGatesR048(RHFOperation op,IntVec3 seed,IntVec3 blocked,
-            out HashSet<IntVec3> interior)
-        {
-            interior=new HashSet<IntVec3>();
-            var gates=new HashSet<IntVec3>();var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
-            if(!seed.IsValid || seed==blocked)return gates;
-            seen.Add(seed);interior.Add(seed);queue.Enqueue(seed);
-            while(queue.Count>0)
-            {
-                IntVec3 at=queue.Dequeue();
-                for(int d=0;d<4;d++)
-                {
-                    IntVec3 c=RHFObjectiveRouteV128.CardinalR044(at,d);
-                    if(!c.InBounds(map) || c==blocked || !seen.Add(c) ||
-                       Math.Abs(c.x-op.PodCell.x)>16 || Math.Abs(c.z-op.PodCell.z)>16 ||
-                       NJRPodSiteClearS41.ReservedFootprint(op,c))continue;
-                    if(c.GetEdifice(map) is Building_Door){gates.Add(c);continue;}
-                    if(!c.Walkable(map) && !NJRVipDebrisR045.ClearableCell(op,map,c))continue;
-                    if(!c.Roofed(map)){gates.Add(c);continue;}
-                    interior.Add(c);queue.Enqueue(c);
-                }
-            }
-            return gates;
-        }
-        // Doors into a dead-end closet or already-connected interior do not
-        // defend the pad. Trace the opposite side back to an exterior approach
-        // without using the protected interior as a shortcut.
-        private HashSet<IntVec3> ExteriorSealApproachR048(RHFOperation op,HashSet<IntVec3> interior)
-        {
-            var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
-            bool Traversable(IntVec3 c)=>c.InBounds(map) && !interior.Contains(c) &&
-                Math.Abs(c.x-op.PodCell.x)<=16 && Math.Abs(c.z-op.PodCell.z)<=16 &&
-                !NJRPodSiteClearS41.ReservedFootprint(op,c) &&
-                (c.GetEdifice(map) is Building_Door || c.Walkable(map) || NJRVipDebrisR045.ClearableCell(op,map,c));
-            for(int dx=-16;dx<=16;dx++)for(int dz=-16;dz<=16;dz++)
-            {
-                IntVec3 c=op.PodCell+new IntVec3(dx,0,dz);
-                if(Traversable(c) && !c.Roofed(map) && seen.Add(c))queue.Enqueue(c);
-            }
-            while(queue.Count>0)
-            {
-                IntVec3 at=queue.Dequeue();
-                for(int d=0;d<4;d++)
-                {
-                    IntVec3 c=RHFObjectiveRouteV128.CardinalR044(at,d);
-                    if(Traversable(c) && seen.Add(c))queue.Enqueue(c);
-                }
-            }
-            return seen;
-        }
-        private int SealBenefitR048(RHFOperation op,IntVec3 wall,HashSet<IntVec3> pocket)
-        {
-            IntVec3 seed=IntVec3.Invalid;
-            for(int d=0;d<4;d++)
-            {
-                IntVec3 c=RHFObjectiveRouteV128.CardinalR044(op.PodCell,d);
-                if(pocket.Contains(c) && c!=wall && c.Roofed(map) && c.Standable(map)) {seed=c;break;}
-            }
-            if(!seed.IsValid)return 0;
-            var before=SealGatesR048(op,seed,IntVec3.Invalid,out HashSet<IntVec3> interior);
-            var after=SealGatesR048(op,seed,wall,out _);
-            var exterior=ExteriorSealApproachR048(op,interior);
-            int benefit=0;
-            foreach(IntVec3 gate in before)
-            {
-                if(after.Contains(gate) || !exterior.Contains(gate))continue;
-                // An exterior-connected doorway is a much stronger reason
-                // to spend the wall budget than an isolated interior door.
-                bool door=gate.GetEdifice(map) is Building_Door;
-                benefit+=door?100:10;
-            }
-            return benefit;
         }
         private bool SealLogisticsR044(RHFOperation op,IntVec3 wall,HashSet<IntVec3> pocket,
             Pawn engineer,Pawn refueler,out Pawn mover,out Thing cargo,out IntVec3 destination)
@@ -634,7 +557,8 @@ namespace RaidersHaveFamilies
             {
                 // Retry after cargo unloading, a door breach or room topology change.
                 if(op.FortifyStartedTick>0 && now-op.FortifyStartedTick<600)return null;
-                IntVec3 best=IntVec3.Invalid;ThingDef bestDef=null;int bestScore=int.MaxValue;int candidates=0,viable=0;
+                IntVec3 best=IntVec3.Invalid;ThingDef bestDef=null;int bestScore=int.MaxValue;int candidates=0,viable=0,noBenefit=0,noPocket=0,noWorker=0;
+                var geometry=new SealGeometryR049(op,map);
                 for(int radius=1;radius<=12;radius++)
                 for(int dx=-radius;dx<=radius;dx++)
                 for(int dz=-radius;dz<=radius;dz++)
@@ -649,37 +573,31 @@ namespace RaidersHaveFamilies
                     if(occupant!=null && (occupant==vip || !op.Squad.Contains(occupant)))continue;
                     bool n=SolidFlankS41(cell+IntVec3.North),s=SolidFlankS41(cell+IntVec3.South);
                     bool e=SolidFlankS41(cell+IntVec3.East),w=SolidFlankS41(cell+IntVec3.West);
-                    bool DoorAt(IntVec3 c)=>c.InBounds(map) && c.GetEdifice(map) is Building_Door;
+                    bool DoorAt(IntVec3 c)=>SealGeometryR049.DoorAt(map,c);
                     bool throat=(n&&(s||DoorAt(cell+IntVec3.South))) || (s&&DoorAt(cell+IntVec3.North)) ||
                                 (e&&(w||DoorAt(cell+IntVec3.West))) || (w&&DoorAt(cell+IntVec3.East));
-                    bool adjacentDoor=false,adjacentBreach=false;
+                    bool adjacentDoor=false;
                     for(int direction=0;direction<4;direction++)
                     {
                         IntVec3 near=RHFObjectiveRouteV128.CardinalR044(cell,direction);
-                        IntVec3 side=near-cell;
-                        if(near.InBounds(map) && near.GetEdifice(map) is Building_Door)
+                        if(DoorAt(near))
                         {
-                            IntVec3 flank=side.x!=0?IntVec3.North:IntVec3.East;
-                            if(SolidFlankS41(near+flank) && SolidFlankS41(near-flank))adjacentDoor=true;
+                            adjacentDoor=true; // R049: real gate adjacency is sufficient for geometric evaluation
                         }
-                        // A missing wall between real wall flanks is itself
-                        // the entrance opened by the assault; no door remains.
-                        if(near.InBounds(map) && near.Standable(map) && near.GetRoom(map)!=protectedRoom)
-                            adjacentBreach=true;
                     }
                     if(!throat && !adjacentDoor)continue;
                     // The mission calls for an IMPASSABLE wall, not a shooting barricade.
                     // An adjacent door is a valid throat if the wall closes its approach.
                     candidates++;
-                    HashSet<IntVec3> candidatePocket=null;
-                    bool seal=(throat || adjacentDoor) && CanSealR041(op,vip,cell,protectedRoom,out candidatePocket);
-                    if(!seal)continue;
-                    int benefit=SealBenefitR048(op,cell,candidatePocket);
-                    if(benefit<=0)continue; // never wall a dead end or a bypassable throat
-                    viable++;
+                    int benefit=geometry.Benefit(cell);
+                    if(benefit<=0){noBenefit++;continue;}
+                    if(!CanSealR041(op,vip,cell,protectedRoom,out HashSet<IntVec3> candidatePocket))
+                    {noPocket++;Log.Message("[NJR][R049][Fortify] useful but unsafe cell="+cell+" benefit="+benefit);continue;}
                     ThingDef material=ThingDefOf.Wall;
-                    Pawn worker=NativeEngineerS311(op,cell,prepare:false);
-                    if(worker==null || !worker.CanReach(cell,PathEndMode.Touch,Danger.Some))continue;
+                    Pawn worker=NativeEngineerS311(op,cell,engineer,refueler,prepare:false);
+                    if(worker==null || !worker.CanReach(cell,PathEndMode.Touch,Danger.Deadly))
+                    {noWorker++;continue;}
+                    viable++;
                     bool realGap=(n&&s)||(e&&w);
                     int score=-Math.Min(1000,benefit)*1000+(adjacentDoor?0:2000)+(realGap?0:throat?500:1000)+radius*20+
                         (vip.Position-cell).LengthHorizontalSquared;
@@ -688,10 +606,11 @@ namespace RaidersHaveFamilies
                 op.FortifyStartedTick=now;
                 if(!best.IsValid)
                 {
-                    Log.Message("[NJR][R044][Fortify] no geometric seal yet; candidates="+candidates+" viable="+viable);
+                    Log.Message("[NJR][R049][Fortify] no geometric seal yet; candidates="+candidates+" viable="+viable+" noBenefit="+noBenefit+" noPocket="+noPocket+" noWorker="+noWorker+" seeds="+geometry.SeedCount+" exterior="+geometry.ExteriorCount);
                     return null;
                 }
                 op.BarricadeCell=best;requested=bestDef;
+                Log.Message("[NJR][R049][Fortify] selected="+best+" score="+bestScore+" viable="+viable+" noBenefit="+noBenefit+" noPocket="+noPocket+" noWorker="+noWorker);
             }
             IntVec3 target=op.BarricadeCell;
             foreach(Thing item in map.thingGrid.ThingsListAt(target))
@@ -716,7 +635,7 @@ namespace RaidersHaveFamilies
             }
             if(!NJRVipDebrisR045.ClearableCell(op,map,target) || NJRPodSiteClearS41.ReservedFootprint(op,target))
             {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
-            if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> pocket) || SealBenefitR048(op,target,pocket)<=0)
+            if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> pocket) || new SealGeometryR049(op,map).Benefit(target)<=0)
             {op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=now;return null;}
             RHFPodSupplyS41.RememberSealPocketR044(op,target,pocket);
             if(!SealLogisticsR044(op,target,pocket,engineer,refueler,out mover,out cargo,out destination))
@@ -732,7 +651,11 @@ namespace RaidersHaveFamilies
             // active engineer. The published pocket drives their movement.
             if(!pocket.Contains(vip.Position) || (NativeAliveS311(engineer,map) && !pocket.Contains(engineer.Position)) ||
                (NativeAliveS311(refueler,map) && !pocket.Contains(refueler.Position)))return null;
-            if(target.GetFirstPawn(map)!=null || NativeEngineerS311(op,target,engineer,refueler,prepare:false,pocket:pocket)==null)return null;
+            if(target.GetFirstPawn(map)!=null || NativeEngineerS311(op,target,engineer,refueler,prepare:false,pocket:pocket)==null)
+            {
+                if(now-op.FortifyStartedTick>=600){Log.Message("[NJR][R049][Fortify] awaiting empty target/inside builder: "+target);op.FortifyStartedTick=now;}
+                return null;
+            }
             try
             {
                 Blueprint_Build plan=GenConstruct.PlaceBlueprintForBuild(

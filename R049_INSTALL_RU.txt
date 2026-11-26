@@ -1,0 +1,1 @@
+Распаковать поверх корня репозитория R048. GitHub Desktop: Commit to main -> Push origin. Summary: R049: Fix VIP fortification gate geometry. Дождаться успешной CI и скачать установочный ZIP. Тест №16: проверить реальную стену, лог R049 Fortify, VIP и отход.

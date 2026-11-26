@@ -42,6 +42,7 @@ assert 'SelectVipPairR048' in ac and 'if(!c.IsValid)continue;' in ac and 'actor.
 assert 'breachSlots.Count==0' in p and 'TryEntryDebrisR048' in p and 'breachSlots.Add(actor,cell)' in p
 assert 'route.FirstBarrierIndex-12' in ac and 'new HashSet<IntVec3>(route.Cells)' in ac and 'forbidden.Contains(c)' in d
 assert 'op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)' in j and 'op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)' in driver
-assert 'ExteriorSealApproachR048(op,interior)' in v and 'after.Contains(gate) || !exterior.Contains(gate)' in v
-assert 'if(benefit<=0)continue;' in v and 'SealBenefitR048(op,target,pocket)<=0' in v
+geom=(s/'SealGeometryR049.cs').read_text()
+assert 'gates.IntersectWith(sources.Keys)' in geom and 'if(!after.Contains(gate))' in geom
+assert 'if(benefit<=0){noBenefit++;continue;}' in v and 'new SealGeometryR049(op,map).Benefit(target)<=0' in v
 print('PASS R048: actual R047 geometry rejects both old seal cells, blocks exterior door at 124,150; native jobs still require playtest.')
