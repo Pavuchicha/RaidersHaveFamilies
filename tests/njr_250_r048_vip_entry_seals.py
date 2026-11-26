@@ -41,8 +41,8 @@ ac=(s/'NJRRescueAccessR040.cs').read_text();v=(s/'RHFVipEvacS311.cs').read_text(
 assert 'SelectVipPairR048' in ac and 'if(!c.IsValid)continue;' in ac and 'actor.CanReach(cell,PathEndMode.OnCell,Danger.Deadly)' in ac
 assert 'breachSlots.Count==0' in p and 'TryEntryDebrisR048' in p and 'breachSlots.Add(actor,cell)' in p
 assert 'route.FirstBarrierIndex-12' in ac and 'new HashSet<IntVec3>(route.Cells)' in ac and 'forbidden.Contains(c)' in d
-assert 'op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)' in j and 'op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)' in driver
+assert 'op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)' in j and 'op.Phase==1 && (debris || op.TryPod)' in driver and 'op.Phase==2 && op.PodLaunchCompleted' in driver
 geom=(s/'SealGeometryR049.cs').read_text()
-assert 'gates.IntersectWith(sources.Keys)' in geom and 'if(!after.Contains(gate))' in geom
+assert 'gates.RemoveWhere(g=>!doors.Contains(g)' in geom and 'if(!after.Contains(gate))' in geom
 assert 'if(benefit<=0){noBenefit++;continue;}' in v and 'new SealGeometryR049(op,map).Benefit(target)<=0' in v
 print('PASS R048: actual R047 geometry rejects both old seal cells, blocks exterior door at 124,150; native jobs still require playtest.')

@@ -15,6 +15,7 @@ namespace RaidersHaveFamilies
         {
             internal Pawn Attacker, Victim;
             internal int Tick;
+            internal int LastPulse=-1;
             internal readonly List<Pawn> Responders=new List<Pawn>(2);
         }
         private static readonly ConditionalWeakTable<RHFOperation,Contact> Contacts=new ConditionalWeakTable<RHFOperation,Contact>();
@@ -30,11 +31,11 @@ namespace RaidersHaveFamilies
             return pawn!=null && pawn.Spawned && !pawn.Dead && !pawn.Downed && pawn.Map==attacker.Map &&
                 op.Squad?.Contains(pawn)==true && op.Freed?.Contains(pawn)!=true &&
                 !pawn.WorkTagIsDisabled(WorkTags.Violent) && !RHFCombatPlannerV125.IsCombatEmergencyJob(pawn) &&
-                (pawn.Position-attacker.Position).LengthHorizontalSquared<=36;
+                (pawn.Position-attacker.Position).LengthHorizontalSquared<=100;
         }
         private static bool BusyCritical(RHFOperation op,Pawn pawn)
         {
-            if(op.Phase!=3)return false;
+            if(op.Phase!=3 && op.Phase!=1)return false;
             RHFOrderS41 order=op.BoardS41?.For(pawn,false);
             return pawn==op.BoardS41?.PodEngineerS41 ||
                 order?.Role==(int)RHFRoleS41.Engineer || order?.Role==(int)RHFRoleS41.PodSupply ||
@@ -46,7 +47,18 @@ namespace RaidersHaveFamilies
                !attacker.IsPrisonerOfColony || victim.Map==null || attacker.Map!=victim.Map ||
                victim.Faction==Faction.OfPlayer || __0.Amount<=0f)return;
             RHFOperation op=RHFRescuePlannerS41.MissionFor(victim.Map,victim);
-            if(!ValidAttacker(op,attacker,victim.Map) || op.Squad?.Contains(victim)!=true)return;
+            // A freed VIP may have no rescue Lord. Membership, not Lord identity,
+            // is authoritative for the protected person.
+            if(op==null)
+            {
+                var missions=RHFMissionIntegrityV130.Operations(victim.Map);
+                if(missions!=null)foreach(RHFOperation candidate in missions)
+                    if(candidate!=null && !candidate.Finished && candidate.Deployed &&
+                       (candidate.Squad?.Contains(victim)==true || candidate.Freed?.Contains(victim)==true))
+                    {op=candidate;break;}
+            }
+            if(!ValidAttacker(op,attacker,victim.Map) ||
+               (op.Squad?.Contains(victim)!=true && op.Freed?.Contains(victim)!=true))return;
             int now=Find.TickManager.TicksGame;
             Contact c=Contacts.GetValue(op,_=>new Contact());
             bool fresh=c.Attacker!=attacker || now-c.Tick>360;
@@ -67,7 +79,6 @@ namespace RaidersHaveFamilies
                 foreach(Pawn p in op.Squad)
                 {
                     if(!Eligible(op,p,attacker) || c.Responders.Contains(p) || BusyCritical(op,p) ||
-                       !GenSight.LineOfSight(p.Position,attacker.Position,p.Map) ||
                        !p.CanReach(attacker,PathEndMode.Touch,Danger.Deadly))continue;
                     int distance=(p.Position-attacker.Position).LengthHorizontalSquared;
                     if(distance<score){best=p;score=distance;}
@@ -84,7 +95,20 @@ namespace RaidersHaveFamilies
                 Contacts.TryGetValue(op,out Contact c) && c.Attacker==attacker &&
                 Find.TickManager.TicksGame-c.Tick<=360 && c.Responders.Contains(pawn) &&
                 Eligible(op,pawn,attacker) &&
-                (pawn==c.Victim || (!BusyCritical(op,pawn) && GenSight.LineOfSight(pawn.Position,attacker.Position,pawn.Map)));
+                (pawn==c.Victim || !BusyCritical(op,pawn));
+        }
+        internal static void Pulse(RHFOperation op,int now)
+        {
+            if(op==null || op.Finished || !Contacts.TryGetValue(op,out Contact c) || now-c.Tick>360 || c.LastPulse==now)return;
+            c.LastPulse=now;
+            foreach(Pawn member in c.Responders)
+            {
+                if(!MayDefend(op,member,c.Attacker) || member.jobs==null)continue;
+                if(member.CurJobDef==JobDefOf.AttackMelee && member.jobs.curJob.targetA.Thing==c.Attacker)continue;
+                // Interrupt only the selected responders, never the protected builder.
+                // ThinkTree remains the issuer of the authorized counterattack.
+                if(member.jobs.curJob!=null)member.jobs.EndCurrentJob(JobCondition.InterruptForced);
+            }
         }
         internal static Job Counter(RHFOperation op,Pawn pawn)
         {

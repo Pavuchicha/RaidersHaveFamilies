@@ -19,7 +19,7 @@ assert 'vipOrder.Cell==assembly' in p and 'sealPocket.Contains(stand)' in p
 assert 'op.FortifyPrison?0:20' in j and 'planned.Cell!=vip.Position' in v
 # Actual observed hit, local response only, no arbitrary prisoner chase and no VIP combat.
 assert 'DamageInfo __0' in d and '__0.Instigator is Pawn attacker' in d and 'c.Attacker==attacker' in d
-assert 'op.Freed?.Contains(pawn)!=true' in d and 'LengthHorizontalSquared<=36' in d and 'c.Tick<=360' in d and 'c.Responders.Count<2' in d
+assert 'op.Freed?.Contains(pawn)!=true' in d and 'LengthHorizontalSquared<=100' in d and 'c.Tick<=360' in d and 'c.Responders.Count<2' in d
 assert ac.index('NJRPrisonerDefenseR047.MayDefend')<ac.index('IntVec3 away=DisengageR042')
 assert 'JobDefOf.AttackMelee' in d and 'job.expiryInterval=90' in d
 # Physical exit access; no shared non-exit fallback; real debris moves after launch.

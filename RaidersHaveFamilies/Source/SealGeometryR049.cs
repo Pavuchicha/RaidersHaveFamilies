@@ -67,12 +67,27 @@ namespace RaidersHaveFamilies
                     if(passable.Contains(c) && !doors.Contains(c) &&
                        NJRVipDebrisR045.ClearableCell(op,map,c))seeds.Add(c);
                 }
+            // The launcher and boarding side can be separated by the full built
+            // footprint. Both are defended areas, not just the boarding tile.
+            ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher");
+            if(launcher!=null)
+                foreach(IntVec3 tile in GenAdj.OccupiedRect(op.PodLauncherCell,
+                    NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell),launcher.size))
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 c=RHFObjectiveRouteV128.CardinalR044(tile,d);
+                    if(passable.Contains(c) && !doors.Contains(c) && !exterior.Contains(c) &&
+                       c.Standable(map))seeds.Add(c);
+                }
             foreach(IntVec3 c in seeds)if(!exterior.Contains(c))HasShelteredSeed=true;
             exterior.ExceptWith(seeds);
             gates=Gates(IntVec3.Invalid,out interior);
             // Exterior trace may traverse hostile doors, but never the defended room.
             var sources=Distances(exterior,IntVec3.Invalid,interior);
-            gates.IntersectWith(sources.Keys);
+            // Internal doors also admit hostile pawns already inside the colony.
+            // Keep every door into the protected pocket, even if no exterior
+            // path reaches it. Only open exterior boundary gates need proof.
+            gates.RemoveWhere(g=>!doors.Contains(g) && !sources.ContainsKey(g));
             baseline=Distances(exterior,IntVec3.Invalid,null);
         }
         internal static bool DoorAt(Map map,IntVec3 c)

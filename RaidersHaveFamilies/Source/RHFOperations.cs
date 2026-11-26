@@ -1247,6 +1247,8 @@ namespace RaidersHaveFamilies
                     // suppression and obstacle logic, including case-keyed
                     // searches that found an actual prisoner.
                     RHFRescueCommandV124.Infiltrate(this, op, now);
+                    if(op.Phase==1 && op.TryPod && op.FortifyPrison && op.PodSuppliesIssued)
+                        NativePrepareBeforeReleaseR051(op,now);
                 }
                 else if (op.Phase == 2)
                 {
@@ -1260,6 +1262,7 @@ namespace RaidersHaveFamilies
                 else if (op.Phase == 5) PostExtractionAssault(op, now);
                 else if (op.Phase == 4)
                 { RHFOffenseDirectorS41.End(op,map); op.Finished = true; operations.RemoveAt(i); }
+                NJRPrisonerDefenseR047.Pulse(op,now);
             }
         }
 

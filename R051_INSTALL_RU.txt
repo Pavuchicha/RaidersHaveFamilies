@@ -1,0 +1,1 @@
+R051 поверх R050. Распаковать в корень репозитория с заменой. GitHub Summary: R051: Parallel VIP fortification, squad assistance and sealed exit recovery. Дождаться успешного CI и взять новый installable ZIP. Проверить сценарий 16: помощь при нападении, обе безопасные двери, ранняя работа вне камеры, выход после запуска.

@@ -139,7 +139,7 @@ namespace RaidersHaveFamilies
             if(op.Freed?.Contains(pawn)==true)return null;
             Job counter=NJRPrisonerDefenseR047.Counter(op,pawn);
             if(counter!=null)return counter;
-            if(op.Phase==3 && op.BoardS41?.For(pawn,false)?.Role==(int)RHFRoleS41.Engineer &&
+            if((op.Phase==3 || (op.Phase==1 && op.TryPod && op.FortifyPrison)) && op.BoardS41?.For(pawn,false)?.Role==(int)RHFRoleS41.Engineer &&
                RHFRescueRoleJobGiverS41.HasActivePodGuard(op,pawn))return null;
             // The coordinated firebreak is the sole issuer for its members.
             if(NJRRescueFirebreakR034.Controls(op,pawn))return null;

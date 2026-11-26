@@ -198,6 +198,21 @@ namespace RaidersHaveFamilies
             // BEFORE following Goto waypoints. Escorts defend locally without
             // abandoning their VIP; convoy guards manoeuvre only if needed.
             RHFRoleS41 role=(RHFRoleS41)order.Role;
+            if(op.Phase==1 && op.TryPod && op.FortifyPrison && op.PodConstructionStage>=1)
+            {
+                if(role==RHFRoleS41.Engineer)return RHFPodPlannerS41.WorkJob(pawn,order.Objective);
+                if(role==RHFRoleS41.PodSupply && order.Objective!=null && order.Objective.Spawned && order.Cell.IsValid &&
+                   (op.PodCargoStacksS41.Contains(order.Objective) || NJRVipDebrisR045.IsAssigned(op,pawn,order.Objective)))
+                {
+                    JobDef move=DefDatabase<JobDef>.GetNamedSilentFail("NJR_MoveSealCargoR044");
+                    if(move!=null){Job haul=JobMaker.MakeJob(move,order.Objective,order.Cell);haul.count=order.Objective.stackCount;return haul;}
+                }
+                if(role==RHFRoleS41.PodSupply && RHFPodSupplyS41.HasCargo(op,pawn) && order.Cell.IsValid)
+                {
+                    JobDef unload=DefDatabase<JobDef>.GetNamedSilentFail("RHF_UnloadPodCargoS41");
+                    if(unload!=null)return JobMaker.MakeJob(unload,order.Cell);
+                }
+            }
             if(op.FortifyPrison && (op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)) && role==RHFRoleS41.PodSupply &&
                NJRVipDebrisR045.IsDebris(order.Objective) && order.Objective.Spawned && order.Cell.IsValid)
             {
@@ -207,7 +222,7 @@ namespace RaidersHaveFamilies
             }
             if(op.Phase==2 && role==RHFRoleS41.Engineer && NJRRescueAccessR040.IsOwnSealR043(op,order.Objective))
             {
-                JobDef deconstruct=DefDatabase<JobDef>.GetNamedSilentFail("Deconstruct");
+                JobDef deconstruct=DefDatabase<JobDef>.GetNamedSilentFail("NJR_ReopenOwnSealR051");
                 if(deconstruct!=null && pawn.CanReach(order.Objective,PathEndMode.Touch,Danger.Deadly))
                     return JobMaker.MakeJob(deconstruct,order.Objective);
                 return null;

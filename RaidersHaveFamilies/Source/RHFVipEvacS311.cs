@@ -418,6 +418,19 @@ namespace RaidersHaveFamilies
         // External retreat may be temporarily sealed; reopen the own wall in phase 2.
         // R044: geometry and logistics are separate. A stack outside the
         // future pocket generates transport work, not a permanent rejection.
+        private bool VipBoardSideSafeR051(RHFOperation op,Pawn vip,IntVec3 wall)
+        {
+            if(vip==null || !vip.Spawned || vip.Map!=map || vip.Position==wall)return false;
+            // Conservative proof: already on a free boarding square, or a
+            // short physically reachable adjacent square without crossing the wall.
+            for(int d=0;d<4;d++)
+            {
+                IntVec3 c=RHFObjectiveRouteV128.CardinalR044(op.PodCell,d);
+                if(c==wall || !c.InBounds(map) || !c.Standable(map) || NJRPodSiteClearS41.ReservedFootprint(op,c))continue;
+                if(vip.Position==c)return true;
+            }
+            return false;
+        }
         private bool CanSealR041(RHFOperation op,Pawn vip,IntVec3 wall,Room room,
             out HashSet<IntVec3> pocket)
         {
@@ -428,9 +441,14 @@ namespace RaidersHaveFamilies
             if(launcherDef==null || podDef==null || wall==vip.Position)return false;
             foreach(IntVec3 c in GenAdj.OccupiedRect(op.PodLauncherCell,NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell),launcherDef.size))reserved.Add(c);
             foreach(IntVec3 c in GenAdj.OccupiedRect(op.PodCell,Rot4.North,podDef.size))reserved.Add(c);
-            for(int d=0;d<4;d++)
+            var anchors=new List<IntVec3>();
+            for(int d=0;d<4;d++)anchors.Add(RHFObjectiveRouteV128.CardinalR044(op.PodCell,d));
+            if(op.Phase==3 && VipBoardSideSafeR051(op,vip,wall))
+                foreach(IntVec3 tile in GenAdj.OccupiedRect(op.PodLauncherCell,
+                    NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell),launcherDef.size))
+                for(int d=0;d<4;d++)anchors.Add(RHFObjectiveRouteV128.CardinalR044(tile,d));
+            foreach(IntVec3 stand in anchors)
             {
-                IntVec3 stand=RHFObjectiveRouteV128.CardinalR044(op.PodCell,d);
                 if(!stand.InBounds(map) || stand==wall || !stand.Standable(map) ||
                    reserved.Contains(stand))continue;
                 var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
@@ -449,7 +467,9 @@ namespace RaidersHaveFamilies
                 }
                 // Prospective geometry: VIP may still be in the original
                 // prison on the other side of the corridor. Stage him FIRST.
-                if(!seen.Contains(vip.Position) && !vip.CanReach(stand,PathEndMode.OnCell,Danger.Some))continue;
+                if(!seen.Contains(vip.Position) && !vip.CanReach(stand,PathEndMode.OnCell,Danger.Some) &&
+                   !(op.Phase==1 && EarlySealSafeR051(op,vip,wall,stand)) && !VipBoardSideSafeR051(op,vip,wall))continue;
+                if(op.Phase==1 && !EarlySealSafeR051(op,vip,wall,stand))continue;
                 bool adjacentInside=false;
                 for(int d2=0;d2<4;d2++)
                     if(seen.Contains(RHFObjectiveRouteV128.CardinalR044(wall,d2)))adjacentInside=true;
@@ -544,7 +564,7 @@ namespace RaidersHaveFamilies
         }
         private Thing NativeFortificationWorkS41(RHFOperation op,
             Pawn vip,Faction owner,int now,Pawn engineer,Pawn refueler,
-            out Pawn mover,out Thing cargo,out IntVec3 destination)
+            out Pawn mover,out Thing cargo,out IntVec3 destination,bool early=false)
         {
             mover=null;cargo=null;destination=IntVec3.Invalid;
             if(op==null || vip==null || !vip.Spawned || owner==null || owner.IsPlayer ||
@@ -599,7 +619,7 @@ namespace RaidersHaveFamilies
                     if(!CanSealR041(op,vip,cell,protectedRoom,out HashSet<IntVec3> candidatePocket))
                     {noPocket++;Log.Message("[NJR][R050][Fortify] useful but unsafe cell="+cell+" benefit="+benefit);continue;}
                     ThingDef material=ThingDefOf.Wall;
-                    Pawn worker=NativeEngineerS311(op,cell,engineer,refueler,prepare:false);
+                    Pawn worker=early?engineer:NativeEngineerS311(op,cell,engineer,refueler,prepare:false);
                     if(worker==null || !worker.CanReach(cell,PathEndMode.Touch,Danger.Deadly))
                     {noWorker++;continue;}
                     viable++;
@@ -626,14 +646,14 @@ namespace RaidersHaveFamilies
                     op.BarricadesBuilt++;op.CompletedBarricades.Add(target);
                     op.BarricadeCell=IntVec3.Invalid;op.FortifyStartedTick=0;
                     Log.Message("[NJR][R041][Fortify] completed "+item.def.defName+" "+target);
-                    return NativeFortificationWorkS41(op,vip,owner,now,engineer,refueler,out mover,out cargo,out destination);
+                    return NativeFortificationWorkS41(op,vip,owner,now,engineer,refueler,out mover,out cargo,out destination,early);
                 }
                 if((item is Blueprint_Build || item is Frame) && item.Faction==owner)
                 {
                     if(!CanSealR041(op,vip,target,protectedRoom,out HashSet<IntVec3> readyPocket))return null;
                     RHFPodSupplyS41.RememberSealPocketR044(op,target,readyPocket);
                     if(!SealLogisticsR044(op,target,readyPocket,engineer,refueler,out mover,out cargo,out destination))return null;
-                    if(!readyPocket.Contains(vip.Position) || (NativeAliveS311(engineer,map) && !readyPocket.Contains(engineer.Position)) ||
+                    if((!early && !readyPocket.Contains(vip.Position) && !VipBoardSideSafeR051(op,vip,target)) || (NativeAliveS311(engineer,map) && !readyPocket.Contains(engineer.Position)) ||
                        (NativeAliveS311(refueler,map) && !readyPocket.Contains(refueler.Position)))return null;
                     return item;
                 }
@@ -657,9 +677,9 @@ namespace RaidersHaveFamilies
             }
             // R047: a prospective seal is not a permit to trap a VIP or an
             // active engineer. The published pocket drives their movement.
-            if(!pocket.Contains(vip.Position) || (NativeAliveS311(engineer,map) && !pocket.Contains(engineer.Position)) ||
+            if((!early && !pocket.Contains(vip.Position) && !VipBoardSideSafeR051(op,vip,target)) || (NativeAliveS311(engineer,map) && !pocket.Contains(engineer.Position)) ||
                (NativeAliveS311(refueler,map) && !pocket.Contains(refueler.Position)))return null;
-            if(target.GetFirstPawn(map)!=null || NativeEngineerS311(op,target,engineer,refueler,prepare:false,pocket:pocket)==null)
+            if(target.GetFirstPawn(map)!=null || (early ? !NativeAliveS311(engineer,map) || !engineer.CanReach(target,PathEndMode.Touch,Danger.Deadly) : NativeEngineerS311(op,target,engineer,refueler,prepare:false,pocket:pocket)==null))
             {
                 if(now-op.FortifyStartedTick>=600){Log.Message("[NJR][R050][Fortify] awaiting empty target/inside builder: "+target);op.FortifyStartedTick=now;}
                 return null;
@@ -736,6 +756,120 @@ namespace RaidersHaveFamilies
             }
             if(best.IsValid && vip.jobs.curJob?.def!=JobDefOf.Goto)
                 vip.jobs.TryTakeOrderedJob(JobMaker.MakeJob(JobDefOf.Goto,best));
+        }
+
+        // Bounded door-aware prospective route proof: the seal must not cut
+        // off the captive or the currently assigned assault operator.
+        private bool EarlySealSafeR051(RHFOperation op,Pawn vip,IntVec3 wall,IntVec3 stand)
+        {
+            var seen=new HashSet<IntVec3>{stand};var queue=new Queue<IntVec3>();queue.Enqueue(stand);
+            while(queue.Count>0)
+            {
+                IntVec3 at=queue.Dequeue();
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 c=RHFObjectiveRouteV128.CardinalR044(at,d);
+                    if(c==wall || !c.InBounds(map) || Math.Abs(c.x-stand.x)>24 || Math.Abs(c.z-stand.z)>24 ||
+                       NJRPodSiteClearS41.ReservedFootprint(op,c) || seen.Contains(c) ||
+                       (!c.Walkable(map) && !SealGeometryR049.DoorAt(map,c) && !NJRVipDebrisR045.ClearableCell(op,map,c)))continue;
+                    seen.Add(c);queue.Enqueue(c);
+                }
+            }
+            if(!seen.Contains(vip.Position))return false;
+            Pawn breacher=op.BoardS41?.Breacher;
+            return breacher!=null ? seen.Contains(breacher.Position) :
+                op.Squad.Exists(p=>NativeAliveS311(p,map) && seen.Contains(p.Position));
+        }
+
+        private void NativePrepareBeforeReleaseR051(RHFOperation op,int now)
+        {
+            if(op.Vip==null || !op.Vip.Spawned || op.Vip.Map!=map || !op.PodNativeS311 ||
+               op.Squad==null || op.BoardS41==null || op.PodConstructionStage>=3)return;
+            var board=op.BoardS41;
+            if(op.Squad.FindAll(p=>NativeAliveS311(p,map)).Count<4)return;
+            Pawn engineer=null;int best=int.MinValue;
+            foreach(Pawn member in op.Squad)
+            {
+                var order=board.For(member,false);
+                if(!NativeAliveS311(member,map) || member==board.Breacher || order==null ||
+                   order.Role==(int)RHFRoleS41.Breach || order.Role==(int)RHFRoleS41.Escort ||
+                   member.Faction!=op.PodCargoOwnerFactionS311 || member.WorkTypeIsDisabled(WorkTypeDefOf.Construction) ||
+                   member.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
+                   RHFCombatPlannerV125.IsCombatEmergencyJob(member))continue;
+                if(op.PodLauncherCell.IsValid && !member.CanReach(op.PodLauncherCell,PathEndMode.Touch,Danger.Deadly))continue;
+                int score=(member.skills?.GetSkill(SkillDefOf.Construction)?.Level??0)*100+(member==board.PodEngineerS41?10000:0);
+                if(score>best){best=score;engineer=member;}
+            }
+            if(engineer==null || !NativePrepareEngineerS41(engineer))return;
+            ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher"),pod=DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod");
+            if(launcher==null || pod==null)return;
+            if(op.PodConstructionStage==0)
+            {
+                if(op.PodStageStartedTickS311>0 && now-op.PodStageStartedTickS311<450)return;
+                op.PodStageStartedTickS311=now;
+                if(!op.PodPrisonAnchorR043.IsValid)op.PodPrisonAnchorR043=op.Vip.Position;
+                if(!NJRRescueAccessR040.TryEarlyPadR051(op,map,op.Vip,engineer,launcher,pod,out IntVec3 lc,out IntVec3 pc))return;
+                op.PodLauncherCell=lc;op.PodCell=pc;op.PodConstructionStage=1;op.PodStageStartedTickS311=now;
+                Log.Message("[NJR][R051][Early] pad reserved during assault "+lc+" "+pc);
+            }
+            board.PodEngineerS41=engineer;
+            // Reserve at most engineer plus one carrier; the assault board's
+            // breach operator and at least two other soldiers remain untouched.
+            Pawn carrier=null;
+            foreach(Pawn member in op.Squad)
+            {
+                var order=board.For(member,false);
+                if(!NativeAliveS311(member,map) || member==board.Breacher || order==null ||
+                   order.Role==(int)RHFRoleS41.Breach || order.Role==(int)RHFRoleS41.Escort ||
+                   !RHFPodSupplyS41.HasCargo(op,member))continue;
+                if(member==engineer){if(carrier==null)carrier=member;continue;}
+                if(carrier==null || carrier==engineer)carrier=member;
+            }
+            Thing site=null;Pawn mover=null;Thing cargo=null;IntVec3 destination=IntVec3.Invalid;
+            if(op.PodConstructionStage==1 && op.BarricadesBuilt<2 && NativeWorkSiteS311(map,op.PodLauncherCell,op.PodCargoOwnerFactionS311)==null)
+            {
+                site=NativeFortificationWorkS41(op,op.Vip,op.PodCargoOwnerFactionS311,now,engineer,null,out mover,out cargo,out destination,true);
+                if(site!=null || (op.BarricadeCell.IsValid && now-op.PodStageStartedTickS311<2400) || now-op.PodStageStartedTickS311<150)
+                {
+                    if(mover!=null && mover!=board.Breacher && board.For(mover,false)?.Role!=(int)RHFRoleS41.Breach && cargo!=null && destination.IsValid)
+                        board.Assign(mover,RHFRoleS41.PodSupply,cargo,destination,now);
+                    if(site!=null)board.Assign(engineer,RHFRoleS41.Engineer,site,site.Position,now);
+                    else
+                    {
+                        var pocket=RHFPodSupplyS41.SealPocketR044(op);
+                        IntVec3 stage=IntVec3.Invalid;int distance=int.MaxValue;
+                        if(pocket!=null)foreach(IntVec3 c in pocket)
+                        {
+                            int cost=(c-op.PodLauncherCell).LengthHorizontalSquared;
+                            if(cost>=distance || !c.Standable(map) || c==op.BarricadeCell ||
+                               NJRPodSiteClearS41.ReservedFootprint(op,c) || !engineer.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;
+                            stage=c;distance=cost;
+                        }
+                        board.Assign(engineer,stage.IsValid?RHFRoleS41.Screen:RHFRoleS41.Hold,null,stage.IsValid?stage:engineer.Position,now);
+                    }
+                    if(carrier!=null && mover==null)
+                    {IntVec3 unload=RHFPodSupplyS41.UnloadCell(carrier,op,map);if(unload.IsValid)board.Assign(carrier,RHFRoleS41.PodSupply,null,unload,now);}
+                    return;
+                }
+            }
+            bool first=op.PodConstructionStage==1;IntVec3 cell=first?op.PodLauncherCell:op.PodCell;
+            ThingDef requested=first?launcher:pod;
+            site=NativeWorkSiteS311(map,cell,op.PodCargoOwnerFactionS311);
+            if(site is Building && site.def==requested)
+            {
+                if(first)op.PodLauncherThing=site;else op.PodVehicleThing=site;
+                op.PodConstructionStage++;op.PodStageStartedTickS311=now;return;
+            }
+            if(site==null)
+            {
+                Rot4 rotation=first?NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell):Rot4.North;
+                if(!FieldFootprintFree(cell,requested,op.Vip,rotation))return;
+                try{site=GenConstruct.PlaceBlueprintForBuild(requested,cell,map,rotation,op.PodCargoOwnerFactionS311,null);}
+                catch(Exception e){Log.Warning("[NJR][R051][Early] blueprint rejected: "+e.Message);return;}
+            }
+            if(site!=null)board.Assign(engineer,RHFRoleS41.Engineer,site,cell,now);
+            if(carrier!=null)
+            {IntVec3 unload=RHFPodSupplyS41.UnloadCell(carrier,op,map);if(unload.IsValid)board.Assign(carrier,RHFRoleS41.PodSupply,null,unload,now);}
         }
 
         private void BuildAndLaunchNativeS311(RHFOperation op, int now)
@@ -907,6 +1041,16 @@ namespace RaidersHaveFamilies
                     fortifier=NativeEngineerS311(op,parallelWall.Position,engineer,refueler,pocket:RHFPodSupplyS41.SealPocketR044(op));
                     if(fortifier!=null && RHFPodSupplyS41.HasCargo(op,fortifier))fortifier=null;
                 }
+            }
+            if(op.FortifyPrison && op.PodConstructionStage==1 && op.BarricadesBuilt<2 &&
+               engineer!=null && NativeWorkSiteS311(map,siteCell,owner.Faction)==null &&
+               (parallelWall!=null || op.BarricadeCell.IsValid) && now-op.PodStageStartedTickS311<2400)
+            {
+                // First finish the seal, then construct the launcher. Cargo
+                // and safe staging remain active, not a blanket Wait order.
+                RHFPodPlannerS41.Plan(op,map,engineer,null,now,fortifier,parallelWall,
+                    refueler,op.PodLauncherThing,sealMover,sealCargo,sealDestination);
+                return;
             }
             if(RHFRescuePlannerS41.Enabled)
                 RHFPodPlannerS41.Plan(op,map,engineer,

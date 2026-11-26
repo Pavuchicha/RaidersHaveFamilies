@@ -249,7 +249,7 @@ namespace RaidersHaveFamilies
         // Compare ALL local pads, including those behind a verified door,
         // in one cost field. No outdoor-first short circuit or arbitrary rotation.
         private static Thing FindPodBarrier(RHFOperation op,Map map,Pawn vip,ThingDef launcher,ThingDef pod,
-            out IntVec3 goal,out IntVec3 podGoal)
+            out IntVec3 goal,out IntVec3 podGoal,Pawn earlyEngineer=null)
         {
             goal=podGoal=IntVec3.Invalid;
             Field f=Search(map,vip,24,false,true,op.FortifyPrison);if(f==null)return null;
@@ -340,6 +340,8 @@ namespace RaidersHaveFamilies
                 // supply/boarding path. Native reach is also required for a
                 // direct site; a planned breach may be traversed in preview.
                 if(!WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier)){noLane++;continue;}
+                if(earlyEngineer!=null && (!earlyEngineer.CanReach(cell,PathEndMode.Touch,Danger.Deadly) ||
+                    !earlyEngineer.CanReach(vehicle,PathEndMode.Touch,Danger.Deadly)))continue;
                 validPads++;
                 scoreBest=score;tierBest=tier;best=barrier;goal=cell;podGoal=vehicle;
             }
@@ -348,6 +350,14 @@ namespace RaidersHaveFamilies
                 " tier="+tierBest+" score="+scoreBest+" footprintRejected="+blockedFootprint+" roomRejected="+roomMismatch+
                 " slotsRejected="+noSlots+" workerRejected="+noWorker+" laneRejected="+noLane);
             return best;
+        }
+        internal static bool TryEarlyPadR051(RHFOperation op,Map map,Pawn vip,Pawn engineer,
+            ThingDef launcher,ThingDef pod,out IntVec3 cell,out IntVec3 vehicle)
+        {
+            FindPodBarrier(op,map,vip,launcher,pod,out cell,out vehicle,engineer);
+            return cell.IsValid && vehicle.IsValid &&
+                NJRRescueInteriorS41.ShelteredPadR043(map,cell,vehicle) &&
+                cell.GetRoom(map)!=vip.Position.GetRoom(map);
         }
         internal static bool DirectWorkLaneR043(Map map,Pawn vip,ThingDef launcher,ThingDef pod,
             IntVec3 cell,IntVec3 vehicle)
@@ -556,7 +566,10 @@ namespace RaidersHaveFamilies
                 if(!Active(member,map) || member.Faction!=wall.Faction || member.WorkTypeIsDisabled(WorkTypeDefOf.Construction) ||
                     !member.CanReach(wall,PathEndMode.Touch,Danger.Deadly) ||
                     member.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true)continue;
-                int score=(member.Position-wall.Position).LengthHorizontalSquared;
+                int score=(member.Position-wall.Position).LengthHorizontalSquared -
+                    (member.skills?.GetSkill(SkillDefOf.Construction)?.Level??0)*10;
+                if(member.jobs?.curJob?.def?.defName=="NJR_ReopenOwnSealR051" &&
+                   member.jobs.curJob.targetA.Thing==wall)score-=100000;
                 if(score<best){best=score;worker=member;}
             }
             if(worker==null)return false;

@@ -53,6 +53,6 @@ assert 'geometry.Benefit(cell)' in v and 'noBenefit=' in v and 'noPocket=' in v 
 assert v.index('geometry.Benefit(cell)')<v.index('CanSealR041(op,vip,cell,protectedRoom')
 assert 'NativeEngineerS311(op,cell,engineer,refueler,prepare:false)' in v
 assert 'NJRPodSiteClearS41.ReservedFootprint(op,c)' in geom and 'seeds.Contains(wall)' in geom
-assert 'gates.IntersectWith(sources.Keys)' in geom and 'later-before>=2' in geom
+assert 'gates.RemoveWhere(g=>!doors.Contains(g)' in geom and 'later-before>=2' in geom
 assert 'GenConstruct.PlaceBlueprintForBuild' in v and 'SealLogisticsR044(op,target,pocket' in v
 print('PASS R049: fresh R048 geometry, full launcher footprint (both origins), actual exterior gate at 124,149 blocked by 124,150; no useless R047 cells; native safety remains untested.')

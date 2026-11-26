@@ -41,7 +41,7 @@ ac=(s/'NJRRescueAccessR040.cs').read_text();cast=(s/'NJRPrisonerCastGuardR050.cs
 assert 'HasShelteredSeed' in v and 'unroofed.Contains(n)' in g
 assert 'c.Standable(map))seeds.Add(c)' in g and 'exterior.ExceptWith(seeds)' in g
 assert 'ConditionalWeakTable<RHFOperation,Contact>' in d and 'c.Responders.Count<2' in d
-assert 'BusyCritical(op,p)' in d and 'LengthHorizontalSquared<=36' in d and 'c.Tick<=360' in d
+assert 'BusyCritical(op,p)' in d and 'LengthHorizontalSquared<=100' in d and 'c.Tick<=360' in d
 assert 'op.Targets?.Contains(attacker)!=true' in d and 'JobDefOf.AttackMelee' in d
 assert 'MayDefend(op,pawn,prisoner)' in cast and '__result=false;return false' in cast
 assert 'if(freed || !activeThreat)' not in ac

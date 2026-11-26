@@ -1,0 +1,133 @@
+{
+  "revision": "R050",
+  "hits": [
+    [
+      40998,
+      19434,
+      36726
+    ],
+    [
+      41802,
+      19434,
+      36726
+    ],
+    [
+      41878,
+      19434,
+      36726
+    ]
+  ],
+  "launch_tick": 47506,
+  "failed_deconstruct_count": 175,
+  "failed_target": 36942,
+  "last_phase": 2,
+  "last_barricades_built": 1,
+  "last_board": {
+    "id": 8370494,
+    "Decision": "R043 reopen own sealed wall on exit corridor (124, 0, 150)",
+    "ObservedPhase": 2,
+    "LastPlanTick": 52703,
+    "LastProgressTick": 40733,
+    "NextReplanTick": 52793,
+    "Replans": 0,
+    "LastObstacleHP": 2,
+    "LastThreatHP": 0,
+    "target": 36726,
+    "breacher": -1,
+    "barrier": null,
+    "threat": null,
+    "engineer": 36824,
+    "work": null,
+    "PodWorkStageS41": 6,
+    "withdrawal": null,
+    "orders": [
+      {
+        "pawn": 36742,
+        "role": "Engineer",
+        "objective": {
+          "id": 36942,
+          "def": "Wall",
+          "label": "Стена из стали",
+          "faction": "Грязная Орда",
+          "pos": [
+            124,
+            150
+          ],
+          "map": 16708766,
+          "spawned": true,
+          "destroyed": false,
+          "hp": 300,
+          "maxHP": 300,
+          "stack": 1,
+          "rotation": 0,
+          "size": [
+            1,
+            1
+          ],
+          "doorOpen": null,
+          "launcherFuel": null,
+          "launcherFull": null
+        },
+        "cell": [
+          124,
+          151
+        ],
+        "tick": 47483
+      },
+      {
+        "pawn": 36761,
+        "role": "Hold",
+        "objective": null,
+        "cell": [
+          121,
+          150
+        ],
+        "tick": 47483
+      },
+      {
+        "pawn": 36846,
+        "role": "Hold",
+        "objective": null,
+        "cell": [
+          123,
+          151
+        ],
+        "tick": 51803
+      },
+      {
+        "pawn": 36800,
+        "role": "Hold",
+        "objective": null,
+        "cell": [
+          122,
+          151
+        ],
+        "tick": 47483
+      },
+      {
+        "pawn": 36824,
+        "role": "Hold",
+        "objective": null,
+        "cell": [
+          125,
+          154
+        ],
+        "tick": 47483
+      }
+    ]
+  },
+  "doors": [
+    [
+      124,
+      149
+    ],
+    [
+      120,
+      149
+    ]
+  ],
+  "built_wall": [
+    124,
+    150
+  ]
+}

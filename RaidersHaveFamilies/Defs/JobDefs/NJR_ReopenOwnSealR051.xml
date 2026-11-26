@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs><JobDef><defName>NJR_ReopenOwnSealR051</defName><driverClass>RaidersHaveFamilies.JobDriver_NJRReopenOwnSealR051</driverClass><reportString>разбирает собственную баррикаду.</reportString><casualInterruptible>false</casualInterruptible></JobDef></Defs>

@@ -209,6 +209,13 @@ namespace RaidersHaveFamilies
             IntVec3 best=IntVec3.Invalid;
             Room siteRoom=site.GetRoom(map)??op.PodLauncherCell.GetRoom(map);
             HashSet<IntVec3> sealPocket=RHFPodSupplyS41.SealPocketR044(op);
+            if(op.FortifyPrison && op.Freed?.Contains(vip)==true && sealPocket!=null && !sealPocket.Contains(vip.Position))
+                for(int d=0;d<4;d++)
+                {
+                    IntVec3 stand=RHFObjectiveRouteV128.CardinalR044(op.PodCell,d);
+                    if(vip.Position==stand && stand!=op.BarricadeCell && stand.Standable(map) &&
+                       !NJRPodSiteClearS41.ReservedFootprint(op,stand))return stand;
+                }
             if(op.FortifyPrison)
             {
                 // A pad footprint can have no Room or belong to a different
