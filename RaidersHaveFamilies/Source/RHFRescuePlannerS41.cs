@@ -442,6 +442,20 @@ namespace RaidersHaveFamilies
                         TryAdoptReleased(op.Targets[i],op);
             var escortedDuringAssault=new HashSet<Pawn>();
             AssignFreedEscort(op,map,now,escortedDuringAssault);
+            // R052: engineering is an actual concurrent wing, not a temporary
+            // assignment that the next assault plan can consume as breachers.
+            if(op.TryPod && op.FortifyPrison && op.PodConstructionStage>=1 && op.PodConstructionStage<=2)
+            {
+                int remaining=0;
+                foreach(Pawn p in op.Squad)if(Active(p,map) && !escortedDuringAssault.Contains(p))remaining++;
+                foreach(Pawn reserved in new[]{board.PodEngineerS41,op.EarlyCarrierR052})
+                {
+                    if(remaining<=2 || !Active(reserved,map) || reserved==board.Breacher || escortedDuringAssault.Contains(reserved))continue;
+                    RHFOrderS41 order=board.For(reserved,false);
+                    if(order==null || order.Role==(int)RHFRoleS41.Escort || order.Role==(int)RHFRoleS41.Breach)continue;
+                    escortedDuringAssault.Add(reserved);remaining--;
+                }
+            }
             Pawn captive=CurrentCaptive(op,map);
             if(captive==null)
             {

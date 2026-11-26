@@ -1,0 +1,77 @@
+{
+  "revision": "R051",
+  "logs": [
+    [
+      40785,
+      "[RHF][AirS41] Cargo carried by 5 mission soldiers, owner=Ватага Шелбаййа; steel=130, components=2, fuel=150"
+    ],
+    [
+      41235,
+      "[NJR][R041][PodSite] checked=7600 valid=1 launcher=(121, 0, 152) pod=(122, 0, 152) barrier=none tier=0 score=644 footprintRejected=1037 roomRejected=0 slotsRejected=4 workerRejected=0 laneRejected=3"
+    ],
+    [
+      41325,
+      "[RHF][V131] Freed=Банйа; phase=3; pod=True; financed=True; missionLord=True"
+    ],
+    [
+      41415,
+      "[NJR][R041][PodSite] checked=7600 valid=1 launcher=(121, 0, 152) pod=(122, 0, 152) barrier=none tier=0 score=644 footprintRejected=1037 roomRejected=0 slotsRejected=4 workerRejected=0 laneRejected=3"
+    ],
+    [
+      41415,
+      "[RHF][S311] Native blueprint site=(121, 0, 152), pod=(122, 0, 152); R043 sheltered=True tier=0"
+    ],
+    [
+      41505,
+      "[NJR][R050][Fortify] selected=(124, 0, 150) score=-198887 viable=2 noBenefit=22 noPocket=0 noWorker=0"
+    ],
+    [
+      41505,
+      "[RHF S41][Fortify] Real enemy wall blueprint (124, 0, 150) def=Wall / op=40065"
+    ],
+    [
+      42135,
+      "[NJR][R041][Fortify] completed Wall (124, 0, 150)"
+    ],
+    [
+      42135,
+      "[NJR][R050][Fortify] selected=(120, 0, 150) score=-98955 viable=1 noBenefit=22 noPocket=0 noWorker=0"
+    ],
+    [
+      42135,
+      "[NJR][R044][Fortify] pending=(120, 0, 150) cargo=Chemfuel37046 mover=Вин'воён destination=(122, 0, 150)"
+    ],
+    [
+      42202,
+      "[NJR][R044][Fortify] moved mission cargo Chemfuel37061 to (122, 0, 150)"
+    ],
+    [
+      42289,
+      "[NJR][R044][Fortify] moved mission cargo Chemfuel37061 to (122, 0, 150)"
+    ],
+    [
+      43485,
+      "[RHF S41][Fortify] Real enemy wall blueprint (120, 0, 150) def=Wall / op=40065"
+    ],
+    [
+      43755,
+      "[NJR][R041][Fortify] completed Wall (120, 0, 150)"
+    ],
+    [
+      43755,
+      "[RHF][AirS41] Blueprint generated: faction=Ватага Шелбаййа, intended=Ватага Шелбаййа, engineer=Ватага Шелбаййа"
+    ],
+    [
+      47265,
+      "[RHF][AirS41] Blueprint generated: faction=Ватага Шелбаййа, intended=Ватага Шелбаййа, engineer=Ватага Шелбаййа"
+    ],
+    [
+      50543,
+      "[NJR][R051][Exit] physically reopened own seal (120, 0, 150)"
+    ],
+    [
+      50899,
+      "[NJR][R051][Exit] physically reopened own seal (124, 0, 150)"
+    ]
+  ]
+}

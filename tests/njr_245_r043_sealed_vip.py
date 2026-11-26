@@ -68,7 +68,7 @@ rt=(s/'RHFObjectiveRouteV128.cs').read_text();ac=(s/'NJRRescueAccessR040.cs').re
 assert 'ForwardDoorRouteR043(map,origins,captive,' in rt and 'DoorStepR043(map,next,out Thing obstacle)' in rt
 assert 'Field f=Search(map,vip,24,false,true,op.FortifyPrison)' in ac
 assert 'if(op.FortifyPrison && tier>tierBest)continue;' in ac
-assert 'if(op.FortifyPrison && tier==3 && barrier!=null)continue;' in ac
+assert 'if(op.FortifyPrison && tier==3 && (barrier!=null || earlyEngineer!=null))continue;' in ac
 assert 'if(op.FortifyPrison)return false; // R043' in ac
 assert 'out IntVec3 indoorPod,true,op.PodPrisonAnchorR043' in vp and 'DirectWorkLaneR043' in ops
 fort=vp[vp.index('private bool CanSealR041'):vp.index('private bool SolidFlankS41')]

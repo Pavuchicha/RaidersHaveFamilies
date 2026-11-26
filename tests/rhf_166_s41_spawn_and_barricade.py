@@ -16,7 +16,7 @@ checks=[
  (entry,'ReachableExterior(map,center,captive)'),
  (pod,'private Thing NativeFortificationWorkS41('),
  (pod,'GenConstruct.PlaceBlueprintForBuild('),
- (pod,'requested,target,map,Rot4.North,owner,ThingDefOf.Steel'),
+ (pod,'requested,target,map,Rot4.North,owner,op.SealStuffR052??ThingDefOf.Steel'),
  (pod,'op.CompletedBarricades.Add(target);'),
  (pod,'op.BarricadesBuilt++'),
  (pod,'now,fortifier,parallelWall,refueler,op.PodLauncherThing'),

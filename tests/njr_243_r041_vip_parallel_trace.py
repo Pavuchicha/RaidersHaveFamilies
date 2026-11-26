@@ -36,7 +36,7 @@ assert 'active>=(refueler==null?3:4)' in p and 'NativeEngineerS311(op,parallelWa
 assert 'CanSealR041' in p and 'reserved.Contains(c)' in p and '!seen.Contains(vip.Position)' in p
 assert 'if(fortifyWork!=null)return;' not in p
 assert 'pawns.Count>=7?3:2' in f and 'EnsureMinLevelWithMargin(10)' in f and 'p.IsWorldPawn()' in f
-assert 'foreach(Rot4 rotation in NJRPodSiteClearS41.Rotations)' in a and 'WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier)' in a
+assert 'foreach(Rot4 rotation in NJRPodSiteClearS41.Rotations)' in a and 'WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier,earlyEngineer!=null)' in a
 assert 'slots.Count<2' in a and 'room==prison' in a and 'GenAdj.OccupiedRect' in a
 assert 'StepVipR041' in rt and 'cost+=12000' in rt
 print('PASS R041: recorded sequence and geometry; parallel jobs, specialists, protected access and actual footprints (STATIC ONLY)')

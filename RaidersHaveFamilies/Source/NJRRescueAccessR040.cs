@@ -275,6 +275,9 @@ namespace RaidersHaveFamilies
                 if(!vehicle.InBounds(map) || f.At(cell)==int.MaxValue || f.At(vehicle)==int.MaxValue)continue;
                 Room room=cell.GetRoom(map);
                 if(room==null || vehicle.GetRoom(map)!=room)continue;
+                // Exclude the occupied prison BEFORE comparing early candidates.
+                // Otherwise a tier-0 prison winner hides all tier-1/2 alternatives.
+                if(earlyEngineer!=null && room==vip.Position.GetRoom(map))continue;
                 checkedPads++;
                 if(NJRPodSiteClearS41.Needed(map,cell,vehicle,launcher,pod,vip,rotation)!=0)
                 {blockedFootprint++;continue;}
@@ -325,7 +328,7 @@ namespace RaidersHaveFamilies
                     else if(room==prison && (!room.PsychologicallyOutdoors || (cell-anchor).LengthHorizontalSquared<=36))tier=0;
                     else if(tier!=1)tier=2;
                 }
-                if(op.FortifyPrison && tier==3 && barrier!=null)continue;
+                if(op.FortifyPrison && tier==3 && (barrier!=null || earlyEngineer!=null))continue;
                 // Absolute priority: a viable indoor pad cannot lose to an outdoor score.
                 if(op.FortifyPrison && tier>tierBest)continue;
                 int risk=Risk(cell)+Risk(vehicle);
@@ -339,7 +342,7 @@ namespace RaidersHaveFamilies
                 // earlier point-only test could choose a pad that sealed its own
                 // supply/boarding path. Native reach is also required for a
                 // direct site; a planned breach may be traversed in preview.
-                if(!WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier)){noLane++;continue;}
+                if(!WorkLaneR041(map,vip,footprint,launchSlots,podSlots,barrier,earlyEngineer!=null)){noLane++;continue;}
                 if(earlyEngineer!=null && (!earlyEngineer.CanReach(cell,PathEndMode.Touch,Danger.Deadly) ||
                     !earlyEngineer.CanReach(vehicle,PathEndMode.Touch,Danger.Deadly)))continue;
                 validPads++;
@@ -381,7 +384,7 @@ namespace RaidersHaveFamilies
                 WorkLaneR041(map,vip,footprint,launchSlots,podSlots,null);
         }
         private static bool WorkLaneR041(Map map,Pawn vip,HashSet<IntVec3> footprint,
-            HashSet<IntVec3> launchSlots,HashSet<IntVec3> podSlots,Thing barrier)
+            HashSet<IntVec3> launchSlots,HashSet<IntVec3> podSlots,Thing barrier,bool prospective=false)
         {
             var seen=new HashSet<IntVec3>();var queue=new Queue<IntVec3>();
             seen.Add(vip.Position);queue.Enqueue(vip.Position);
@@ -390,7 +393,7 @@ namespace RaidersHaveFamilies
             {
                 IntVec3 at=queue.Dequeue();
                 bool isLaunch=launchSlots.Contains(at),isPod=podSlots.Contains(at);
-                if((isLaunch || isPod) && (barrier!=null || vip.CanReach(at,PathEndMode.OnCell,Danger.Deadly)))
+                if((isLaunch || isPod) && (prospective || barrier!=null || vip.CanReach(at,PathEndMode.OnCell,Danger.Deadly)))
                 {
                     if(isLaunch && pod.IsValid && at!=pod || isPod && launch.IsValid && at!=launch)return true;
                     if(isLaunch && !launch.IsValid)launch=at;
@@ -402,8 +405,8 @@ namespace RaidersHaveFamilies
                     if(!c.InBounds(map) || footprint.Contains(c) || seen.Contains(c) ||
                        Math.Abs(c.x-vip.Position.x)>26 || Math.Abs(c.z-vip.Position.z)>26)continue;
                     Building edifice=c.GetEdifice(map);
-                    if(!c.Walkable(map) && !(barrier!=null && (edifice==barrier || edifice is Building_Door)))continue;
-                    if(edifice is Building_Door door && !door.Open && barrier==null && RHFObjectiveRouteV128.IsRescueStructuralBarrier(door))continue;
+                    if(!c.Walkable(map) && !((barrier!=null && edifice==barrier) || ((prospective || barrier!=null) && edifice is Building_Door)))continue;
+                    if(edifice is Building_Door door && !door.Open && barrier==null && !prospective && RHFObjectiveRouteV128.IsRescueStructuralBarrier(door))continue;
                     seen.Add(c);queue.Enqueue(c);
                 }
             }

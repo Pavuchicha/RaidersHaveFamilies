@@ -22,7 +22,7 @@ namespace RaidersHaveFamilies
             (thing.def.defName=="ChunkSlagSteel" || thing.def.defName.StartsWith("Chunk",StringComparison.Ordinal));
         internal static bool IsAssigned(RHFOperation op,Pawn worker,Thing thing)
         {
-            if(op==null || !op.FortifyPrison || op.Phase!=3 || !IsDebris(thing))return false;
+            if(op==null || !op.FortifyPrison || (op.Phase!=3 && !(op.Phase==1 && op.TryPod && op.PodConstructionStage>=1)) || !IsDebris(thing))return false;
             if(op.PodConstructionStage==0)
                 return States.TryGetValue(op,out State state) && state.Worker==worker && state.Debris==thing;
             if(op.PodConstructionStage<1 || op.PodConstructionStage>4)return false;

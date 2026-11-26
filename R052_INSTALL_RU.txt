@@ -1,0 +1,5 @@
+NJR R052 — обновление поверх R051.
+Распаковать содержимое patch ZIP в корень репозитория с заменой файлов.
+GitHub Desktop Summary: R052: Early engineering wing and raid-funded adaptive fortifications
+Commit → Push → дождаться успешной сборки GitHub Actions, использовать полученную DLL/мод.
+Тест №16: отдельно проверить площадку вне камеры, малый и крупный рейд, модовые материалы. В журнале искать R052][SealBudget и R052][Early; у стены phase=1 означает начало до освобождения. Сохраняйте диагностику.

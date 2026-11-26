@@ -171,6 +171,14 @@ namespace RaidersHaveFamilies
         public bool AssaultAfterObjective;
         public bool FortifyPrison;
         public int BarricadesBuilt;
+        // R052: immutable purchased fortification quota and material, persisted with the operation.
+        public ThingDef SealStuffR052;
+        public int SealCountR052;
+        public int SealUnitsR052;
+        public float SealCostR052;
+        public int EarlyPadProbeTickR052 = -1;
+        public Pawn EarlyCarrierR052;
+        public int SealLimitR052 => SealCountR052>0 ? SealCountR052 : 2;
         public int FortifyStartedTick;
         public IntVec3 BarricadeCell = IntVec3.Invalid;
         public List<IntVec3> CompletedBarricades = new List<IntVec3>();
@@ -252,6 +260,12 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref AssaultAfterObjective, "rhfAftermathAssaultV12", false);
             Scribe_Values.Look(ref FortifyPrison, "rhfFortifyPrisonV12", false);
             Scribe_Values.Look(ref BarricadesBuilt, "rhfBarricadesBuiltV12", 0);
+            Scribe_Defs.Look(ref SealStuffR052,"njrSealStuffR052");
+            Scribe_Values.Look(ref SealCountR052,"njrSealCountR052",0);
+            Scribe_Values.Look(ref SealUnitsR052,"njrSealUnitsR052",0);
+            Scribe_Values.Look(ref SealCostR052,"njrSealCostR052",0f);
+            Scribe_Values.Look(ref EarlyPadProbeTickR052,"njrEarlyPadProbeTickR052",-1);
+            Scribe_References.Look(ref EarlyCarrierR052,"njrEarlyCarrierR052");
             Scribe_Values.Look(ref FortifyStartedTick, "rhfFortifyStartedV12", 0);
             Scribe_Values.Look(ref BarricadeCell, "rhfBarricadeCellV12", IntVec3.Invalid);
             Scribe_Collections.Look(ref CompletedBarricades, "rhfFinishedBarricadesV12", LookMode.Value);
@@ -824,7 +838,7 @@ namespace RaidersHaveFamilies
                         ThingDef launcher=DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher");
                         ThingDef pod=DefDatabase<ThingDef>.GetNamedSilentFail("TransportPod");
                         int steel=FieldCost(launcher,ThingDefOf.Steel) +
-                            FieldCost(pod,ThingDefOf.Steel) + (op.FortifyPrison?20:0);
+                            FieldCost(pod,ThingDefOf.Steel);
                         int components=FieldCost(launcher,ThingDefOf.ComponentIndustrial) +
                             FieldCost(pod,ThingDefOf.ComponentIndustrial);
                         CompProperties_Refuelable refuelProps=
@@ -837,9 +851,12 @@ namespace RaidersHaveFamilies
                         // rescuers. Commit the mission's missing resources as
                         // explicit points BEFORE handing the balance to native
                         // pawn generation. This is not a free installed pod.
-                        float required=cost+Mathf.Max(350f,
-                            NJRForceStrengthR017.HumanCoreFloor(party));
-                        if(launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
+                        float core=Mathf.Max(350f,NJRForceStrengthR017.HumanCoreFloor(party));
+                        bool sealFunded=!op.FortifyPrison || NJRSealBudgetR052.Plan(op,party.Points,
+                            Math.Max(0f,effectivePoints-cost-core));
+                        cost+=op.SealCostR052;
+                        float required=cost+core;
+                        if(sealFunded && launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
                            effectivePoints<required)
                         {
                             float additional=required-effectivePoints;
@@ -853,9 +870,11 @@ namespace RaidersHaveFamilies
                                     additional.ToString("F0")+" committed points.");
                             }
                         }
-                        if(launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
+                        if(sealFunded && launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
                             effectivePoints>=required)
-                        {effectivePoints-=cost;op.PodSupplyCost=cost;op.PodBudgetPaid=true;}
+                        {effectivePoints-=cost;op.PodSupplyCost=cost;op.PodBudgetPaid=true;
+                            if(op.FortifyPrison)Log.Message("[NJR][R052][SealBudget] walls="+op.SealCountR052+" stuff="+op.SealStuffR052?.defName+
+                                " units="+op.SealUnitsR052+" paid="+op.SealCostR052.ToString("F1")+" remaining="+effectivePoints.ToString("F1"));}
                         else
                         {
                             op.TryPod=false;op.FortifyPrison=false;
