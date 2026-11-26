@@ -28,6 +28,6 @@ g=read('SealGeometryR049.cs');v=read('RHFVipEvacS311.cs');d=read('NJRPrisonerDef
 assert 'gates.RemoveWhere(g=>!doors.Contains(g)' in g and 'GenAdj.OccupiedRect(op.PodLauncherCell' in g
 assert 'candidate.Freed?.Contains(victim)==true' in d and 'EndCurrentJob(JobCondition.InterruptForced)' in d
 assert 'NJRPrisonerDefenseR047.Pulse(op,now)' in o and 'NativePrepareBeforeReleaseR051(op,now)' in o
-assert 'TryEarlyPadR051' in v and 'EarlySealSafeR051' in v and 'member==board.Breacher' in v
+assert 'TryEarlyPadR051' in v and 'EarlySealSafeR051' in v and 'p!=board.Breacher' in v and 'NJREarlyWingR053.Reserve' in v
 assert 'NJR_ReopenOwnSealR051' in role and 'Wait(300,TargetIndex.A)' in j and 'IsOwnSealR043(op,wall)' in j
 print('PASS R051: recorded failure facts, internal gate model and source contracts')

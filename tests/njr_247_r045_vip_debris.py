@@ -38,7 +38,7 @@ assert 'cell.Walkable(map)' in route and 'cost<0 && obstacle==null' in route
 assert 'if(!c.Walkable(map)' in access and 'slot.Standable(map)' in access
 assert 'op.Freed?.Contains(pawn)==true' in access and 'No verified incoming contact' in access
 assert vip.index('NJRVipDebrisR045.TryStart')<vip.index('no physical build site or recoverable access route after retry')
-assert 'state.Tried.Count>=6' in debris and 'LocalBypass(map,cell)' in debris and 'now-state.Started<1200' in debris
+assert 'state.Tried.Count>=6' in debris and 'LocalBypass(op,map,cell)' in debris and 'now-state.Started<1200' in debris
 assert 'Toils_Haul.StartCarryThing' in driver and 'if(op==null || carried==null || debris)return;' in driver and 'NJRVipDebrisR045.Completed' in driver
 assert 'NJRVipDebrisR045.IsAssigned(op,pawn,cargo)' in jobs
 print('PASS R045 trace, traversal/placement split, bounded physical debris and VIP combat gate')

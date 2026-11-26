@@ -200,7 +200,12 @@ namespace RaidersHaveFamilies
             RHFRoleS41 role=(RHFRoleS41)order.Role;
             if(op.Phase==1 && op.TryPod && op.FortifyPrison && op.PodConstructionStage>=1)
             {
-                if(role==RHFRoleS41.Engineer)return RHFPodPlannerS41.WorkJob(pawn,order.Objective);
+                if(role==RHFRoleS41.Engineer)
+                {
+                    if(AdjacentObservedThreat(op,pawn))
+                    {Job defence=NJRCombatContactS44.Respond(pawn,op,op.PodCell,false,10);if(defence!=null)return defence;}
+                    return RHFPodPlannerS41.WorkJob(pawn,order.Objective);
+                }
                 if(role==RHFRoleS41.PodSupply && order.Objective!=null && order.Objective.Spawned && order.Cell.IsValid &&
                    (op.PodCargoStacksS41.Contains(order.Objective) || NJRVipDebrisR045.IsAssigned(op,pawn,order.Objective)))
                 {

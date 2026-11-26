@@ -41,6 +41,6 @@ assert 'op.BarricadesBuilt>=op.SealLimitR052' in v and 'owner,op.SealStuffR052??
 assert ac.index('earlyEngineer!=null && room==vip.Position.GetRoom(map)')<ac.index('tier>tierBest')
 assert 'earlyEngineer!=null)){noLane++;continue;}' in ac and 'now-op.EarlyPadProbeTickR052<150' in v
 assert 'NativeAtSiteS311(map,cell,requested,op.PodCargoOwnerFactionS311)' in v
-assert 'escortedDuringAssault.Add(reserved);remaining--' in p and 'remaining<=2' in p
+assert 'NJREarlyWingR053.Reserve(op,map,captive,escortedDuringAssault,now)' in p and 'contacts.Count==0?1' in (s/'NJREarlyWingR053.cs').read_text()
 assert 'AssignEarlyR052' in v and 'EndCurrentJob(JobCondition.InterruptForced,false)' in v
 print('PASS R052: recorded timing, rank-before-filter regression, synthetic budget/material model and source contracts')

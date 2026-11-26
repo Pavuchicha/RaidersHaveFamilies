@@ -358,7 +358,12 @@ namespace RaidersHaveFamilies
                 {
                     if(names[i]=="Refuel" && !giver.HasJobOnThing(pawn,site,true))continue;
                     Job result=giver.JobOnThing(pawn,site,true);
-                    if(result!=null)return result;
+                    if(result!=null)
+                    {
+                        if(result.targetA.IsValid && !pawn.CanReserve(result.targetA))continue;
+                        if(result.targetB.IsValid && !pawn.CanReserve(result.targetB))continue;
+                        return result;
+                    }
                 }
                 catch(Exception e)
                 { Log.Warning("[RHF S41][Native work] "+names[i]+": "+e.Message); }

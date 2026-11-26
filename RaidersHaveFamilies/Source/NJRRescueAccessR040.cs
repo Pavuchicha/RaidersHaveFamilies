@@ -128,7 +128,7 @@ namespace RaidersHaveFamilies
             Pawn mover=null;Thing chunk=null;IntVec3 dest=IntVec3.Invalid;
             foreach(Pawn p in op.Squad)
             {
-                if(!Active(p,map) || p.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044")continue;
+                if(!Active(p,map) || NJREarlyWingR053.IsBuilderWing(op,p) || p.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044")continue;
                 RHFOrderS41 prior=board.For(p,false);
                 if(prior?.Objective==null || !NJRVipDebrisR045.IsDebris(prior.Objective))continue;
                 mover=p;chunk=prior.Objective;dest=prior.Cell;break;
@@ -150,7 +150,7 @@ namespace RaidersHaveFamilies
             var used=new HashSet<IntVec3>{dest};
             foreach(Pawn p in op.Squad)
             {
-                if(!Active(p,map))continue;
+                if(!Active(p,map) || NJREarlyWingR053.IsBuilderWing(op,p) && p!=mover)continue;
                 if(p==mover){board.Assign(p,RHFRoleS41.PodSupply,chunk,dest,now);continue;}
                 IntVec3 c=NJRRescueFormationR032.SpreadNear(p,p.Position,map,used,0,4,true);
                 if(c.IsValid){used.Add(c);board.Assign(p,RHFRoleS41.Screen,null,c,now);}
@@ -191,14 +191,20 @@ namespace RaidersHaveFamilies
         private sealed class Field
         {
             internal readonly int Width,Height;
-            internal readonly int[] Cost;
+            internal readonly int[] Cost,Parent;
             internal readonly Thing[] First;
             internal IntVec3 Exit=IntVec3.Invalid;
             internal Field(Map map)
-            {Width=map.Size.x;Height=map.Size.z;Cost=new int[Width*Height];First=new Thing[Cost.Length];Array.Fill(Cost,int.MaxValue);}
+            {Width=map.Size.x;Height=map.Size.z;Cost=new int[Width*Height];First=new Thing[Cost.Length];Parent=new int[Cost.Length];Array.Fill(Parent,-1);Array.Fill(Cost,int.MaxValue);}
             internal int Id(IntVec3 c)=>c.z*Width+c.x;
             internal int At(IntVec3 c)=>Cost[Id(c)];
             internal Thing BarrierAt(IntVec3 c)=>First[Id(c)];
+            internal HashSet<IntVec3> Path()
+            {
+                var result=new HashSet<IntVec3>();if(!Exit.IsValid)return result;
+                for(int i=Id(Exit);i>=0;i=Parent[i])result.Add(new IntVec3(i%Width,0,i/Width));
+                return result;
+            }
         }
         private static int Edge(Map map,IntVec3 c)=>Math.Min(Math.Min(c.x,map.Size.x-1-c.x),Math.Min(c.z,map.Size.z-1-c.z));
         private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false,bool doorsOnly=false,RHFOperation ownExit=null,bool clearDebris=false)
@@ -219,7 +225,7 @@ namespace RaidersHaveFamilies
                 IntVec3 at=new IntVec3(id%f.Width,0,id/f.Width);
                 if(priority!=f.Cost[id]+(toEdge?Edge(map,at)*10:0))continue;
                 closed[id]=true;expanded++;
-                if(toEdge && Edge(map,at)<=(preferVipDoors?1:0) && at.Standable(map) && at.GetEdifice(map)==null && !at.Roofed(map))
+                if(toEdge && Edge(map,at)==0 && at.Standable(map) && at.GetEdifice(map)==null && !at.Roofed(map))
                 {f.Exit=at;break;}
                 for(int direction=0;direction<4;direction++)
                 {
@@ -240,7 +246,7 @@ namespace RaidersHaveFamilies
                     if(hazards[nid]<0)hazards[nid]=danger(next);
                     step+=hazards[nid];
                     if(f.Cost[id]>int.MaxValue-step || f.Cost[id]+step>=f.Cost[nid])continue;
-                    f.Cost[nid]=f.Cost[id]+step;f.First[nid]=f.First[id]??obstacle;
+                    f.Cost[nid]=f.Cost[id]+step;f.First[nid]=f.First[id]??obstacle;f.Parent[nid]=id;
                     heap.Enqueue(nid,f.Cost[nid]+(toEdge?Edge(map,next)*10:0));
                 }
             }
@@ -602,13 +608,18 @@ namespace RaidersHaveFamilies
             }
             if(mover==null)
             {
-                if((now-op.PhaseStartTick)%270>=90)return false;
+                
                 Field corridor=Search(map,navigator,0,true,true,true,op,true);
                 if(corridor==null || !corridor.Exit.IsValid)return false;
                 chunk=corridor.BarrierAt(corridor.Exit);
-                if(!NJRVipDebrisR045.IsDebris(chunk) || !NJRVipDebrisR045.TryMove(op,map,chunk,null,null,null,out mover,out destination))return false;
+                if(!NJRVipDebrisR045.IsDebris(chunk) || !NJRVipDebrisR045.TryMove(op,map,chunk,null,null,null,out mover,out destination,corridor.Path()))return false;
                 Log.Message("[NJR][R047][Exit] physically clear corridor debris "+chunk.Position+" -> "+destination);
             }
+            return AssignExitDebrisR053(op,map,mover,chunk,destination,now);
+        }
+        private static bool AssignExitDebrisR053(RHFOperation op,Map map,Pawn mover,Thing chunk,IntVec3 destination,int now)
+        {
+            var board=op.BoardS41;
             Clear(op);board.Barrier=null;board.Breacher=null;
             var used=new HashSet<IntVec3>{destination};
             foreach(Pawn member in op.Squad)
@@ -621,6 +632,48 @@ namespace RaidersHaveFamilies
             }
             board.Decision="R047 clear actual exit corridor";board.NextReplanTick=now+90;board.LastPlanTick=now;
             return true;
+        }
+        // Bounded local split proof: remove only loose debris (or a mission
+        // seal) that directly joins the trapped pocket to a native reachable ally.
+        internal static bool TryLocalPocketR053(RHFOperation op,Map map,Pawn isolated,int now)
+        {
+            if(!op.ExitCell.IsValid || !Active(isolated,map))return false;
+            var outside=new List<Pawn>();foreach(Pawn p in op.Squad)
+                if(Active(p,map) && p!=isolated && p.CanReach(op.ExitCell,PathEndMode.OnCell,Danger.Deadly))outside.Add(p);
+            if(outside.Count==0)return false;
+            var pocket=new HashSet<IntVec3>{isolated.Position};var queue=new Queue<IntVec3>();queue.Enqueue(isolated.Position);
+            var boundary=new HashSet<IntVec3>();
+            while(queue.Count>0 && pocket.Count<=512)
+            {
+                IntVec3 at=queue.Dequeue();
+                foreach(IntVec3 dir in GenAdj.CardinalDirections)
+                {
+                    IntVec3 c=at+dir;
+                    if(!c.InBounds(map) || (c-isolated.Position).LengthHorizontalSquared>144 || pocket.Contains(c))continue;
+                    if(NJRVipDebrisR045.DebrisAt(map,c)!=null || IsOwnSealR043(op,c.GetEdifice(map)))
+                    {boundary.Add(c);continue;}
+                    if(c.Standable(map) && isolated.CanReach(c,PathEndMode.OnCell,Danger.Deadly) && pocket.Add(c))queue.Enqueue(c);
+                }
+            }
+            foreach(IntVec3 c in boundary)
+            {
+                bool joins=false;foreach(IntVec3 dir in GenAdj.CardinalDirections)
+                {
+                    IntVec3 n=c+dir;if(!n.InBounds(map) || pocket.Contains(n) || !n.Standable(map))continue;
+                    foreach(Pawn ally in outside)if(ally.CanReach(n,PathEndMode.OnCell,Danger.Deadly)){joins=true;break;}
+                    if(joins)break;
+                }
+                if(!joins)continue;
+                Thing chunk=NJRVipDebrisR045.DebrisAt(map,c);
+                if(chunk!=null)
+                {
+                    var forbidden=new HashSet<IntVec3>(pocket){c};foreach(IntVec3 dir in GenAdj.CardinalDirections)forbidden.Add(c+dir);
+                    if(NJRVipDebrisR045.TryMove(op,map,chunk,null,null,null,out Pawn mover,out IntVec3 dst,forbidden))
+                    {Log.Message("[NJR][R053][Exit] reconnect isolated pocket via debris "+c);return AssignExitDebrisR053(op,map,mover,chunk,dst,now);}
+                }
+                Thing wall=c.GetEdifice(map);if(IsOwnSealR043(op,wall) && AssignOwnExitR043(op,map,isolated,wall,now))return true;
+            }
+            return false;
         }
         internal static bool TryExitAccess(RHFOperation op,Map map,Pawn navigator,int now)
         {

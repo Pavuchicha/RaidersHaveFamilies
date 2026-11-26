@@ -11,7 +11,7 @@ assert fort.index('if(!SealLogisticsR044(op,target,pocket')<fort.index('Blueprin
 assert 'op.PodConstructionStage<1 || op.PodConstructionStage>4' in d and 'order.Objective==thing' in d
 assert 'candidate==engineer || candidate==refueler' in d and 'SafeDrop(op,map,c,candidate)' in d
 assert 'cell==op.BarricadeCell || NJRPodSiteClearS41.ReservedFootprint(op,cell)' in d
-assert 'pocket!=null && !pocket.Contains(cell)' in d and 'LocalBypass(map,cell)' in d
+assert 'pocket!=null && !pocket.Contains(cell)' in d and 'LocalBypass(op,map,cell)' in d
 assert 'NJRVipDebrisR045.IsAssigned(op,pawn,cargo)' in j and 'Toils_Haul.StartCarryThing' in driver
 assert 'if(debris && !NJRVipDebrisR045.SafeDrop' in driver and 'if(op==null || carried==null || debris)return;' in driver
 assert 'sealMover!=engineer && sealMover!=refueler' in p

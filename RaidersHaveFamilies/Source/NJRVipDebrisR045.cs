@@ -81,13 +81,13 @@ namespace RaidersHaveFamilies
         }
         // A corner with several exits is safe only if they stay connected
         // after depositing the chunk. No new choke point is introduced.
-        private static bool LocalBypass(Map map,IntVec3 blocked)
+        private static bool LocalBypass(RHFOperation op,Map map,IntVec3 blocked)
         {
             var neighbors=new List<IntVec3>();
             for(int i=0;i<4;i++)
             {
                 IntVec3 n=RHFObjectiveRouteV128.CardinalR044(blocked,i);
-                if(n.InBounds(map) && n.Walkable(map))neighbors.Add(n);
+                if(n.InBounds(map) && n.Walkable(map) && n!=op.BarricadeCell && !NJRPodSiteClearS41.ReservedFootprint(op,n))neighbors.Add(n);
             }
             if(neighbors.Count<2)return true;
             var seen=new HashSet<IntVec3>{neighbors[0]};var queue=new Queue<IntVec3>();queue.Enqueue(neighbors[0]);
@@ -98,7 +98,7 @@ namespace RaidersHaveFamilies
                 {
                     IntVec3 n=RHFObjectiveRouteV128.CardinalR044(c,i);
                     if(n==blocked || !n.InBounds(map) || Math.Abs(n.x-blocked.x)>3 || Math.Abs(n.z-blocked.z)>3 ||
-                       !n.Walkable(map) || n.GetEdifice(map) is Building_Door || !seen.Add(n))continue;
+                       !n.Walkable(map) || n==op.BarricadeCell || NJRPodSiteClearS41.ReservedFootprint(op,n) || n.GetEdifice(map) is Building_Door || !seen.Add(n))continue;
                     queue.Enqueue(n);
                 }
             }
@@ -115,7 +115,7 @@ namespace RaidersHaveFamilies
             int best=int.MaxValue;
             foreach(Pawn candidate in op.Squad)
             {
-                if(candidate==engineer || candidate==refueler || !RHFRescuePlannerS41.ActiveForRoleS41(candidate,map) ||
+                if(candidate==engineer || candidate==refueler || (pocket!=null && NJREarlyWingR053.IsAssault(op,candidate)) || !RHFRescuePlannerS41.ActiveForRoleS41(candidate,map) ||
                    candidate.Faction!=op.PodCargoOwnerFactionS311 || candidate.InMentalState || candidate.carryTracker==null ||
                    candidate.carryTracker.CarriedThing!=null || (op.Phase!=1 && RHFPodSupplyS41.HasCargo(op,candidate)) ||
                    RHFCombatPlannerV125.IsCombatEmergencyJob(candidate) || candidate.WorkTypeIsDisabled(WorkTypeDefOf.Hauling) ||
@@ -151,9 +151,9 @@ namespace RaidersHaveFamilies
                 IntVec3 n=RHFObjectiveRouteV128.CardinalR044(cell,i);
                 if(!n.InBounds(map))continue;
                 if(n.GetEdifice(map) is Building_Door)return false;
-                if(n.Walkable(map))free++;
+                if(n.Walkable(map) && n!=op.BarricadeCell && !NJRPodSiteClearS41.ReservedFootprint(op,n))free++;
             }
-            return free>0 && (free==1 || LocalBypass(map,cell));
+            return free>0 && (free==1 || LocalBypass(op,map,cell));
         }
         internal static bool TryStart(RHFOperation op,Map map,Pawn vip,int now)
         {

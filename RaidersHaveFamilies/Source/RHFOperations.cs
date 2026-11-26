@@ -1265,9 +1265,12 @@ namespace RaidersHaveFamilies
                     // Every rescue with live targets uses the SAME route,
                     // suppression and obstacle logic, including case-keyed
                     // searches that found an actual prisoner.
-                    RHFRescueCommandV124.Infiltrate(this, op, now);
                     if(op.Phase==1 && op.TryPod && op.FortifyPrison && op.PodSuppliesIssued)
+                    {
+                        op.BoardS41 ??= new RHFTacticalBoardS41();
                         NativePrepareBeforeReleaseR051(op,now);
+                    }
+                    RHFRescueCommandV124.Infiltrate(this, op, now);
                 }
                 else if (op.Phase == 2)
                 {

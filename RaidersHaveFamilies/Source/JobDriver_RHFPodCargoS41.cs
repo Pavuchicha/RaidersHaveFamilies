@@ -35,7 +35,7 @@ namespace RaidersHaveFamilies
             return false;
         }
 
-        internal static IntVec3 UnloadCell(Pawn pawn,RHFOperation op,Map map)
+        internal static IntVec3 UnloadCell(Pawn pawn,RHFOperation op,Map map,HashSet<IntVec3> allocated=null)
         {
             if(pawn==null || op==null || map==null ||
                !op.PodLauncherCell.IsValid)return IntVec3.Invalid;
@@ -51,7 +51,7 @@ namespace RaidersHaveFamilies
                 IntVec3 c=center+new IntVec3(dx,0,dz);
                 // Delivery stacks must never block the actual physical
                 // launcher/pod footprints while the engineer is building.
-                if(NJRPodSiteClearS41.ReservedFootprint(op,c) ||
+                if((allocated!=null && allocated.Contains(c)) || NJRPodSiteClearS41.ReservedFootprint(op,c) ||
                    c==op.BarricadeCell || (pocket!=null && !pocket.Contains(c)) ||
                    !c.InBounds(map) || !c.Standable(map) ||
                    c.GetEdifice(map)!=null ||
