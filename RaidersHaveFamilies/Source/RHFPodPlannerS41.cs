@@ -17,7 +17,11 @@ namespace RaidersHaveFamilies
         internal static bool PinnedEngineerValid(RHFOperation op,Map map,IntVec3 workCell)
         {
             Pawn p=op?.BoardS41?.PodEngineerS41;
-            return p!=null && op.Squad!=null && op.Squad.Contains(p) &&
+            Thing current=null;
+            if(op!=null && workCell.IsValid && workCell.InBounds(map))
+                foreach(Thing t in map.thingGrid.ThingsListAt(workCell))
+                    if(t.Faction==op.PodCargoOwnerFactionS311 && (t is Blueprint_Build || t is Frame)){current=t;break;}
+            return p!=null && !RHFOperationController.BusyProjectR055(p,current) && op.Squad!=null && op.Squad.Contains(p) &&
                 p.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044" &&
                 RHFRescuePlannerS41.ActiveForRoleS41(p,map) &&
                 p.health?.capacities!=null &&
@@ -209,6 +213,22 @@ namespace RaidersHaveFamilies
             IntVec3 best=IntVec3.Invalid;
             Room siteRoom=site.GetRoom(map)??op.PodLauncherCell.GetRoom(map);
             HashSet<IntVec3> sealPocket=RHFPodSupplyS41.SealPocketR044(op);
+            HashSet<IntVec3> future=RHFPodSupplyS41.DeferredPocketR058(op);
+            // Get the rescued pawn to the inside of the future wall as soon as
+            // it can cross. Never wait for launcher completion to stage the VIP.
+            if(op.PodConstructionStage<3 && future!=null && op.DeferredSealClearR057.IsValid)
+            {
+                IntVec3 preferred=IntVec3.Invalid;int bestCost=int.MaxValue;
+                foreach(IntVec3 c in future)
+                {
+                    if((c-site).LengthHorizontalSquared>25 || !c.Standable(map) || c.GetEdifice(map)!=null ||
+                       c==op.DeferredSealClearR057 || (sealPocket!=null && !sealPocket.Contains(c)) || NJRPodSiteClearS41.ReservedFootprint(op,c))continue;
+                    int cost=(c-site).LengthHorizontalSquared*10+(c-vip.Position).LengthHorizontalSquared;
+                    if(cost>=bestCost || !vip.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;
+                    preferred=c;bestCost=cost;
+                }
+                if(preferred.IsValid)return preferred;
+            }
             if(op.FortifyPrison && op.Freed?.Contains(vip)==true && sealPocket!=null && !sealPocket.Contains(vip.Position))
                 for(int d=0;d<4;d++)
                 {

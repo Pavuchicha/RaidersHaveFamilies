@@ -1,0 +1,90 @@
+{
+  "revision": "R057",
+  "cargo_moves": {
+    "[NJR][R044][Fortify] moved mission cargo Chemfuel37051 to (123, 0, 152)": 586,
+    "[NJR][R044][Fortify] moved mission cargo ComponentIndustrial37049 to (121, 0, 154)": 1,
+    "[NJR][R044][Fortify] moved mission cargo Chemfuel37078 to (124, 0, 151)": 2
+  },
+  "logs": [
+    [
+      39289,
+      "[NJR][R051][Early] pad reserved during assault (121, 0, 152) (122, 0, 152)"
+    ],
+    [
+      39289,
+      "[RHF S41][Fortify] Real enemy wall blueprint (124, 0, 150) def=Wall stuff=Bioferrite phase=1 / op=38569"
+    ],
+    [
+      39919,
+      "[NJR][R055][Fortify] completed (124, 0, 150) phase=1"
+    ],
+    [
+      40009,
+      "[RHF][V131] Freed=Деош; phase=3; pod=True; financed=True; missionLord=True"
+    ],
+    [
+      40549,
+      "[NJR][VIP construction] WorkGiver unavailable: stage=1 site=Blueprint_PodLauncher worker=Дёрён job=Wait cargoStillCarried=False"
+    ],
+    [
+      41449,
+      "[NJR][VIP construction] WorkGiver unavailable: stage=1 site=Blueprint_PodLauncher worker=Дёрён job=Wait cargoStillCarried=False"
+    ],
+    [
+      41629,
+      "[RHF S41][Fortify] Real enemy wall blueprint (120, 0, 150) def=Wall stuff=Bioferrite phase=3 / op=38569"
+    ],
+    [
+      42169,
+      "[NJR][R055][Fortify] completed (120, 0, 150) phase=3"
+    ],
+    [
+      42349,
+      "[NJR][VIP construction] WorkGiver unavailable: stage=1 site=Blueprint_PodLauncher worker=Дёрён job=Wait cargoStillCarried=False"
+    ],
+    [
+      43249,
+      "[NJR][VIP construction] WorkGiver unavailable: stage=1 site=Blueprint_PodLauncher worker=Дёрён job=Wait cargoStillCarried=False"
+    ]
+  ],
+  "build": [
+    [
+      39578,
+      "Frame_TransportPod"
+    ],
+    [
+      40971,
+      "TransportPod"
+    ],
+    [
+      43411,
+      "Frame_PodLauncher"
+    ],
+    [
+      45458,
+      "PodLauncher"
+    ]
+  ],
+  "exits": [
+    [
+      52429,
+      36786
+    ],
+    [
+      52609,
+      36770
+    ],
+    [
+      52699,
+      36756
+    ],
+    [
+      53059,
+      36845
+    ],
+    [
+      53239,
+      36834
+    ]
+  ]
+}

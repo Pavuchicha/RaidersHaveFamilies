@@ -37,7 +37,7 @@ assert 'e.PushBroken' not in g and 'e.Regrouping' not in g and 'e.Slots[p]=slot'
 assert 'regroup before second attempt' not in g and 'op.Phase=2;op.PhaseStartTick=now' in g
 assert 'RHFCombatPlannerV125.IsCombatEmergencyJob(p)' in g
 assert 'NJRRescueFirebreakR034.DirectGun(candidate)' in t
-assert 'Write("debug_window_open"' in diag and 'baseRevision="R057"' in diag
+assert 'Write("debug_window_open"' in diag and 'baseRevision="R058"' in diag
 # Historical individual retries remain disallowed while suppressed; R038 permits a new coordinated wave after native recovery.
 for cover,retry in loops:
  assert retry['tick']>=cover['tick']

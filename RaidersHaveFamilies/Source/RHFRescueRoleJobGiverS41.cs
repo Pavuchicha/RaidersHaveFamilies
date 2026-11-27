@@ -206,7 +206,7 @@ namespace RaidersHaveFamilies
                     {Job defence=NJRCombatContactS44.Respond(pawn,op,op.PodCell,false,10);if(defence!=null)return defence;}
                     return RHFPodPlannerS41.WorkJob(pawn,order.Objective);
                 }
-                if(role==RHFRoleS41.PodSupply && order.Objective!=null && order.Objective.Spawned && order.Cell.IsValid &&
+                if(role==RHFRoleS41.PodSupply && order.Objective!=null && order.Objective.Spawned && order.Cell.IsValid && order.Objective.Position!=order.Cell &&
                    (op.PodCargoStacksS41.Contains(order.Objective) || NJRVipDebrisR045.IsAssigned(op,pawn,order.Objective)))
                 {
                     JobDef move=DefDatabase<JobDef>.GetNamedSilentFail("NJR_MoveSealCargoR044");

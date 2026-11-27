@@ -13,7 +13,7 @@ namespace RaidersHaveFamilies
     internal static class RHFPodSupplyS41
     {
         private sealed class SealStateR044
-        {internal IntVec3 Wall=IntVec3.Invalid;internal HashSet<IntVec3> Pocket;}
+        {internal IntVec3 Wall=IntVec3.Invalid;internal HashSet<IntVec3> Pocket;internal IntVec3 Deferred=IntVec3.Invalid;internal HashSet<IntVec3> DeferredPocket;}
         private static readonly ConditionalWeakTable<RHFOperation,SealStateR044> SealStatesR044=new ConditionalWeakTable<RHFOperation,SealStateR044>();
         internal static void RememberSealPocketR044(RHFOperation op,IntVec3 wall,HashSet<IntVec3> pocket)
         {var state=SealStatesR044.GetValue(op,_=>new SealStateR044());state.Wall=wall;state.Pocket=pocket;}
@@ -21,6 +21,21 @@ namespace RaidersHaveFamilies
         {
             return op!=null && op.FortifyPrison && op.BarricadeCell.IsValid &&
                 SealStatesR044.TryGetValue(op,out SealStateR044 state) && state.Wall==op.BarricadeCell?state.Pocket:null;
+        }
+        internal static void RememberDeferredR058(RHFOperation op,IntVec3 wall,HashSet<IntVec3> pocket)
+        {var state=SealStatesR044.GetValue(op,_=>new SealStateR044());state.Deferred=wall;state.DeferredPocket=pocket;}
+        internal static HashSet<IntVec3> DeferredPocketR058(RHFOperation op)
+        {return op!=null && op.DeferredSealClearR057.IsValid && SealStatesR044.TryGetValue(op,out SealStateR044 state) && state.Deferred==op.DeferredSealClearR057?state.DeferredPocket:null;}
+        internal static bool SafeCargoCellR058(RHFOperation op,Map map,IntVec3 c)
+        {
+            if(!c.InBounds(map) || !c.Standable(map) || c.GetEdifice(map)!=null || c.GetFirstBuilding(map)!=null ||
+               c==op.BarricadeCell || c==op.DeferredSealClearR057 || op.PlannedBarricadesR055.Contains(c) || NJRPodSiteClearS41.ReservedFootprint(op,c))return false;
+            bool n=SolidSupplySideR044(map,c+IntVec3.North),s=SolidSupplySideR044(map,c+IntVec3.South);
+            bool e=SolidSupplySideR044(map,c+IntVec3.East),w=SolidSupplySideR044(map,c+IntVec3.West);
+            if((n&&s)||(e&&w))return false;
+            for(int d=0;d<4;d++)
+            {IntVec3 near=RHFObjectiveRouteV128.CardinalR044(c,d);if(near.InBounds(map) && near.GetEdifice(map) is Building_Door)return false;}
+            return true;
         }
         internal static bool HasCargo(RHFOperation op,Pawn pawn)
         {
@@ -41,6 +56,7 @@ namespace RaidersHaveFamilies
                !op.PodLauncherCell.IsValid)return IntVec3.Invalid;
             IntVec3 center=op.PodLauncherCell;
             HashSet<IntVec3> pocket=SealPocketR044(op);
+            HashSet<IntVec3> future=DeferredPocketR058(op);
             Room siteRoom=op.PodCell.GetRoom(map)??center.GetRoom(map);
             IntVec3 best=IntVec3.Invalid;int score=int.MaxValue;
             for(int radius=op.FortifyPrison?1:2;radius<=7;radius++)
@@ -52,18 +68,12 @@ namespace RaidersHaveFamilies
                 // Delivery stacks must never block the actual physical
                 // launcher/pod footprints while the engineer is building.
                 if((allocated!=null && allocated.Contains(c)) || NJRPodSiteClearS41.ReservedFootprint(op,c) ||
-                   (c==op.BarricadeCell || op.PlannedBarricadesR055.Contains(c)) || (pocket!=null && !pocket.Contains(c)) ||
+                   (c==op.BarricadeCell || c==op.DeferredSealClearR057 || op.PlannedBarricadesR055.Contains(c)) || (pocket!=null && !pocket.Contains(c)) ||
                    !c.InBounds(map) || !c.Standable(map) ||
                    c.GetEdifice(map)!=null ||
                    !pawn.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;
-                int throat=0;
-                if(op.FortifyPrison)
-                {
-                    bool n=SolidSupplySideR044(map,c+IntVec3.North),s=SolidSupplySideR044(map,c+IntVec3.South);
-                    bool e=SolidSupplySideR044(map,c+IntVec3.East),w=SolidSupplySideR044(map,c+IntVec3.West);
-                    if((n&&s)||(e&&w))throat=20000;
-                }
-                int candidate=throat+(pawn.Position-c).LengthHorizontalSquared+
+                if(op.FortifyPrison && !SafeCargoCellR058(op,map,c))continue;
+                int candidate=(future!=null && !future.Contains(c)?30000:0)+(pawn.Position-c).LengthHorizontalSquared+
                     (siteRoom!=null && c.GetRoom(map)!=siteRoom?10000:0)+radius*radius*2+
                     (op.FortifyPrison && center.Roofed(map) && !c.Roofed(map)?10000:0);
                 if(candidate<score){best=c;score=candidate;}
@@ -79,13 +89,14 @@ namespace RaidersHaveFamilies
                !carrier.Spawned || carrier.inventory?.innerContainer==null ||
                carrier.Faction!=op.PodCargoOwnerFactionS311 ||
                carrier.Faction==Faction.OfPlayer)return;
+            if(op.FortifyPrison && !SafeCargoCellR058(op,carrier.Map,carrier.Position))return;
             ThingOwner inventory=carrier.inventory.innerContainer;
             for(int i=0;i<op.PodCargoStacksS41.Count;i++)
             {
                 Thing item=op.PodCargoStacksS41[i];
                 if(item==null || item.Destroyed || !inventory.Contains(item))continue;
                 if(inventory.TryDrop(item,carrier.Position,carrier.Map,
-                    ThingPlaceMode.Near,out Thing dropped))
+                    ThingPlaceMode.Direct,out Thing dropped))
                 {
                     // Item refs survive a normal drop, but vanilla can merge
                     // into an existing ground stack. Keep the actual reference.
@@ -124,10 +135,11 @@ namespace RaidersHaveFamilies
     public sealed class JobDriver_NJRMoveSealCargoR044 : JobDriver
     {
         public override bool TryMakePreToilReservations(bool errorOnFailed)
-        {return pawn.Reserve(job.GetTarget(TargetIndex.A),job,1,-1,null,errorOnFailed) &&
+        {return job.targetA.Thing!=null && job.targetA.Thing.Spawned && job.targetA.Thing.Position!=job.targetB.Cell &&
+            pawn.Reserve(job.GetTarget(TargetIndex.A),job,1,-1,null,errorOnFailed) &&
             pawn.Reserve(job.GetTarget(TargetIndex.B),job,1,-1,null,errorOnFailed);}
         private static bool MayCarryR047(RHFOperation op,bool debris)
-        {return op!=null && (op.Phase==3 || (op.FortifyPrison && ((op.Phase==1 && (debris || op.TryPod)) || (debris && op.Phase==2 && op.PodLaunchCompleted))));}
+        {return op!=null && ((op.Phase==3 && !op.PodLaunchCompleted && op.PodConstructionStage<4) || (op.FortifyPrison && ((op.Phase==1 && (debris || op.TryPod)) || (debris && op.Phase==2 && op.PodLaunchCompleted))));}
 
         protected override IEnumerable<Toil> MakeNewToils()
         {
