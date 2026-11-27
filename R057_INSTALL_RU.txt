@@ -1,0 +1,1 @@
+Распаковать патч поверх корня репозитория R056 с заменой файлов. Summary: R057: Prioritize breach specialist and prepare deferred seals. Проверить GitHub Actions, затем сценарий 16. DLL не включена.

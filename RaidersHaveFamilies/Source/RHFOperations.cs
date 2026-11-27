@@ -185,6 +185,7 @@ namespace RaidersHaveFamilies
         // Physical wall blueprints/frames still being built, not completed walls.
         public List<IntVec3> PlannedBarricadesR055 = new List<IntVec3>();
         public int ParallelSealProbeTickR055 = -1;
+        public IntVec3 DeferredSealClearR057 = IntVec3.Invalid;
         public int LastHuntOrderTick;
         public int LastInfrastructureOrderTick;
         public int RoofRemovalStartTick;
@@ -274,6 +275,7 @@ namespace RaidersHaveFamilies
             Scribe_Collections.Look(ref CompletedBarricades, "rhfFinishedBarricadesV12", LookMode.Value);
             Scribe_Collections.Look(ref PlannedBarricadesR055,"njrPlannedBarricadesR055",LookMode.Value);
             Scribe_Values.Look(ref ParallelSealProbeTickR055,"njrParallelSealProbeTickR055",-1);
+            Scribe_Values.Look(ref DeferredSealClearR057,"njrDeferredSealClearR057",IntVec3.Invalid);
             Scribe_Values.Look(ref LastHuntOrderTick, "rhfLastHuntOrderV12", 0);
             Scribe_Values.Look(ref LastInfrastructureOrderTick,"rhfLastInfrastructureOrderV12",0);
             Scribe_Values.Look(ref RoofRemovalStartTick, "rhfRoofRemovalTickV12", 0);

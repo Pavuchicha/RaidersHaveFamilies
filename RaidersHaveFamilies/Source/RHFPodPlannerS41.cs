@@ -280,6 +280,7 @@ namespace RaidersHaveFamilies
             if(pocket!=null && !pocket.Contains(cell))return false;
             return cell.IsValid && cell.InBounds(map) && cell.Standable(map) &&
                 cell.GetEdifice(map)==null && !occupied.Contains(cell) && cell!=op.BarricadeCell &&
+                cell!=op.DeferredSealClearR057 && !op.PlannedBarricadesR055.Contains(cell) &&
                 !InFootprint(cell,op.PodLauncherCell,
                     DefDatabase<ThingDef>.GetNamedSilentFail("PodLauncher"),
                     NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell)) &&

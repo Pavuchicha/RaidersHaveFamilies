@@ -127,9 +127,9 @@ namespace RaidersHaveFamilies
                 IntVec3 c=AccessSlotR047(op,p,barrier,map,used,
                     previous?.Objective==barrier?previous.Cell:IntVec3.Invalid,allowExposed);
                 if(!c.IsValid)continue;
-                int rank=(RHFTactical.IsBreachAxe(p)?10000:0)+(p.equipment?.Primary?.def?.IsMeleeWeapon==true?1200:0)+
-                    (p.skills?.GetSkill(SkillDefOf.Melee)?.Level??0)*15-(p.Position-c).LengthHorizontalSquared*4+
-                    (p==preferred?20000:0);
+                int rank=(RHFTactical.IsBreachAxe(p)?100000:0)+(p.equipment?.Primary?.def?.IsMeleeWeapon==true?1200:0)+
+                    (p.skills?.GetSkill(SkillDefOf.Melee)?.Level??0)*15-Math.Min(2000,(p.Position-c).LengthHorizontalSquared*4)+
+                    (p==preferred?500:0);
                 if(rank>score){score=rank;best=p;slot=c;}
             }
             return best;
@@ -531,9 +531,8 @@ namespace RaidersHaveFamilies
             int limit=Math.Min(3,Math.Max(1,mobile-2));
             for(int tries=0;tries<op.Squad.Count && actors.Count<limit;tries++)
             {
-                Pawn actor=op.FortifyPrison && op.Phase==2 && tries==0 && Active(prior,map) &&
-                    !excluded.Contains(prior) && priorOrder?.Objective==barrier &&
-                    AccessSlotR047(op,prior,barrier,map,used,priorOrder.Cell,state.AllowExposedExitR056).IsValid ? prior :
+                Pawn actor=op.FortifyPrison && op.Phase==2 && tries==0 ?
+                    SelectVipPairR048(op,map,barrier,excluded,used,priorOrder?.Objective==barrier?prior:null,out _,state.AllowExposedExitR056) :
                     SelectAccessOperatorR047(op,map,barrier,excluded,used,state.AllowExposedExitR056);
                 if(actor==null)break;
                 excluded.Add(actor);

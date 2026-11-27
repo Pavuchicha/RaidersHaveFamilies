@@ -83,8 +83,10 @@ namespace RaidersHaveFamilies
             if(p==op.BoardS41?.Breacher)score-=20000;
             if(old.Contains(p))score-=2000;
             if(p.CanReach(captive,PathEndMode.Touch,Danger.Deadly))score-=10000;
-            if(RHFTactical.IsBreachAxe(p))score-=500;
-            if(p.WorkTagIsDisabled(WorkTags.Violent))score+=30000;
+            // R057: a locked prison needs the paid breaching tool, not the nearest gunner.
+            if(RHFTactical.IsBreachAxe(p) && !p.CanReach(captive,PathEndMode.Touch,Danger.Deadly) &&
+               (op.BoardS41?.Barrier==null || p.CanReach(op.BoardS41.Barrier,PathEndMode.Touch,Danger.Deadly)))score-=100000;
+            if(p.WorkTagIsDisabled(WorkTags.Violent))score+=300000;
             if(RHFPodSupplyS41.HasCargo(op,p))score+=400; // unload before separation when safe
             return score;
         }

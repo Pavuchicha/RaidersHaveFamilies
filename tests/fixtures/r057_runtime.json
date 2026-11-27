@@ -1,0 +1,133 @@
+{
+  "revision": "R056",
+  "logs": [
+    [
+      39246,
+      "[NJR][R053][Wing] assault=1 engineering candidates=4 contacts=0"
+    ],
+    [
+      39336,
+      "[NJR][R050][Fortify] selected=(124, 0, 150) score=-198875 viable=1 noBenefit=17 noPocket=6 noWorker=0"
+    ],
+    [
+      39336,
+      "[NJR][R044][Fortify] pending=(124, 0, 150) cargo=Chemfuel37061 mover=Unay destination=(121, 0, 152)"
+    ],
+    [
+      39696,
+      "[RHF S41][Fortify] Real enemy wall blueprint (124, 0, 150) def=Wall stuff=Bioferrite phase=1 / op=38526"
+    ],
+    [
+      40236,
+      "[NJR][R055][Fortify] completed (124, 0, 150) phase=1"
+    ],
+    [
+      41676,
+      "[RHF][V131] Freed=Nostil; phase=3; pod=True; financed=True; missionLord=True"
+    ],
+    [
+      42216,
+      "[NJR][R050][Fortify] selected=(120, 0, 150) score=-98859 viable=1 noBenefit=22 noPocket=0 noWorker=0"
+    ],
+    [
+      42216,
+      "[NJR][R044][Fortify] pending=(120, 0, 150) cargo=ChunkSlagSteel37034 mover=Unay destination=(123, 0, 150)"
+    ],
+    [
+      42289,
+      "[NJR][R046] physically cleared drop debris (123, 0, 150)"
+    ],
+    [
+      44376,
+      "[RHF S41][Fortify] Real enemy wall blueprint (120, 0, 150) def=Wall stuff=Bioferrite phase=3 / op=38526"
+    ],
+    [
+      45006,
+      "[NJR][R055][Fortify] completed (120, 0, 150) phase=3"
+    ]
+  ],
+  "exits": [
+    [
+      58056,
+      36765
+    ],
+    [
+      58326,
+      36773
+    ],
+    [
+      58776,
+      36784
+    ],
+    [
+      58776,
+      36753
+    ],
+    [
+      60050,
+      19434
+    ],
+    [
+      60486,
+      36744
+    ]
+  ],
+  "weapons": {
+    "36765": [
+      "Unay",
+      "MeleeWeapon_BreachAxe"
+    ],
+    "36773": [
+      "Paulo",
+      "Gun_Autopistol"
+    ],
+    "36784": [
+      "Пойлуг",
+      "Gun_Autopistol"
+    ],
+    "36753": [
+      "Paul",
+      "Gun_Autopistol"
+    ],
+    "36744": [
+      "Chewy",
+      "Gun_HeavySMG"
+    ]
+  },
+  "breach": [
+    [
+      39516,
+      36744,
+      [
+        114,
+        151
+      ]
+    ],
+    [
+      45636,
+      36784,
+      [
+        124,
+        149
+      ]
+    ],
+    [
+      51756,
+      36773,
+      [
+        127,
+        145
+      ]
+    ]
+  ],
+  "build": [
+    [
+      41483,
+      "TransportPod"
+    ],
+    [
+      44313,
+      "PodLauncher"
+    ]
+  ]
+}

@@ -28,7 +28,7 @@ namespace RaidersHaveFamilies
             if(op.PodConstructionStage<1 || op.PodConstructionStage>4)return false;
             RHFOrderS41 order=op.BoardS41?.For(worker,false);
             return order!=null && order.Role==(int)RHFRoleS41.PodSupply && order.Objective==thing &&
-                order.Cell.IsValid && (thing.Position==op.BarricadeCell || NJRPodSiteClearS41.ReservedFootprint(op,thing.Position));
+                order.Cell.IsValid && (thing.Position==op.BarricadeCell || thing.Position==op.DeferredSealClearR057 || NJRPodSiteClearS41.ReservedFootprint(op,thing.Position));
         }
         // A loose chunk is a recoverable obstruction, not a permanent wall.
         // Reject actual terrain/buildings and all non-debris impassable things.
@@ -140,7 +140,7 @@ namespace RaidersHaveFamilies
             HashSet<IntVec3> pocket=op.Phase==3?RHFPodSupplyS41.SealPocketR044(op):null;
             if(!cell.IsValid || !cell.InBounds(map) || !cell.Standable(map) || cell.GetFirstBuilding(map)!=null ||
                (pocket!=null && !pocket.Contains(cell)) ||
-               (cell==op.BarricadeCell || op.PlannedBarricadesR055.Contains(cell)) || NJRPodSiteClearS41.ReservedFootprint(op,cell) ||
+               (cell==op.BarricadeCell || cell==op.DeferredSealClearR057 || op.PlannedBarricadesR055.Contains(cell)) || NJRPodSiteClearS41.ReservedFootprint(op,cell) ||
                (cell.GetFirstPawn(map)!=null && cell.GetFirstPawn(map)!=worker) ||
                (op.Vip!=null && op.Vip.Spawned && (cell-op.Vip.Position).LengthHorizontalSquared<4) ||
                RHFObjectiveRouteV128.StagingExposedToTurret(map,cell))return false;
