@@ -1,4 +1,4 @@
-﻿"""RHF v0.13.1 source/API contracts and deterministic mission bookkeeping.
+"""RHF v0.13.1 source/API contracts and deterministic mission bookkeeping.
 These are NOT real RimWorld gameplay tests; GitHub Actions must compile the DLL.
 """
 from pathlib import Path
@@ -76,7 +76,7 @@ assert 'Log.ErrorOnce(' in rescue
 assert '32 — Свой-чужой, VIP и этапы операции' in integrity
 assert 'RHFDoctrine.InfiltrationAndExit' in debug
 assert 'scenario == RHFDebugScenario.MassRescue' in debug
-assert 'total=Mathf.Max(total,1200f)' in debug
+assert 'total=Mathf.Max(total,1200f)' not in debug
 
 # Supply accounting model: launchers and pods consume distinct component and
 # steel stacks; a single 130-steel stack would violate vanilla stack limits.

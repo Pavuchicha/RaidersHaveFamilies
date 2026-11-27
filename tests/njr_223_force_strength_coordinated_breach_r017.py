@@ -17,14 +17,14 @@ for token in [
     'case RHFStrikeRole.Vengeance: return 5;',
     'maker?.kindDef!=PawnGroupKindDefOf.Combat',
     'kind?.race?.race?.Humanlike!=true',
-    'minimum*soldierCost*1.65f+140f',
-    'op.ThreatPoints+=extra;',
+    'if(cost>unused)break;',
+    'unused=Mathf.Max(0f,unused-cost);',
     'if(op==null || party==null || map==null || party.Drop ||',
     'nativeLord.AddPawn(created);',
     'RHFRescueGroundEntryS41.DeploymentCells(map,spawnCenter)',
     'op.Squad.Add(created);',
     'RHFTactical.Register(op,party,created);',
-    'if(party.Points+added>15000f)break;',
+    'if(cost>spare)break;',
     'if(party.Members<RequiredMembers(party))',
     'UNDERSTRENGTH rescue wing',
     'CompleteGeneratedRoster(RHFOperation op,',
@@ -33,20 +33,18 @@ for token in [
     'PawnsArrivalModeWorker_CenterDrop.Arrive',
 ]: assert token in force,token
 for token in [
-    'NJRForceStrengthR017.CommitMissionBudget(op,party);',
     'NJRForceStrengthR017.CompleteGroundRescue(op,party,map,',
     'rescueReinforcementEntry);',
     'IntVec3 rescueReinforcementEntry = IntVec3.Invalid;',
     'rescueReinforcementEntry=safer;',
     'NJRForceStrengthR017.HumanCoreFloor(party)',
-    'float additional=required-effectivePoints;',
-    'party.Points+=additional;',
-    'points = Mathf.Min(effectivePoints, 15000f)',
+    'effectivePoints>=required',
+    'points = effectivePoints',
     'NJRForceStrengthR017.RequiredMembers(party)',
     'internal static RHFStrikeParty ActiveRaidParty('
 ]: assert token in ops,token
-assert ops.index('NJRForceStrengthR017.CommitMissionBudget(op,party);') < ops.index('party.Attempted = true;')
-assert ops.index('NJRForceStrengthR017.CommitMissionBudget(op,party);') < ops.index('NJRForceCompositionS42.Reserve(op,party);')
+assert 'CommitMissionBudget' not in ops
+assert 'party.Points+=' not in force and 'op.ThreatPoints+=' not in force
 assert ops.index('NJRForceStrengthR017.CompleteGroundRescue(op,party,map,') > ops.index('finally { activeOperation = null; activeParty = null; }')
 assert 'board.Assign(soldier,RHFRoleS41.Breach,\n                                own.FirstBarrier' not in planner
 assert 'RHFObjectiveRouteV128.PlanIndividual(' not in planner  # R021: no alternate path authority
@@ -62,14 +60,16 @@ for token in [
 assert 'forbidTurretExposure' not in route
 assert 'bool forbidWalls=false' not in route
 
-# Threat points are committed up-front (not injected after calling vanilla).
+# Formation target must not create extra points when a small colony
+# cannot fund five soldiers; spend only the actual residual budget.
 for cp in (35,60,120,250,700):
-    min_members=5
-    wanted=min(15000,min_members*cp*1.65+140)
-    supply=min(300,wanted*.12)
-    loadout=min(wanted*.23,3600) if wanted>=650 else 0
-    core=wanted-supply-loadout
-    assert core>=min_members*cp,(cp,wanted,core)
+    for budget in (100,300,1200,3000,18000):
+        supply=min(300,budget*.12)
+        loadout=min(budget*.23,3600,max(0,budget-supply-350)) if budget>=650 else 0
+        core=budget-supply-loadout
+        members=min(5,int(core//cp))
+        assert supply+loadout+members*cp<=budget+1e-6
+        if core<5*cp: assert members<5
 
 # Door-first safe routing, then a necessary wall; a known gun lane disqualifies
 # a 'convenient' door until no safer path exists. Also verifies no random

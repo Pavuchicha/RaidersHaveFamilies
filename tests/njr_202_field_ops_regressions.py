@@ -18,7 +18,7 @@ contracts={
  'tiered indoor rescue landing':[(ops,'private IntVec3 RescueDropCenter('),(ops,'tier*100000+risk*20000'),(interior,'DirectDoor(Map map,Room prison,Room other')],
  'indoor build and physical safe clear':[(ops,'private bool FindFieldConstructionSite('),(ops,'NJRPodSiteClearS41.Needed('),(clears,'internal static Thing Blocker('),(clears,'map.roofGrid.RoofAt(b.Position)==null')],
  'native construction and thin roof work':[(air,'GenConstruct.PlaceBlueprintForBuild('),(pods,'NJRPodRoofS41.NeedsWork('),(pods,'for(int i=0;i<op.Squad.Count;i++)'),(pods,'for(int radius=1;radius<=12;radius++)'),(roof,'GotoCell(TargetIndex.A,PathEndMode.Touch)'),(roof,'pawn.Map.roofGrid.SetRoof(cell,null);')],
- 'each faction independent vanilla budget':[(threat,'StorytellerUtility.DefaultThreatPointsNow(map)'),(threat,'return Mathf.Max(1f,vanilla*modifier*'),(threat,'Mathf.Clamp(RHFPoliticalReputation.Pressure(sponsor),-100,0)'),(hostages,'NJRThreatBudgetS41.PartyPoints(map,member'),(reprisals,'NJRThreatBudgetS41.PartyPoints(map,member'),(debug,'NJRThreatBudgetS41.PartyPoints(map,sponsors[i]')],
+ 'each faction independent vanilla budget':[(threat,'StorytellerUtility.DefaultThreatPointsNow(map)'),(threat,'float points=Mathf.Max(1f,vanilla*modifier*'),(threat,'Mathf.Clamp(RHFPoliticalReputation.Pressure(sponsor),-100,0)'),(hostages,'NJRThreatBudgetS41.PartyPoints(map,member'),(reprisals,'NJRThreatBudgetS41.PartyPoints(map,member'),(debug,'NJRThreatBudgetS41.PartyPoints(map,sponsors[i]')],
  'historical save identities':[(src:=(S/'RaidersHaveFamilies.cs').read_text(),'namespace RaidersHaveFamilies'),(role,'RHFRescueLordJobV124')],
 }
 count=0

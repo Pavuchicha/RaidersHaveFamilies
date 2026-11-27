@@ -28,8 +28,8 @@ def plan(points,available):
    legal.append((score,name,count,cost,units))
   affordable=[m for m in legal if m[3]<=limit]
   if affordable:return max(affordable)
-  if count==2 and legal:return min(legal,key=lambda m:m[3])
-assert plan(500,1)[1:]==('wood',2,10,5)
+ return None
+assert plan(500,1) is None
 assert plan(1500,300)[1]=='mod_light' and plan(1500,300)[2]==3
 assert plan(9000,2000)[1]=='mod_light' and plan(9000,2000)[2]==8
 assert plan(9000,2000)[3]==160

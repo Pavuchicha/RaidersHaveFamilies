@@ -19,8 +19,8 @@ namespace RaidersHaveFamilies
             float maxMass=Mathf.Clamp(18f+points*0.002f,18f,42f);
             for(int count=DesiredCount(points);count>=2;count--)
             {
-                ThingDef best=null,cheapest=null;float bestScore=float.MinValue,bestCost=0f,cheapCost=float.MaxValue;
-                int bestUnits=0,cheapUnits=0;
+                ThingDef best=null;float bestScore=float.MinValue,bestCost=0f;
+                int bestUnits=0;
                 foreach(ThingDef stuff in DefDatabase<ThingDef>.AllDefsListForReading)
                 {
                     if(stuff==null || !stuff.IsStuff || stuff.category!=ThingCategory.Item || stuff.stackLimit<=0 ||
@@ -44,7 +44,6 @@ namespace RaidersHaveFamilies
                         float hp=wall.GetStatValueAbstract(StatDefOf.MaxHitPoints,stuff);
                         float work=wall.GetStatValueAbstract(StatDefOf.WorkToBuild,stuff);
                         if(!Finite(hp) || !Finite(work))continue;
-                        if(cost<cheapCost){cheapest=stuff;cheapCost=cost;cheapUnits=units;}
                         if(cost>discretionary)continue;
                         // Strong walls, fast deployment, low carried mass and reasonable price.
                         float score=hp/(Mathf.Pow(Math.Max(1f,work),0.35f)*Mathf.Pow(Math.Max(1f,cost),0.25f)*Mathf.Pow(Math.Max(1f,weight),0.15f));
@@ -52,9 +51,6 @@ namespace RaidersHaveFamilies
                     }
                     catch(Exception){continue;} // a malformed optional mod def is not a mission failure
                 }
-                // The existing explicit minimum-mission top-up may fund the
-                // cheapest viable pair; never create unpaid materials.
-                if(best==null && count==2){best=cheapest;bestCost=cheapCost;bestUnits=cheapUnits;}
                 if(best==null)continue;
                 op.SealStuffR052=best;op.SealCountR052=count;op.SealUnitsR052=bestUnits;op.SealCostR052=bestCost;
                 return true;

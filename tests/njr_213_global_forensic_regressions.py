@@ -65,7 +65,7 @@ deploy = method_body(ops, 'private bool Deploy(RHFOperation op)')
 assert 'NJRForceCompositionS42.Reserve(op,party);' in deploy
 assert deploy.index('NJRForceCompositionS42.Reserve(op,party);') < deploy.index('float effectivePoints = party.Points')
 assert 'Mathf.Clamp(effectivePoints, 300f, 15000f)' not in deploy
-assert 'points = Mathf.Min(effectivePoints, 15000f)' in deploy
+assert 'points = effectivePoints' in deploy
 assert 'party.AnimalBudgetS42 - party.LoadoutBudgetS42' in deploy
 assert 'party.Drop=false' in deploy and 'party.Siege=false' in deploy
 assert 'NJRForceCompositionS42.CanUsePods(party.Faction)' in deploy
@@ -85,7 +85,7 @@ for points in [40, 180, 250, 300, 450, 650, 900, 2700, 8000, 20000]:
             animals*=factor
             loadout*=factor
         native=max(1,points-supply-animals-loadout)
-        handed=min(native,15000)
+        handed=native
         assert supply+animals+loadout+handed<=points+1.00001
         if points<300: assert handed<300  # regression R005 created extra pawns
 

@@ -32,7 +32,8 @@ assert 'roof!=null && roof.isThickRoof' in ops
 assert 'QualifiedPodEngineer(Pawn pawn,Faction faction)' in roster
 assert 'if(requiresEngineer && !hasEngineer)' in roster
 assert 'pawns.Add(candidate);' in roster
-assert 'party.Points+=need;op.ThreatPoints+=need;' in roster
+assert 'if(kind.combatPower>unused)' in roster
+assert 'party.Points+=' not in roster and 'op.ThreatPoints+=' not in roster
 assert 'if(separation>9)' in job
 assert 'if(gap>16)return Task(JobDefOf.Wait,pawn.Position,30);' not in job
 assert 'return Task(JobDefOf.Goto,order.Cell,360);' in job
