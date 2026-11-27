@@ -1,5 +1,6 @@
 """R046 source contracts + clearance state model; not a game/CE test."""
 from pathlib import Path
+import re
 r=Path(__file__).resolve().parents[1];s=r/'RaidersHaveFamilies/Source'
 d=(s/'NJRVipDebrisR045.cs').read_text();v=(s/'RHFVipEvacS311.cs').read_text();j=(s/'RHFRescueRoleJobGiverS41.cs').read_text();p=(s/'RHFPodPlannerS41.cs').read_text();driver=(s/'JobDriver_RHFPodCargoS41.cs').read_text()
 logistics=v[v.index('private bool SealLogisticsR044'):v.index('private Thing NativeFortificationWorkS41')]
@@ -10,7 +11,13 @@ assert 'ClearableCell(op,map,cell)' in fort and 'ClearableCell(op,map,target)' i
 assert fort.index('if(!SealLogisticsR044(op,target,pocket')<fort.index('Blueprint_Build plan=GenConstruct.PlaceBlueprintForBuild')
 assert 'op.PodConstructionStage<1 || op.PodConstructionStage>4' in d and 'order.Objective==thing' in d
 assert 'candidate==engineer || candidate==refueler' in d and 'SafeDrop(op,map,c,candidate)' in d
-assert '(cell==op.BarricadeCell || op.PlannedBarricadesR055.Contains(cell)) || NJRPodSiteClearS41.ReservedFootprint(op,cell)' in d
+# Verify the actual reject guard, allowing additive OR exclusions without
+# requiring the legacy exact string. The deferred gate must also stay clear.
+safe_drop=d[d.index('internal static bool SafeDrop('):]
+guard=re.search(r'if\s*\((.*?)\)\s*return false;',safe_drop,re.S)
+assert guard, 'SafeDrop rejection guard missing'
+condition=guard.group(1)
+assert re.search(r'\(\s*cell==op\.BarricadeCell\s*\|\|\s*cell==op\.DeferredSealClearR057\s*\|\|\s*op\.PlannedBarricadesR055\.Contains\(cell\)\s*\)\s*\|\|\s*NJRPodSiteClearS41\.ReservedFootprint\(op,cell\)',condition), 'SafeDrop must reject every reserved wall and pod footprint'
 assert 'pocket!=null && !pocket.Contains(cell)' in d and 'LocalBypass(op,map,cell)' in d
 assert 'NJRVipDebrisR045.IsAssigned(op,pawn,cargo)' in j and 'Toils_Haul.StartCarryThing' in driver
 assert 'if(debris && !NJRVipDebrisR045.SafeDrop' in driver and 'if(op==null || carried==null || debris)return;' in driver
