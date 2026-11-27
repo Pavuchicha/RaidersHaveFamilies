@@ -1550,36 +1550,59 @@ namespace RaidersHaveFamilies
         private static bool PostLaunchCohortsR053(RHFOperation op,Map map,RHFTacticalBoardS41 board,int now)
         {
             var exits=new Dictionary<Pawn,IntVec3>();var trapped=new List<Pawn>();
-            var known=new List<IntVec3>();if(op.ExitCell.IsValid)known.Add(op.ExitCell);
+            var known=new List<IntVec3>();IntVec3 cachedExit=op.ExitCell;
             var tested=new List<Pawn>();
             foreach(Pawn member in op.Squad)
             {
                 if(!Active(member,map))continue;
                 IntVec3 exit=IntVec3.Invalid;
-                foreach(IntVec3 c in known)if(NJRRescueExitS41.Eligible(map,op,member,c,Danger.Deadly)){exit=c;break;}
+                RHFOrderS41 old=board.For(member,false);
+                if(old!=null && old.Role==(int)RHFRoleS41.Withdraw && NJRRescueExitS41.Eligible(map,op,member,old.Cell,Danger.Deadly))exit=old.Cell;
+                if(!exit.IsValid && NJRRescueExitS41.Eligible(map,op,member,cachedExit,Danger.Deadly))exit=cachedExit;
+                foreach(IntVec3 c in known)if(!exit.IsValid && NJRRescueExitS41.Eligible(map,op,member,c,Danger.Deadly)){exit=c;break;}
                 if(!exit.IsValid)
                 {
                     bool sameFailed=false;
-                    foreach(Pawn prior in tested)if(member.CanReach(prior.Position,PathEndMode.OnCell,Danger.Deadly)){sameFailed=true;break;}
+                    foreach(Pawn prior in tested)if(member.CanReach(prior.Position,PathEndMode.OnCell,Danger.Deadly) &&
+                        prior.CanReach(member.Position,PathEndMode.OnCell,Danger.Deadly)){sameFailed=true;break;}
                     if(!sameFailed){exit=NJRRescueExitS41.Choose(map,op,member);if(!exit.IsValid)tested.Add(member);}
-                    if(exit.IsValid)known.Add(exit);
+                    
                 }
                 if(exit.IsValid)exits[member]=exit;else trapped.Add(member);
+                if(exit.IsValid && !known.Contains(exit))known.Add(exit);
             }
-            if(known.Count>0){op.ExitCell=known[0];board.WithdrawalCell=known[0];}
+            if(known.Count>0)op.ExitCell=known[0];
             bool working=false;
             if(trapped.Count>0)
             {
+                // Search once per mutually reachable component, at the existing strategic cadence.
+                // Never march toward a geometric near-edge waypoint that is NOT an actual edge.
                 Pawn isolated=trapped[(now/PlanCadence)%trapped.Count];
-                bool hauling=op.Squad.Exists(p=>Active(p,map) && p.jobs?.curJob?.def?.defName=="NJR_MoveSealCargoR044");
-                working=(hauling && NJRRescueAccessR040.TryExitDebrisR047(op,map,isolated,now)) ||
-                    NJRRescueAccessR040.TryLocalPocketR053(op,map,isolated,now) ||
-                    NJRRescueAccessR040.TryExitAccess(op,map,isolated,now) ||
-                    (!hauling && NJRRescueAccessR040.TryExitDebrisR047(op,map,isolated,now));
-                if(!working)foreach(Pawn p in trapped)
+                working=NJRRescueAccessR040.TryExitRepairR054(op,map,isolated,now) ||
+                    NJRRescueAccessR040.TryLocalPocketR053(op,map,isolated,now);
+                if(!working && tested.Count>1)
                 {
-                    IntVec3 progress=NJRRescueExitS41.ReachableProgress(map,op,p);
-                    board.Assign(p,progress.IsValid?RHFRoleS41.Withdraw:RHFRoleS41.Hold,null,progress.IsValid?progress:p.Position,now);
+                    Pawn alternate=tested[(now/PlanCadence)%tested.Count];
+                    if(alternate!=isolated)working=NJRRescueAccessR040.TryExitRepairR054(op,map,alternate,now);
+                }
+                var occupied=new HashSet<IntVec3>();
+                foreach(Pawn p in trapped)
+                {
+                    RHFOrderS41 order=board.For(p,false);
+                    if(working && order!=null && order.Objective!=null &&
+                       (order.Role==(int)RHFRoleS41.Breach || order.Role==(int)RHFRoleS41.Engineer || order.Role==(int)RHFRoleS41.PodSupply))
+                    {if(order.Cell.IsValid)occupied.Add(order.Cell);continue;}
+                    IntVec3 cell=p.Position;
+                    if(occupied.Contains(cell))
+                    {
+                        IntVec3 spread=NJRRescueFormationR032.SpreadNear(p,p.Position,map,occupied,1,4,true);
+                        if(spread.IsValid && !NJRPodSiteClearS41.ReservedFootprint(op,spread))cell=spread;
+                    }
+                    occupied.Add(cell);
+                    bool changed=order==null || order.Cell!=cell || order.Role!=(int)(cell==p.Position?RHFRoleS41.Hold:RHFRoleS41.Screen);
+                    board.Assign(p,cell==p.Position?RHFRoleS41.Hold:RHFRoleS41.Screen,null,cell,now);
+                    if(changed && p.jobs?.curJob?.def==JobDefOf.Goto && !RHFCombatPlannerV125.IsCombatEmergencyJob(p))
+                        p.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
                 }
             }
             else {NJRRescueAccessR040.Clear(op);board.Barrier=null;board.Breacher=null;}
@@ -1594,10 +1617,10 @@ namespace RaidersHaveFamilies
                    (soldier.jobs.curJob.def==JobDefOf.Goto || soldier.jobs.curJob.def==JobDefOf.Wait))soldier.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
                 if((soldier.Position-destination).LengthHorizontalSquared<=10)RHFRescueCommandV124.MissionExit(soldier);
             }
-            if(known.Count>0){op.ExitCell=known[0];board.WithdrawalCell=known[0];}
+            op.ExitCell=known.Count>0?known[0]:IntVec3.Invalid;board.WithdrawalCell=op.ExitCell;
             bool any=false;foreach(Pawn p in op.Squad)if(Active(p,map)){any=true;break;}
             if(!any){op.Finished=true;op.Phase=4;board.Orders.Clear();}
-            board.Decision="R053 post-launch: reachable="+exits.Count+" isolated="+trapped.Count+" recovery="+working;
+            board.Decision="R054 post-launch: reachable="+exits.Count+" isolated="+trapped.Count+" recovery="+working;
             board.NextReplanTick=now+PlanCadence;
             return true;
         }

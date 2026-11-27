@@ -225,7 +225,7 @@ namespace RaidersHaveFamilies
                 if(move==null)return null;
                 Job haul=JobMaker.MakeJob(move,order.Objective,order.Cell);haul.count=order.Objective.stackCount;return haul;
             }
-            if(op.Phase==2 && role==RHFRoleS41.Engineer && NJRRescueAccessR040.IsOwnSealR043(op,order.Objective))
+            if(op.Phase==2 && role==RHFRoleS41.Engineer && (NJRRescueAccessR040.IsOwnSealR043(op,order.Objective) || NJRRescueAccessR040.IsOwnExitStructureR054(op,order.Objective)))
             {
                 JobDef deconstruct=DefDatabase<JobDef>.GetNamedSilentFail("NJR_ReopenOwnSealR051");
                 if(deconstruct!=null && pawn.CanReach(order.Objective,PathEndMode.Touch,Danger.Deadly))
@@ -354,7 +354,7 @@ namespace RaidersHaveFamilies
                 case RHFRoleS41.Screen:
                 {
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
-                       (op.Phase==1 || NJRRescueAccessR040.IsAssignedAccess(op,op.BoardS41.Barrier) ? pawn.Position!=order.Cell :
+                       (op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted) || NJRRescueAccessR040.IsAssignedAccess(op,op.BoardS41.Barrier) ? pawn.Position!=order.Cell :
                            (pawn.Position-order.Cell).LengthHorizontalSquared>9))
                     {
                         if(pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))

@@ -55,5 +55,5 @@ assert 'e.FailedSlots.Add(e.Slots[p]);' in g and 'RecoveredPosture(pawn)' in c
 assert 'if(d<16)score+=' in g and 'cross*cross<=4L*len' in g and 'range*0.8f-distance' in g
 assert 'desiredSupport=(desired+1)/2' in f and 'pass<2 && attempts<24' in f and 'kind.combatPower<=cap+remaining' in f
 assert 'WeaponRange(p)<24f' in f and 'name.IndexOf("Revolver"' in f and 'if(pass==1 && !longGun)' in f
-assert 'baseRevision="R053"' in d
+assert 'baseRevision="R054"' in d
 print('PASS R038: real 6338-event trace, 8 distinct raider cast starts, 7 cover entries, nine frozen snapshots; reversible recovery and bounded retry policy model. No C#/CE execution.')

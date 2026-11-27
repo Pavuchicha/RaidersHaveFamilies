@@ -1,0 +1,3 @@
+R054: распаковать поверх корня репозитория R053a, заменить файлы.
+Summary: R054: Parallel construction and verified post-launch escape
+Тест 16: проверять реальные задания и физический выход всей живой группы. DLL собирается GitHub Actions.

@@ -13,7 +13,7 @@ namespace RaidersHaveFamilies
             RHFOperation op=RHFRescuePlannerS41.MissionFor(pawn.Map,pawn);
             Thing wall=job.targetA.Thing;
             RHFOrderS41 order=op?.BoardS41?.For(pawn,false);
-            return NJRRescueAccessR040.IsOwnSealR043(op,wall) && wall.Map==pawn.Map &&
+            return (NJRRescueAccessR040.IsOwnSealR043(op,wall) || NJRRescueAccessR040.IsOwnExitStructureR054(op,wall)) && wall.Map==pawn.Map &&
                 wall.Faction==pawn.Faction && order?.Role==(int)RHFRoleS41.Engineer &&
                 order.Objective==wall && !pawn.Downed && !pawn.Dead &&
                 pawn.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)==true;
@@ -29,7 +29,7 @@ namespace RaidersHaveFamilies
             {
                 if(!Authorized())return;
                 Thing wall=job.targetA.Thing;
-                Log.Message("[NJR][R051][Exit] physically reopened own seal "+wall.Position);
+                Log.Message("[NJR][R051][Exit] physically dismantled own exit obstruction "+wall.Position);
                 wall.Destroy(DestroyMode.Deconstruct);
             });
         }

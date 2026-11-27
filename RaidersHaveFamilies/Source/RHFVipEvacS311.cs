@@ -560,7 +560,7 @@ namespace RaidersHaveFamilies
                        !p.CanReach(stack,PathEndMode.ClosestTouch,Danger.Some))continue;
                     foreach(IntVec3 cell in pocket)
                     {
-                        if(cell==wall || !cell.Roofed(map) || cell.GetEdifice(map)!=null ||
+                        if(cell==wall || cell.GetEdifice(map)!=null ||
                            cell.GetFirstPawn(map)!=null || NJRPodSiteClearS41.ReservedFootprint(op,cell) ||
                            (cell-op.PodLauncherCell).LengthHorizontalSquared>64 ||
                            (cell-wall).LengthHorizontalSquared<=1)continue;
@@ -875,7 +875,18 @@ namespace RaidersHaveFamilies
                 wall=NativeFortificationWorkS41(op,op.Vip,op.PodCargoOwnerFactionS311,now,wallWorker,null,out mover,out cargo,out destination,true);
                 if(mover!=null && wing.Contains(mover) && cargo!=null && destination.IsValid && (!used.Contains(mover) || mover.jobs?.curJob?.def?.defName=="NJR_MoveSealCargoR044"))
                 {AssignEarlyR052(board,mover,RHFRoleS41.PodSupply,cargo,destination,now);used.Add(mover);op.EarlyCarrierR052=mover;}
-                if(wall!=null){AssignEarlyR052(board,wallWorker,RHFRoleS41.Engineer,wall,wall.Position,now);used.Add(wallWorker);}
+                if(wall!=null)
+                {
+                    Pawn chosen=wallWorker;
+                    foreach(Pawn p in builders)
+                    {
+                        if(used.Contains(p) || !p.CanReach(wall,PathEndMode.Touch,Danger.Deadly) || !NativePrepareEngineerS41(p))continue;
+                        Job job=p.jobs?.curJob;
+                        if((job!=null && (job.targetA.Thing==wall || job.targetB.Thing==wall) && (job.def?.defName??"").Contains("Construct")) ||
+                           RHFPodPlannerS41.WorkJob(p,wall)!=null){chosen=p;break;}
+                    }
+                    if(!used.Contains(chosen)){AssignEarlyR052(board,chosen,RHFRoleS41.Engineer,wall,wall.Position,now);used.Add(chosen);}
+                }
                 else if(op.BarricadeCell.IsValid && !used.Contains(wallWorker))
                 {
                     var pocket=RHFPodSupplyS41.SealPocketR044(op);IntVec3 stage=IntVec3.Invalid;int distance=int.MaxValue;
@@ -890,34 +901,24 @@ namespace RaidersHaveFamilies
                     {AssignEarlyR052(board,wallWorker,RHFRoleS41.Screen,null,stage,now);used.Add(wallWorker);}
                 }
             }
-            // Independent second builder starts the launcher even while the
-            // wall crew clears debris. A single builder still prioritizes walls.
-            if(op.PodConstructionStage<=2)
-            {
-                bool first=op.PodConstructionStage==1;IntVec3 cell=first?op.PodLauncherCell:op.PodCell;ThingDef requested=first?launcher:pod;
-                Thing site=NativeAtSiteS311(map,cell,requested,op.PodCargoOwnerFactionS311);
-                if(site!=null)
+            // Wall logistics has first claim on the crew. A genuinely available
+            // second/third builder can work on launcher and pod without a stage gate.
+            Thing completeLauncher=NativeAtSiteS311(map,op.PodLauncherCell,launcher,op.PodCargoOwnerFactionS311);
+            Thing completePod=NativeAtSiteS311(map,op.PodCell,pod,op.PodCargoOwnerFactionS311);
+            if(completeLauncher!=null)op.PodLauncherThing=completeLauncher;
+            if(completePod!=null)op.PodVehicleThing=completePod;
+            int nextStage=completeLauncher==null?1:completePod==null?2:3;
+            if(nextStage!=op.PodConstructionStage){op.PodConstructionStage=nextStage;op.PodStageStartedTickS311=now;}
+            if(completeLauncher==null)
+                AssignParallelBuildR054(op,op.Vip,launcher,op.PodLauncherCell,NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell),builders,used,now);
+            if(completePod==null)
+                AssignParallelBuildR054(op,op.Vip,pod,op.PodCell,Rot4.North,builders,used,now);
+            if(completeLauncher!=null && (completeLauncher as ThingWithComps)?.GetComp<CompRefuelable>()?.IsFull==false)
+                foreach(Pawn p in crew)
                 {
-                    if(first)op.PodLauncherThing=site;else op.PodVehicleThing=site;
-                    op.PodConstructionStage++;op.PodStageStartedTickS311=now;
-                    Log.Message("[NJR][R052][Early] completed "+requested.defName+" while phase="+op.Phase);
+                    if(used.Contains(p) || RHFPodPlannerS41.WorkJob(p,completeLauncher)==null)continue;
+                    AssignEarlyR052(board,p,RHFRoleS41.Engineer,completeLauncher,completeLauncher.Position,now);used.Add(p);break;
                 }
-                else
-                {
-                    Pawn worker=null;foreach(Pawn p in builders)if(!used.Contains(p) && NativePrepareEngineerS41(p)){worker=p;break;}
-                    if(worker!=null)
-                    {
-                        site=NativeWorkSiteS311(map,cell,op.PodCargoOwnerFactionS311);
-                        if(site==null)
-                        {
-                            Rot4 rotation=first?NJRPodSiteClearS41.RotationFor(op.PodLauncherCell,op.PodCell):Rot4.North;
-                            if(FieldFootprintFree(cell,requested,op.Vip,rotation))
-                                try{site=GenConstruct.PlaceBlueprintForBuild(requested,cell,map,rotation,op.PodCargoOwnerFactionS311,null);}catch(Exception e){Log.Warning("[NJR][R053][Early] blueprint rejected: "+e.Message);}
-                        }
-                        if(site!=null){AssignEarlyR052(board,worker,RHFRoleS41.Engineer,site,cell,now);used.Add(worker);}
-                    }
-                }
-            }
             // Idle surplus are not sent back toward the prisoner. Stage them
             // at distinct reachable pad cells where they can defend or replace a worker.
             var slots=new HashSet<IntVec3>();foreach(Pawn p in used){RHFOrderS41 o=board.For(p,false);if(o!=null && o.Cell.IsValid)slots.Add(o.Cell);}
@@ -928,6 +929,53 @@ namespace RaidersHaveFamilies
                 if(c.IsValid && !NJRPodSiteClearS41.ReservedFootprint(op,c) && c!=op.BarricadeCell)
                 {slots.Add(c);AssignEarlyR052(board,p,RHFRoleS41.Screen,null,c,now);}
                 else AssignEarlyR052(board,p,RHFRoleS41.Hold,null,p.Position,now);
+            }
+        }
+
+        private void AssignParallelBuildR054(RHFOperation op,Pawn vip,ThingDef requested,IntVec3 cell,Rot4 rotation,
+            List<Pawn> builders,HashSet<Pawn> used,int now)
+        {
+            if(NativeAtSiteS311(map,cell,requested,op.PodCargoOwnerFactionS311)!=null)return;
+            Pawn worker=null;Thing site=NativeWorkSiteS311(map,cell,op.PodCargoOwnerFactionS311);
+            foreach(Pawn p in builders)
+            {
+                if(used.Contains(p) || !NativeAliveS311(p,map) || !p.CanReach(cell,PathEndMode.Touch,Danger.Deadly) || !NativePrepareEngineerS41(p))continue;
+                if(worker==null)worker=p;
+                Job current=p.jobs?.curJob;
+                if(site!=null && ((current!=null && (current.targetA.Thing==site || current.targetB.Thing==site)) &&
+                   (current.def?.defName??"").Contains("Construct") || RHFPodPlannerS41.WorkJob(p,site)!=null)){worker=p;break;}
+            }
+            if(worker==null)return;
+            if(site==null)
+            {
+                foreach(IntVec3 tile in GenAdj.OccupiedRect(cell,rotation,requested.size))
+                {
+                    Thing chunk=NJRVipDebrisR045.DebrisAt(map,tile);
+                    if(chunk==null)continue;
+                    if(NJRVipDebrisR045.TryMove(op,map,chunk,RHFPodSupplyS41.SealPocketR044(op),null,null,
+                       out Pawn mover,out IntVec3 destination,null,used))
+                    {
+                        AssignEarlyR052(op.BoardS41,mover,RHFRoleS41.PodSupply,chunk,destination,now);used.Add(mover);
+                    }
+                    return;
+                }
+            }
+            if(site==null && FieldFootprintFree(cell,requested,vip,rotation))
+            {
+                try{site=GenConstruct.PlaceBlueprintForBuild(requested,cell,map,rotation,op.PodCargoOwnerFactionS311,null);}
+                catch(Exception e){Log.Warning("[NJR][R054] parallel blueprint rejected: "+e.Message);}
+            }
+            if(site==null)return;
+            // A blueprint alone is not useful work. Try another eligible builder
+            // and leave the crew free for other projects if resources are absent.
+            var candidates=new List<Pawn>{worker};foreach(Pawn candidate in builders)if(candidate!=worker)candidates.Add(candidate);
+            foreach(Pawn candidate in candidates)
+            {
+                if(used.Contains(candidate) || !NativeAliveS311(candidate,map) || !candidate.CanReach(site,PathEndMode.Touch,Danger.Deadly) || !NativePrepareEngineerS41(candidate))continue;
+                Job current=candidate.jobs?.curJob;
+                bool ongoing=current!=null && (current.targetA.Thing==site || current.targetB.Thing==site) && (current.def?.defName??"").Contains("Construct");
+                if(!ongoing && RHFPodPlannerS41.WorkJob(candidate,site)==null)continue;
+                AssignEarlyR052(op.BoardS41,candidate,RHFRoleS41.Engineer,site,cell,now);used.Add(candidate);return;
             }
         }
 
@@ -1103,11 +1151,12 @@ namespace RaidersHaveFamilies
             }
             if(op.FortifyPrison && op.PodConstructionStage==1 && op.BarricadesBuilt<op.SealLimitR052 &&
                engineer!=null && NativeWorkSiteS311(map,siteCell,owner.Faction)==null &&
-               (parallelWall!=null || op.BarricadeCell.IsValid) && now-op.PodStageStartedTickS311<Math.Min(6000,1200*op.SealLimitR052))
+               parallelWall!=null && fortifier==null && sealMover==null &&
+               now-op.PodStageStartedTickS311<Math.Min(6000,1200*op.SealLimitR052))
             {
                 // First finish the seal, then construct the launcher. Cargo
                 // and safe staging remain active, not a blanket Wait order.
-                RHFPodPlannerS41.Plan(op,map,engineer,null,now,fortifier,parallelWall,
+                RHFPodPlannerS41.Plan(op,map,engineer,parallelWall,now,null,null,
                     refueler,op.PodLauncherThing,sealMover,sealCargo,sealDestination);
                 return;
             }
@@ -1117,6 +1166,22 @@ namespace RaidersHaveFamilies
                     NativeWorkSiteS311(map,siteCell,owner.Faction) ??
                     (op.PodConstructionStage==3 ? op.PodLauncherThing : null),
                     now,fortifier,parallelWall,refueler,op.PodLauncherThing,sealMover,sealCargo,sealDestination);
+            if(RHFRescuePlannerS41.Enabled && op.FortifyPrison && op.PodConstructionStage==1)
+            {
+                var spare=new List<Pawn>();var assigned=new HashSet<Pawn>();
+                foreach(Pawn p in op.Squad)
+                {
+                    RHFOrderS41 order=op.BoardS41?.For(p,false);
+                    if(p==engineer || p==fortifier || p==refueler || p==sealMover || !NativeAliveS311(p,map) ||
+                       p.Faction!=owner.Faction || p.WorkTypeIsDisabled(WorkTypeDefOf.Construction) ||
+                       RHFCombatPlannerV125.IsCombatEmergencyJob(p) || RHFPodSupplyS41.HasCargo(op,p) ||
+                       (order!=null && order.Role!=(int)RHFRoleS41.Screen && order.Role!=(int)RHFRoleS41.Hold)){assigned.Add(p);continue;}
+                    spare.Add(p);
+                }
+                if(NativeAtSiteS311(map,op.PodCell,podDef,owner.Faction)==null &&
+                   NativeWorkSiteS311(map,op.PodLauncherCell,owner.Faction)!=null)
+                    AssignParallelBuildR054(op,vip,podDef,op.PodCell,Rot4.North,spare,assigned,now);
+            }
             // Unfinished optional protection can NEVER delay fueling or boarding.
             if (op.PodConstructionStage <= 3 && engineer == null)
             {

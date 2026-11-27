@@ -207,7 +207,7 @@ namespace RaidersHaveFamilies
             }
         }
         private static int Edge(Map map,IntVec3 c)=>Math.Min(Math.Min(c.x,map.Size.x-1-c.x),Math.Min(c.z,map.Size.z-1-c.z));
-        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false,bool doorsOnly=false,RHFOperation ownExit=null,bool clearDebris=false)
+        private static Field Search(Map map,Pawn navigator,int radius,bool toEdge,bool preferVipDoors=false,bool doorsOnly=false,RHFOperation ownExit=null,bool clearDebris=false,HashSet<Thing> excludedRepair=null)
         {
             int count=map.Size.x*map.Size.z;
             if(count<=0 || count>120000)return null;
@@ -239,9 +239,17 @@ namespace RaidersHaveFamilies
                         RHFObjectiveRouteV128.Step(map,next,out obstacle);
                     if(ownExit!=null && IsOwnSealR043(ownExit,next.GetEdifice(map)))
                     {obstacle=next.GetEdifice(map);step=10+obstacle.HitPoints*2;}
-                    if(clearDebris && obstacle==null && NJRVipDebrisR045.ClearableCell(ownExit,map,next) &&
-                       NJRVipDebrisR045.DebrisAt(map,next) is Thing debris)
+                    if(clearDebris && ownExit?.PodLaunchCompleted==true && ExitOwnedAtR054(ownExit,map,next) is Thing owned)
+                    {obstacle=owned;step=owned==ownExit.PodLauncherThing?1800:10+owned.HitPoints*2;}
+                    if(clearDebris && obstacle==null && ExitChunkAtR054(map,next) is Thing debris)
                     {obstacle=debris;step=100+Math.Max(0,step);}
+                    // Before the first repair, only admit cells that the native pawn can reach.
+                    // Otherwise an abstract walkable path with no actionable barrier wins forever.
+                    if(obstacle!=null && excludedRepair!=null && excludedRepair.Contains(obstacle))continue;
+                    if(clearDebris && ownExit?.PodLaunchCompleted==true && f.First[id]==null && obstacle==null &&
+                       next.Standable(map) && !navigator.CanReach(next,PathEndMode.OnCell,Danger.Deadly))continue;
+                    if(clearDebris && ownExit?.PodLaunchCompleted==true && f.First[id]==null && obstacle!=null &&
+                       !navigator.CanReach(obstacle,PathEndMode.Touch,Danger.Deadly))continue;
                     if(step<0)continue;
                     if(hazards[nid]<0)hazards[nid]=danger(next);
                     step+=hazards[nid];
@@ -566,9 +574,32 @@ namespace RaidersHaveFamilies
                 !wall.Destroyed && wall.def==ThingDefOf.Wall && op.PodCargoOwnerFactionS311!=null && wall.Faction==op.PodCargoOwnerFactionS311 &&
                 (op.CompletedBarricades.Contains(wall.Position) || op.BarricadeCell==wall.Position);
         }
+        internal static bool IsOwnExitStructureR054(RHFOperation op,Thing structure)
+        {
+            return IsOwnSealR043(op,structure) || (op!=null && op.Phase==2 && op.FortifyPrison &&
+                op.PodLaunchCompleted && structure!=null && structure==op.PodLauncherThing &&
+                structure.Spawned && !structure.Destroyed && structure.def.defName=="PodLauncher" &&
+                structure.Faction==op.PodCargoOwnerFactionS311 && structure.Faction!=Faction.OfPlayer);
+        }
+        private static Thing ExitOwnedAtR054(RHFOperation op,Map map,IntVec3 cell)
+        {
+            foreach(Thing item in map.thingGrid.ThingsListAt(cell))
+                if(IsOwnExitStructureR054(op,item))return item;
+            return null;
+        }
+        // Chunks may share a cell with a chair or other traversable furniture.
+        // For evacuation ONLY, moving the chunk is legal without destroying furniture.
+        private static Thing ExitChunkAtR054(Map map,IntVec3 cell)
+        {
+            Thing chunk=NJRVipDebrisR045.DebrisAt(map,cell);
+            if(chunk==null || map.terrainGrid.TerrainAt(cell)?.passability==Traversability.Impassable)return null;
+            foreach(Thing item in map.thingGrid.ThingsListAt(cell))
+                if(item!=chunk && item.def?.passability==Traversability.Impassable && !NJRVipDebrisR045.IsDebris(item))return null;
+            return chunk;
+        }
         private static bool AssignOwnExitR043(RHFOperation op,Map map,Pawn navigator,Thing wall,int now)
         {
-            if(!IsOwnSealR043(op,wall))return false;
+            if(!IsOwnExitStructureR054(op,wall))return false;
             Pawn worker=null;int best=int.MaxValue;
             foreach(Pawn member in op.Squad)
             {
@@ -590,7 +621,7 @@ namespace RaidersHaveFamilies
                     member==worker?wall:null,member.Position,now);
             foreach(Pawn freed in op.Freed)
                 if(Active(freed,map))board.Assign(freed,RHFRoleS41.Hold,null,freed.Position,now);
-            board.Decision="R043 reopen own sealed wall on exit corridor "+wall.Position;
+            board.Decision="R054 reopen own exit obstruction "+wall.def.defName+" "+wall.Position;
             board.LastPlanTick=now;board.NextReplanTick=now+90;
             return true;
         }
@@ -632,6 +663,53 @@ namespace RaidersHaveFamilies
             }
             board.Decision="R047 clear actual exit corridor";board.NextReplanTick=now+90;board.LastPlanTick=now;
             return true;
+        }
+        private sealed class ExitRetryR054
+        {
+            internal readonly Dictionary<Pawn,int> Until=new Dictionary<Pawn,int>();
+        }
+        private static readonly ConditionalWeakTable<RHFOperation,ExitRetryR054> ExitRetriesR054=new ConditionalWeakTable<RHFOperation,ExitRetryR054>();
+        internal static bool TryExitRepairR054(RHFOperation op,Map map,Pawn navigator,int now)
+        {
+            if(!Active(navigator,map) || !op.PodLaunchCompleted)return false;
+            var board=op.BoardS41;
+            // Preserve any genuine recovery job through its physical completion.
+            foreach(Pawn member in op.Squad)
+            {
+                if(!Active(member,map))continue;
+                RHFOrderS41 order=board.For(member,false);Job job=member.jobs?.curJob;
+                if(order==null || job==null)continue;
+                if(job.def?.defName=="NJR_ReopenOwnSealR051" && IsOwnExitStructureR054(op,order.Objective))return true;
+                if(job.def?.defName=="NJR_MoveSealCargoR044" && NJRVipDebrisR045.IsDebris(order.Objective) &&
+                   (order.Objective.Spawned || member.carryTracker?.CarriedThing!=null))return true;
+            }
+            if(States.TryGetValue(op,out State state) && state.Phase==2 && Live(state.Barrier,map) &&
+               now-state.Started<9000 && Assign(op,map,navigator,state,now))return true;
+            var retry=ExitRetriesR054.GetValue(op,_=>new ExitRetryR054());
+            if(retry.Until.TryGetValue(navigator,out int until) && now<until)return false;
+            var excluded=new HashSet<Thing>();
+            // Bounded alternative routes. An unworkable first obstacle is not
+            // a reason to return the same failed plan forever.
+            for(int attempt=0;attempt<3;attempt++)
+            {
+                Field corridor=Search(map,navigator,0,true,true,true,op,true,excluded);
+                if(corridor==null || !corridor.Exit.IsValid)
+                    corridor=Search(map,navigator,0,true,true,false,op,true,excluded);
+                if(corridor==null || !corridor.Exit.IsValid)break;
+                Thing first=corridor.BarrierAt(corridor.Exit);
+                if(first==null)break; // only native Eligible may authorize an open exit
+                if(IsOwnExitStructureR054(op,first))
+                {if(AssignOwnExitR043(op,map,navigator,first,now))return true;}
+                else if(NJRVipDebrisR045.IsDebris(first))
+                {
+                    if(NJRVipDebrisR045.TryMove(op,map,first,null,null,null,out Pawn mover,out IntVec3 dst,corridor.Path()))
+                        return AssignExitDebrisR053(op,map,mover,first,dst,now);
+                }
+                else if(CanWork(op,map,first) && Assign(op,map,navigator,Set(op,first,corridor.Exit,now),now))return true;
+                excluded.Add(first);
+            }
+            retry.Until[navigator]=now+150;
+            return false;
         }
         // Bounded local split proof: remove only loose debris (or a mission
         // seal) that directly joins the trapped pocket to a native reachable ally.

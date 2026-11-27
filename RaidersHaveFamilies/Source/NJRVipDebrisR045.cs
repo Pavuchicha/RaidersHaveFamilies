@@ -108,16 +108,16 @@ namespace RaidersHaveFamilies
         // Only a dedicated free soldier may move chunks; never steal the
         // primary builder or the concurrent refueler. No demolition, no teleport.
         internal static bool TryMove(RHFOperation op,Map map,Thing chunk,HashSet<IntVec3> pocket,
-            Pawn engineer,Pawn refueler,out Pawn worker,out IntVec3 destination,HashSet<IntVec3> forbidden=null)
+            Pawn engineer,Pawn refueler,out Pawn worker,out IntVec3 destination,HashSet<IntVec3> forbidden=null,HashSet<Pawn> unavailable=null)
         {
             worker=null;destination=IntVec3.Invalid;
             if(!IsDebris(chunk) || !chunk.Spawned || chunk.Map!=map)return false;
             int best=int.MaxValue;
             foreach(Pawn candidate in op.Squad)
             {
-                if(candidate==engineer || candidate==refueler || (pocket!=null && NJREarlyWingR053.IsAssault(op,candidate)) || !RHFRescuePlannerS41.ActiveForRoleS41(candidate,map) ||
+                if(candidate==engineer || candidate==refueler || (unavailable!=null && unavailable.Contains(candidate)) || NJREarlyWingR053.IsAssault(op,candidate) || !RHFRescuePlannerS41.ActiveForRoleS41(candidate,map) ||
                    candidate.Faction!=op.PodCargoOwnerFactionS311 || candidate.InMentalState || candidate.carryTracker==null ||
-                   candidate.carryTracker.CarriedThing!=null || (op.Phase!=1 && RHFPodSupplyS41.HasCargo(op,candidate)) ||
+                   candidate.carryTracker.CarriedThing!=null || (op.Phase==3 && RHFPodSupplyS41.HasCargo(op,candidate)) ||
                    RHFCombatPlannerV125.IsCombatEmergencyJob(candidate) || candidate.WorkTypeIsDisabled(WorkTypeDefOf.Hauling) ||
                    candidate.health?.capacities?.CapableOf(PawnCapacityDefOf.Manipulation)!=true ||
                    !candidate.CanReach(chunk,PathEndMode.ClosestTouch,Danger.Deadly))continue;
