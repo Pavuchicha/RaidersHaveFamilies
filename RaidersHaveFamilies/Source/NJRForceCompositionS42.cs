@@ -33,7 +33,9 @@ namespace RaidersHaveFamilies
                 party.LoadoutBudgetS42 = Mathf.Min(party.Points*0.23f,3600f);
             // Protect a meaningful vanilla attacking core and the earlier
             // separate tool/medical budget. This clamp is symmetric across tech.
-            float available=Mathf.Max(0f,party.Points-party.SupplyBudget-350f);
+            float core=party.Role==(int)RHFStrikeRole.Rescue ?
+                Mathf.Max(350f,NJRForceStrengthR017.HumanCoreFloor(party)) : 350f;
+            float available=Mathf.Max(0f,party.Points-party.SupplyBudget-core);
             float reserved=party.AnimalBudgetS42+party.LoadoutBudgetS42;
             if(reserved>available && reserved>0f)
             {

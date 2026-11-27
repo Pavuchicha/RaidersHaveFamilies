@@ -1,6 +1,5 @@
-// NJR R017: A rescue is a tactical operation, not a one-pawn native raid.
-// Resolve a mission-sized, faction-relative budget BEFORE the vanilla incident,
-// then complete a partially generated GROUND rescue wing inside its native Lord.
+// NJR R059: tactical roster targets are aspirational, never point grants.
+// Complete an underfilled wing only from unspent storyteller allocation.
 // All work happens on incident dispatch; there are no new per-pawn tick scans.
 using System;
 using System.Collections.Generic;
@@ -78,27 +77,6 @@ namespace RaidersHaveFamilies
             return count==0?0f:count*RegularCombatCost(party.Faction);
         }
 
-        internal static void CommitMissionBudget(RHFOperation op,RHFStrikeParty party)
-        {
-            if(op==null || party?.Faction==null || party.Attempted)return;
-            int minimum=RequiredMembers(party);
-            if(minimum==0)return;
-            float soldierCost=RegularCombatCost(party.Faction);
-            // Separate mission floor, not a hidden +300 after the equipment
-            // deduction. The extra factor accounts for a native leader/elite
-            // choice and the explicitly paid 12% supplies / 23% loadouts.
-            float wanted=Mathf.Min(15000f,minimum*soldierCost*1.65f+140f);
-            if(wanted<=party.Points)return;
-            float extra=wanted-party.Points;
-            party.Points=wanted;
-            op.ThreatPoints+=extra;
-            Log.Message("[NJR][ForceR017] Committed "+minimum+"-member "+
-                (RHFStrikeRole)party.Role+" wing of "+party.Faction.Name+
-                "; native combat cost="+soldierCost.ToString("F0")+
-                "; additional allocated points="+extra.ToString("F0")+
-                "; final party budget="+party.Points.ToString("F0"));
-        }
-
         private static bool QualifiedPodEngineer(Pawn pawn,Faction faction)
         {
             return pawn!=null && pawn.Faction==faction &&
@@ -120,12 +98,11 @@ namespace RaidersHaveFamilies
             float spent=0;
             foreach(Pawn p in pawns)if(p!=null && p.Faction==party.Faction)spent+=Mathf.Max(0f,p.kindDef?.combatPower??0f);
             float unused=Mathf.Max(0f,party.Points-party.SupplyBudget-party.AnimalBudgetS42-
-                party.LoadoutBudgetS42-op.PodSupplyCost-spent);
+                party.LoadoutBudgetS42-party.PodCostR060-spent);
             for(int trial=0;eligible.Count<desired && trial<18 && kinds.Count>0;trial++)
             {
                 PawnKindDef kind=kinds[trial%kinds.Count];
-                float extra=Mathf.Max(0f,kind.combatPower-unused);
-                if(party.Points+extra>15000f)continue;
+                if(kind.combatPower>unused)continue;
                 Pawn p=null;
                 try
                 {
@@ -137,9 +114,8 @@ namespace RaidersHaveFamilies
                         continue;
                     }
                     pawns.Add(p);eligible.Add(p);
-                    party.Points+=extra;op.ThreatPoints+=extra;
-                    unused=Mathf.Max(0f,unused+extra-kind.combatPower);
-                    Log.Message("[NJR][R041] funded construction specialist "+p.LabelShortCap+" extra="+extra.ToString("F0"));
+                    unused=Mathf.Max(0f,unused-kind.combatPower);
+                    Log.Message("[NJR][R059] construction specialist "+p.LabelShortCap+" paid="+kind.combatPower.ToString("F0"));
                 }
                 catch(Exception ex)
                 {
@@ -182,16 +158,18 @@ namespace RaidersHaveFamilies
             int humans=0, guns=0, support=0;
             float spent=0f;
             foreach(Pawn pawn in pawns)
-                if(pawn?.RaceProps?.Humanlike==true && pawn.Faction==party.Faction)
+                if(pawn!=null && pawn.Faction==party.Faction)
                 {
-                    humans++; spent+=Mathf.Max(0f,pawn.kindDef?.combatPower??0f);
+                    spent+=Mathf.Max(0f,pawn.kindDef?.combatPower??0f);
+                    if(pawn.RaceProps?.Humanlike!=true)continue;
+                    humans++;
                     if(NJRRescueFirebreakR034.DirectGun(pawn))
                     {guns++;if(MediumRangeSupport(pawn))support++;}
                 }
             int desired=Math.Min(humans,Math.Max(0,(humans*3+3)/4));
             int desiredSupport=(desired+1)/2;
             float remaining=Mathf.Max(0f,party.Points-party.SupplyBudget-party.AnimalBudgetS42-
-                party.LoadoutBudgetS42-spent-(party.Drop && op.TryPod ? op.PodSupplyCost : 0f));
+                party.LoadoutBudgetS42-spent-party.PodCostR060);
             List<PawnKindDef> kinds=CombatKinds(party.Faction);
             int attempts=0;
             // First secure the headcount, THEN upgrade short-range shooters where
@@ -260,9 +238,9 @@ namespace RaidersHaveFamilies
             float nativeSpent=0f;
             foreach(Pawn pawn in pawns)
             {
-                if(pawn?.RaceProps?.Humanlike!=true || pawn.Faction!=party.Faction)continue;
-                humans++;
+                if(pawn==null || pawn.Faction!=party.Faction)continue;
                 nativeSpent+=Mathf.Max(0f,pawn.kindDef?.combatPower ?? 0f);
+                if(pawn.RaceProps?.Humanlike==true)humans++;
             }
             bool requiresEngineer=party.Drop && op.TryPod &&
                 party.Role==(int)RHFStrikeRole.Rescue;
@@ -282,30 +260,53 @@ namespace RaidersHaveFamilies
             }
             float humanBudget=Mathf.Max(0f,party.Points-party.SupplyBudget-
                 party.AnimalBudgetS42-party.LoadoutBudgetS42-
-                (party.Role==(int)RHFStrikeRole.Rescue ? op.PodSupplyCost : 0f));
+                party.PodCostR060);
+            if(party.Role==(int)RHFStrikeRole.Rescue && humans<minimum)
+            {
+                float cheap=kinds[0].combatPower;
+                // Make room for the missing ordinary fighters rather than add points.
+                for(int i=pawns.Count-1;i>=0 && nativeSpent+(minimum-humans)*cheap>humanBudget;i--)
+                {
+                    Pawn original=pawns[i];
+                    if(original?.RaceProps?.Humanlike!=true || original.Faction!=party.Faction ||
+                       original.Spawned || original.IsWorldPawn() || original.kindDef.combatPower<=cheap)continue;
+                    Pawn replacement=null;
+                    try
+                    {
+                        replacement=PawnGenerator.GeneratePawn(kinds[0],party.Faction);
+                        if(replacement==null || replacement.Spawned || replacement.IsWorldPawn())continue;
+                        nativeSpent+=cheap-original.kindDef.combatPower;
+                        pawns[i]=replacement;
+                        Find.WorldPawns.PassToWorld(original,PawnDiscardDecideMode.KeepForever);
+                    }
+                    catch(Exception ex)
+                    {
+                        if(replacement!=null && !replacement.Spawned && !replacement.IsWorldPawn() && !pawns.Contains(replacement))
+                            Find.WorldPawns.PassToWorld(replacement);
+                        Log.Warning("[NJR][R060] Affordable roster replacement failed: "+ex.Message);
+                    }
+                }
+                if(requiresEngineer)
+                {
+                    hasEngineer=false;
+                    foreach(Pawn pawn in pawns)
+                        if(QualifiedPodEngineer(pawn,party.Faction)){hasEngineer=true;break;}
+                }
+            }
             float unused=Mathf.Max(0f,humanBudget-nativeSpent);
             int added=0;
             while(humans<minimum)
             {
                 PawnKindDef kind=kinds[0];
                 float cost=kind.combatPower;
-                float additional=Mathf.Max(0f,cost-unused);
-                if(party.Points+additional>15000f)break;
+                if(cost>unused)break;
                 Pawn soldier=null;
                 try
                 {
                     soldier=PawnGenerator.GeneratePawn(kind,party.Faction);
                     if(soldier==null)break;
                     pawns.Add(soldier);
-                    if(additional>0f)
-                    {
-                        party.Points+=additional;
-                        op.ThreatPoints+=additional;
-                        Log.Warning("[NJR][ForceR017] Native roster shortage: +"+
-                            additional.ToString("F0")+" mission points for "+
-                            kind.defName+" from "+party.Faction.Name);
-                    }
-                    unused=Mathf.Max(0f,unused+additional-cost);
+                    unused=Mathf.Max(0f,unused-cost);
                     added++;humans++;
                 }
                 catch(Exception e)
@@ -335,16 +336,14 @@ namespace RaidersHaveFamilies
                             candidate=PawnGenerator.GeneratePawn(kind,party.Faction);
                             if(!QualifiedPodEngineer(candidate,party.Faction))
                             {candidate?.Destroy(DestroyMode.Vanish);continue;}
-                            float need=Mathf.Max(0f,kind.combatPower-unused);
-                            if(party.Points+need>15000f)
+                            if(kind.combatPower>unused)
                             {candidate.Destroy(DestroyMode.Vanish);break;}
                             pawns.Add(candidate);
-                            party.Points+=need;op.ThreatPoints+=need;
-                            unused=Mathf.Max(0f,unused+need-kind.combatPower);
+                            unused=Mathf.Max(0f,unused-kind.combatPower);
                             hasEngineer=true;
                             Log.Message("[NJR][AirR019] Real pod engineer "+
-                                candidate.LabelShortCap+" included in landing; budget +"+
-                                need.ToString("F0"));
+                                candidate.LabelShortCap+" included in landing; paid "+
+                                kind.combatPower.ToString("F0"));
                         }
                         catch(Exception e)
                         {
@@ -368,8 +367,8 @@ namespace RaidersHaveFamilies
                 ", native supplements="+added+", point commitment="+
                 party.Points.ToString("F0"));
             if(humans<minimum)
-                Log.Error("[NJR][ForceR017] Combat maker cannot fund "+
-                    "a complete wing under 15000 points: "+humans+"/"+minimum);
+                Log.Warning("[NJR][ForceR017] Combat maker cannot fund "+
+                    "a complete wing under allocated points: "+humans+"/"+minimum);
         }
 
         // A vanilla Combat PawnGroupMaker may spend an entire budget on one
@@ -420,19 +419,7 @@ namespace RaidersHaveFamilies
                 if(cell.GetFirstPawn(map)!=null || cell.GetEdifice(map)!=null)continue;
                 PawnKindDef kind=candidates[0];
                 float cost=kind.combatPower;
-                if(cost>spare)
-                {
-                    float added=cost-spare;
-                    if(party.Points+added>15000f)break;
-                    // This is an explicit mission strength commitment, NOT
-                    // an unpriced pawn: the operator can inspect the delta.
-                    party.Points+=added;
-                    op.ThreatPoints+=added;
-                    spare+=added;
-                    Log.Warning("[NJR][ForceR017] Vanilla underfilled rescue: "+
-                        "allocated another "+added.ToString("F0")+
-                        " points for a real faction combatant.");
-                }
+                if(cost>spare)break;
                 Pawn created=null;
                 try
                 {
@@ -462,7 +449,7 @@ namespace RaidersHaveFamilies
                 ", reinforcement="+placed+", committed points="+
                 party.Points.ToString("F0")+", spawn="+spawnCenter);
             if(party.Members<RequiredMembers(party))
-                Log.Error("[NJR][ForceR017] UNDERSTRENGTH rescue wing: "+
+                Log.Warning("[NJR][ForceR017] UNDERSTRENGTH rescue wing: "+
                     party.Members+"/"+RequiredMembers(party)+
                     ". Inspect RimWorld faction/lord/spawn diagnostics.");
         }

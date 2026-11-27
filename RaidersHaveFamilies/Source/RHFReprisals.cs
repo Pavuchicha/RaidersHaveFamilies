@@ -201,9 +201,12 @@ namespace RaidersHaveFamilies
                 {
                     Faction member = participants[i];
                     RHFStrikeRole role = i == 0 ? RHFStrikeRole.Vengeance : RHFStrikeRole.Diversion;
+                    bool sameFactionWings=participants.Count==2 && participants[0]==participants[1];
+                    float memberPoints=NJRThreatBudgetS41.PartyPoints(map,member,c.Importance,1,
+                            RHFMod.Settings.InterventionStrength);
+                    if(sameFactionWings)memberPoints*=i==0 ? .60f : .40f;
                     operation.Parties.Add(new RHFStrikeParty(member, role,
-                        NJRThreatBudgetS41.PartyPoints(map,member,c.Importance,1,
-                            RHFMod.Settings.InterventionStrength),
+                        memberPoints,
                         drop: member.def.techLevel >= TechLevel.Industrial && i > 0,
                         siege: member.def.techLevel >= TechLevel.Industrial && i == 0));
                 }

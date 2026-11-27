@@ -1,0 +1,4 @@
+NJR R060 — только для корня GitHub Desktop, поверх R059.
+Распаковать с заменой файлов. Summary: R060: Enforce one independent budget per faction
+Commit -> Push -> GitHub Actions -> install ZIP.
+117 предсборочных проверок успешно (4 обновлённые проверки версии перезапущены). DLL и игра не проверены. Подробнее docs/NJR_R060_FACTION_BUDGET_RU.md.

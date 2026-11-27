@@ -1066,8 +1066,9 @@ namespace RaidersHaveFamilies
                 }
                 float wingPoints=NJRThreatBudgetS41.PartyPoints(map,attacker,
                     r.Importance,1,RHFMod.Settings.InterventionStrength);
+                bool sameFactionDiversion=multi && hiredRevenge==null;
                 op.Parties.Add(new RHFStrikeParty(attacker,RHFStrikeRole.Vengeance,
-                    wingPoints,
+                    sameFactionDiversion ? wingPoints*.60f : wingPoints,
                     drop: attacker.def.techLevel>=TechLevel.Industrial &&
                           op.Doctrine==(int)RHFDoctrine.TargetedTraitorHunt,
                     siege: attacker.def.techLevel>=TechLevel.Industrial &&
@@ -1075,6 +1076,7 @@ namespace RaidersHaveFamilies
                 if(multi)
                     op.Parties.Add(new RHFStrikeParty(hiredRevenge??attacker,
                         RHFStrikeRole.Diversion,
+                        sameFactionDiversion ? wingPoints*.40f :
                         NJRThreatBudgetS41.PartyPoints(map,hiredRevenge??attacker,
                             r.Importance,1,RHFMod.Settings.InterventionStrength),
                         drop:(hiredRevenge??attacker).def.techLevel>=TechLevel.Industrial &&

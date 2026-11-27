@@ -674,16 +674,13 @@ namespace RaidersHaveFamilies
             { Notify(map, "Фракция-исполнитель должна быть враждебна игроку."); return; }
 
             int now = Find.TickManager.TicksGame;
-            int debugImportance=targets.Count>0 ? HostageRank(targets[0]) : 0;
+            int debugImportance=scenario==RHFDebugScenario.TraitorHunt ? traitorCase.Importance : 0;
+            foreach(Pawn target in targets)debugImportance=Math.Max(debugImportance,HostageRank(target));
             float total=NJRThreatBudgetS41.PartyPoints(map,executor,
                 debugImportance,Math.Max(1,targets.Count),
                 RHFMod.Settings.InterventionStrength);
-            // Manual field-pod tests are tests of the PHYSICAL build, not a
-            // lottery in which a tiny early-game raid cannot afford any pod.
-            // The vanilla structure cost is still subtracted from these points.
-            if (scenario == RHFDebugScenario.FieldPod ||
-                scenario == RHFDebugScenario.FortifiedVipExtraction)
-                total=Mathf.Max(total,1200f);
+            // Debug scenarios use exactly the natural threat budget; an
+            // unaffordable pod mission reports a ground fallback, not a free raid.
             RHFOperation op = new RHFOperation
             {
                 DebugForced = true, Sponsor = sponsor, Executor = executor,
@@ -700,9 +697,7 @@ namespace RaidersHaveFamilies
                     scenario==RHFDebugScenario.FieldPod,
                 AssaultAfterObjective=scenario==RHFDebugScenario.RescueThenRaze,
                 HuntTarget=scenario==RHFDebugScenario.TraitorHunt ? traitorCase.Pawn : null,
-                SourceImportance=scenario==RHFDebugScenario.TraitorHunt ?
-                    traitorCase.Importance : targets.Count>0 ?
-                    HostageRank(targets[0]) : 0,
+                SourceImportance=debugImportance,
                 Doctrine=(int)(scenario==RHFDebugScenario.TraitorHunt ?
                     RHFDoctrine.TargetedTraitorHunt :
                     scenario==RHFDebugScenario.FortifiedVipExtraction ?
@@ -731,10 +726,14 @@ namespace RaidersHaveFamilies
                 { Notify(map,"Нет индустриальной фракции для десантного спасения."); return; }
                 op.Executor = rescuer;
                 Faction distraction = rescuer == sponsor && mercenary != null ? mercenary : sponsor;
+                bool sameFaction=rescuer==distraction;
+                float rescuePoints=NJRThreatBudgetS41.FactionAllocation(map,op,rescuer);
+                float diversionPoints=sameFaction ? rescuePoints*.42f :
+                    NJRThreatBudgetS41.FactionAllocation(map,op,distraction);
                 op.Parties.Add(new RHFStrikeParty(rescuer, RHFStrikeRole.Rescue,
-                    total * .58f, drop: true));
+                    sameFaction ? rescuePoints-diversionPoints : rescuePoints, drop: true));
                 op.Parties.Add(new RHFStrikeParty(distraction, RHFStrikeRole.Diversion,
-                    total * .42f));
+                    diversionPoints));
             }
             else if (scenario == RHFDebugScenario.CombinedSingleFaction)
             {

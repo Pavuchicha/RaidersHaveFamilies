@@ -41,6 +41,7 @@ namespace RaidersHaveFamilies
         // Consumables are paid for from this party's own points, not free bonuses.
         public float SupplyBudget;
         public float SupplySpent;
+        public float PodCostR060;
         // S4.2: separate, REAL raid-points deductions for animals and loadouts.
         public float AnimalBudgetS42;
         public float AnimalSpentS42;
@@ -68,6 +69,7 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref Members, "members", 0);
             Scribe_Values.Look(ref SupplyBudget, "supplyBudget", 0f);
             Scribe_Values.Look(ref SupplySpent, "supplySpent", 0f);
+            Scribe_Values.Look(ref PodCostR060,"podCostR060",0f);
             Scribe_Values.Look(ref AnimalBudgetS42,"njrAnimalBudgetS42",0f);
             Scribe_Values.Look(ref AnimalSpentS42,"njrAnimalSpentS42",0f);
             Scribe_Values.Look(ref LoadoutBudgetS42,"njrLoadoutBudgetS42",0f);
@@ -350,6 +352,7 @@ namespace RaidersHaveFamilies
         {
             if (operation == null || operation.Executor == null)
                 return false;
+            NJRThreatBudgetS41.AllocateOperation(map,operation);
             operations.Add(operation);
             nextDecision = Math.Min(nextDecision, operation.SpawnTick);
             return true;
@@ -773,14 +776,15 @@ namespace RaidersHaveFamilies
                     Log.Warning("[RHF][PodGateS21] Land-arriving rescuers use ground evacuation; no field pod kit.");
                 }
             }
+            NJRThreatBudgetS41.AllocateOperation(map,op);
             int success = 0;
+            bool budgetRejected=false;
             for (int i=0; i<op.Parties.Count; i++)
             {
                 RHFStrikeParty party = op.Parties[i];
                 if (party == null || party.Faction == null || party.Attempted) continue;
-                // R017: minimum viable tactical wing is budgeted BEFORE the
-                // native PawnGroupMaker consumes the faction's raid points.
-                NJRForceStrengthR017.CommitMissionBudget(op,party);
+                // R059: the scheduled storyteller allocation is authoritative.
+                // A tactical headcount target never creates additional points.
                 party.Attempted = true;
                 activeOperation = op;
                 activeParty = party;
@@ -824,6 +828,16 @@ namespace RaidersHaveFamilies
                     // twelve percent and never multiply cost by coalition size.
                     party.SupplyBudget = RHFMod.Settings?.RoleEquipment == true ?
                         Mathf.Min(300f, Mathf.Max(0f, party.Points * 0.12f)) : 0f;
+                    float rosterFloor=party.Role==(int)RHFStrikeRole.Rescue ?
+                        NJRForceStrengthR017.HumanCoreFloor(party) : 0f;
+                    if(party.Points<rosterFloor)
+                    {
+                        budgetRejected=true;
+                        Log.Warning("[NJR][R060] Rescue budget cannot buy minimum roster: faction="+
+                            party.Faction.Name+" budget="+party.Points+" minimum="+rosterFloor);
+                        continue;
+                    }
+                    party.SupplyBudget=Mathf.Min(party.SupplyBudget,Mathf.Max(0f,party.Points-rosterFloor));
                     // Exotic equipment and animal companions replace a slice
                     // of the same storyteller threat budget. No free megafauna.
                     NJRForceCompositionS42.Reserve(op,party);
@@ -836,7 +850,8 @@ namespace RaidersHaveFamilies
                         party.Siege=false;
                     float effectivePoints = party.Points - party.SupplyBudget -
                         party.AnimalBudgetS42 - party.LoadoutBudgetS42;
-                    effectivePoints=Mathf.Max(1f,effectivePoints);
+                    if(effectivePoints<1f)
+                    {budgetRejected=true;continue;}
                     if (op.TryPod && party.Drop &&
                         party.Role==(int)RHFStrikeRole.Rescue && !op.PodBudgetPaid)
                     {
@@ -855,39 +870,25 @@ namespace RaidersHaveFamilies
                         float cost=steel*ThingDefOf.Steel.BaseMarketValue+
                             components*ThingDefOf.ComponentIndustrial.BaseMarketValue+
                             fuel*ThingDefOf.Chemfuel.BaseMarketValue;
-                        // Pod materials must not consume the last four
-                        // rescuers. Commit the mission's missing resources as
-                        // explicit points BEFORE handing the balance to native
-                        // pawn generation. This is not a free installed pod.
+                        // Reserve a viable human core; if supplies cannot be paid
+                        // from this actual wing budget, use ground extraction.
                         float core=Mathf.Max(350f,NJRForceStrengthR017.HumanCoreFloor(party));
                         bool sealFunded=!op.FortifyPrison || NJRSealBudgetR052.Plan(op,party.Points,
                             Math.Max(0f,effectivePoints-cost-core));
                         cost+=op.SealCostR052;
                         float required=cost+core;
                         if(sealFunded && launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
-                           effectivePoints<required)
-                        {
-                            float additional=required-effectivePoints;
-                            if(party.Points+additional<=15000f)
-                            {
-                                party.Points+=additional;
-                                op.ThreatPoints+=additional;
-                                effectivePoints+=additional;
-                                Log.Message("[NJR][ForceR017] VIP pod materials funded " +
-                                    "without eating the rescue human core: +"+
-                                    additional.ToString("F0")+" committed points.");
-                            }
-                        }
-                        if(sealFunded && launcher!=null && pod!=null && steel>0 && components>0 && fuel>0 &&
                             effectivePoints>=required)
-                        {effectivePoints-=cost;op.PodSupplyCost=cost;op.PodBudgetPaid=true;
+                        {effectivePoints-=cost;party.PodCostR060=cost;op.PodSupplyCost=cost;op.PodBudgetPaid=true;
                             if(op.FortifyPrison)Log.Message("[NJR][R052][SealBudget] walls="+op.SealCountR052+" stuff="+op.SealStuffR052?.defName+
                                 " units="+op.SealUnitsR052+" paid="+op.SealCostR052.ToString("F1")+" remaining="+effectivePoints.ToString("F1"));}
                         else
                         {
                             op.TryPod=false;op.FortifyPrison=false;
-                            Log.Warning("[RHF] VIP field construction unavailable: vanilla defs, " +
-                                "components or affordable resources missing. Land extraction selected.");
+                            op.SealCostR052=0f;op.SealCountR052=0;op.SealUnitsR052=0;op.SealStuffR052=null;
+                            Log.Warning("[NJR][R059] VIP field construction unavailable: budget="+
+                                effectivePoints.ToString("F1")+" required="+required.ToString("F1")+
+                                " sealsAffordable="+sealFunded+". Ground extraction selected; no extra points.");
                         }
                     }
                     IntVec3 plannedRescueEntry=IntVec3.Invalid;
@@ -896,7 +897,12 @@ namespace RaidersHaveFamilies
                       // Never mint 300 vanilla raid points after spending
                       // the party budget on animals, gear, fuel or materials.
                       // Let the native incident reject genuinely tiny parties.
-                      points = Mathf.Min(effectivePoints, 15000f) };
+                      points = effectivePoints };
+                    Log.Message("[NJR][R059][Budget] faction="+party.Faction.Name+
+                        " allocated="+party.Points.ToString("F1")+" supplies="+party.SupplyBudget.ToString("F1")+
+                        " animals="+party.AnimalBudgetS42.ToString("F1")+" gear="+party.LoadoutBudgetS42.ToString("F1")+
+                        " podAndSeals="+party.PodCostR060.ToString("F1")+
+                        " native="+effectivePoints.ToString("F1"));
                     // Technology was already enforced before any pod charge.
                     // A vanilla breaching lord selects arbitrary colony walls and
                     // infrastructure. Rescue is objective-driven by RHF, never
@@ -1028,7 +1034,7 @@ namespace RaidersHaveFamilies
             // Last-chance recovery for debug tests: some modded factions are
             // non-raiding and their RaidEnemy worker rejects all strategies.
             // Try another hostile executor instead of silently showing nothing.
-            if (success == 0 && !arrivalStillPending && op.DebugForced)
+            if (success == 0 && !arrivalStillPending && !budgetRejected && op.DebugForced)
             {
                 foreach (Faction alternate in Find.FactionManager.AllFactionsListForReading)
                 {
@@ -1044,7 +1050,10 @@ namespace RaidersHaveFamilies
                         op.Type==(int)RHFOperationType.Rescue ? RHFStrikeRole.Rescue : RHFStrikeRole.Vengeance,
                         // Debug recovery may replace rejected parties, but it
                         // must never mint a free 650-point minimum on a tiny colony.
-                        Mathf.Max(1f,op.ThreatPoints),breach: op.Type==(int)RHFOperationType.Rescue);
+                        NJRThreatBudgetS41.FactionAllocation(map,op,alternate),breach: op.Type==(int)RHFOperationType.Rescue);
+                    float reserveCore=reserve.Role==(int)RHFStrikeRole.Rescue ?
+                        NJRForceStrengthR017.HumanCoreFloor(reserve) : 0f;
+                    if(reserve.Points<reserveCore)continue;
                     op.Parties.Add(reserve);
                     activeOperation=op;
                     activeParty=reserve;
@@ -1052,6 +1061,7 @@ namespace RaidersHaveFamilies
                     {
                         reserve.SupplyBudget = RHFMod.Settings?.RoleEquipment == true ?
                             Mathf.Min(300f, reserve.Points * 0.12f) : 0f;
+                        reserve.SupplyBudget=Mathf.Min(reserve.SupplyBudget,Mathf.Max(0f,reserve.Points-reserveCore));
                         NJRForceCompositionS42.Reserve(op,reserve);
                         var parms=new IncidentParms { target=map, faction=alternate,
                             points=Mathf.Max(1f,reserve.Points-reserve.SupplyBudget-
