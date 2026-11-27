@@ -182,6 +182,9 @@ namespace RaidersHaveFamilies
         public int FortifyStartedTick;
         public IntVec3 BarricadeCell = IntVec3.Invalid;
         public List<IntVec3> CompletedBarricades = new List<IntVec3>();
+        // Physical wall blueprints/frames still being built, not completed walls.
+        public List<IntVec3> PlannedBarricadesR055 = new List<IntVec3>();
+        public int ParallelSealProbeTickR055 = -1;
         public int LastHuntOrderTick;
         public int LastInfrastructureOrderTick;
         public int RoofRemovalStartTick;
@@ -269,6 +272,8 @@ namespace RaidersHaveFamilies
             Scribe_Values.Look(ref FortifyStartedTick, "rhfFortifyStartedV12", 0);
             Scribe_Values.Look(ref BarricadeCell, "rhfBarricadeCellV12", IntVec3.Invalid);
             Scribe_Collections.Look(ref CompletedBarricades, "rhfFinishedBarricadesV12", LookMode.Value);
+            Scribe_Collections.Look(ref PlannedBarricadesR055,"njrPlannedBarricadesR055",LookMode.Value);
+            Scribe_Values.Look(ref ParallelSealProbeTickR055,"njrParallelSealProbeTickR055",-1);
             Scribe_Values.Look(ref LastHuntOrderTick, "rhfLastHuntOrderV12", 0);
             Scribe_Values.Look(ref LastInfrastructureOrderTick,"rhfLastInfrastructureOrderV12",0);
             Scribe_Values.Look(ref RoofRemovalStartTick, "rhfRoofRemovalTickV12", 0);
@@ -290,6 +295,7 @@ namespace RaidersHaveFamilies
                 if (Parties == null) Parties = new List<RHFStrikeParty>();
                 if (TacticalMembers == null) TacticalMembers = new List<RHFTacticalMember>();
                 if (CompletedBarricades == null) CompletedBarricades = new List<IntVec3>();
+                if (PlannedBarricadesR055 == null) PlannedBarricadesR055 = new List<IntVec3>();
                 if (PodFuelStacksS311 == null) PodFuelStacksS311 = new List<Thing>();
                 if (PodCargoStacksS41 == null) PodCargoStacksS41 = new List<Thing>();
                 // Existing v0.3.x operations were already queued through the storyteller.

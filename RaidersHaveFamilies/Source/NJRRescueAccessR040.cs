@@ -572,7 +572,7 @@ namespace RaidersHaveFamilies
         {
             return op!=null && op.Phase==2 && op.FortifyPrison && wall!=null && wall.Spawned &&
                 !wall.Destroyed && wall.def==ThingDefOf.Wall && op.PodCargoOwnerFactionS311!=null && wall.Faction==op.PodCargoOwnerFactionS311 &&
-                (op.CompletedBarricades.Contains(wall.Position) || op.BarricadeCell==wall.Position);
+                (op.CompletedBarricades.Contains(wall.Position) || op.BarricadeCell==wall.Position || op.PlannedBarricadesR055.Contains(wall.Position));
         }
         internal static bool IsOwnExitStructureR054(RHFOperation op,Thing structure)
         {

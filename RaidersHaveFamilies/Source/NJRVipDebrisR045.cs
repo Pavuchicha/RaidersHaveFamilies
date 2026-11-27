@@ -140,7 +140,7 @@ namespace RaidersHaveFamilies
             HashSet<IntVec3> pocket=op.Phase==3?RHFPodSupplyS41.SealPocketR044(op):null;
             if(!cell.IsValid || !cell.InBounds(map) || !cell.Standable(map) || cell.GetFirstBuilding(map)!=null ||
                (pocket!=null && !pocket.Contains(cell)) ||
-               cell==op.BarricadeCell || NJRPodSiteClearS41.ReservedFootprint(op,cell) ||
+               (cell==op.BarricadeCell || op.PlannedBarricadesR055.Contains(cell)) || NJRPodSiteClearS41.ReservedFootprint(op,cell) ||
                (cell.GetFirstPawn(map)!=null && cell.GetFirstPawn(map)!=worker) ||
                (op.Vip!=null && op.Vip.Spawned && (cell-op.Vip.Position).LengthHorizontalSquared<4) ||
                RHFObjectiveRouteV128.StagingExposedToTurret(map,cell))return false;

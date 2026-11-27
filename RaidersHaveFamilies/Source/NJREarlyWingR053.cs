@@ -63,6 +63,13 @@ namespace RaidersHaveFamilies
                 }
                 if(!old.SetEquals(state.Assault)){if(op.BoardS41!=null)op.BoardS41.NextReplanTick=0;Log.Message("[NJR][R053][Wing] assault="+state.Assault.Count+" engineering candidates="+(available.Count-state.Assault.Count)+" contacts="+contacts.Count);}
             }
+            // A nearby kit carrier unloads once BEFORE leaving to breach. Do not
+            // let the assault planner overwrite this physical job in the same pulse.
+            foreach(Pawn p in state.Assault)
+                if(RHFRescuePlannerS41.ActiveForRoleS41(p,map) && p.jobs!=null &&
+                   now-op.EarlyPadProbeTickR052<=240 && RHFPodSupplyS41.HasCargo(op,p) &&
+                   op.BoardS41?.For(p,false)?.Role==(int)RHFRoleS41.PodSupply &&
+                   !RHFCombatPlannerV125.IsCombatEmergencyJob(p) && NJRCombatContactS44.VisibleContact(p,op,p.Position,10)==null)reserved.Add(p);
             state.Engineering.Clear();
             foreach(Pawn p in op.Squad)
                 if(RHFRescuePlannerS41.ActiveForRoleS41(p,map) && !state.Assault.Contains(p) && !reserved.Contains(p) &&
@@ -78,7 +85,7 @@ namespace RaidersHaveFamilies
             if(p.CanReach(captive,PathEndMode.Touch,Danger.Deadly))score-=10000;
             if(RHFTactical.IsBreachAxe(p))score-=500;
             if(p.WorkTagIsDisabled(WorkTags.Violent))score+=30000;
-            if(RHFPodSupplyS41.HasCargo(op,p))score+=400;
+            if(RHFPodSupplyS41.HasCargo(op,p))score+=400; // unload before separation when safe
             return score;
         }
     }

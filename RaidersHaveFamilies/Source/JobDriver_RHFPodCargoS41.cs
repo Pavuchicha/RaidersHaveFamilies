@@ -52,7 +52,7 @@ namespace RaidersHaveFamilies
                 // Delivery stacks must never block the actual physical
                 // launcher/pod footprints while the engineer is building.
                 if((allocated!=null && allocated.Contains(c)) || NJRPodSiteClearS41.ReservedFootprint(op,c) ||
-                   c==op.BarricadeCell || (pocket!=null && !pocket.Contains(c)) ||
+                   (c==op.BarricadeCell || op.PlannedBarricadesR055.Contains(c)) || (pocket!=null && !pocket.Contains(c)) ||
                    !c.InBounds(map) || !c.Standable(map) ||
                    c.GetEdifice(map)!=null ||
                    !pawn.CanReach(c,PathEndMode.OnCell,Danger.Some))continue;

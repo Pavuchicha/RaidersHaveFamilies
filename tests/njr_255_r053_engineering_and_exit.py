@@ -30,7 +30,7 @@ assert wings(2,0)==(1,1)
 read=lambda x:(s/x).read_text();wing=read('NJREarlyWingR053.cs');v=read('RHFVipEvacS311.cs');p=read('RHFRescuePlannerS41.cs');ac=read('NJRRescueAccessR040.cs');d=read('NJRVipDebrisR045.cs');o=read('RHFOperations.cs');j=read('RHFPodPlannerS41.cs')
 assert 'contacts.Count==0?1' in wing and 'state.Engineering.Add(p)' in wing and 'now-state.Tick>=90' in wing
 assert o.index('NativePrepareBeforeReleaseR051(op,now)')<o.index('RHFRescueCommandV124.Infiltrate(this, op, now)')
-assert 'foreach(Pawn p in crew)' in v and 'wallWorker' in v and 'unloadSlots.Add(unload)' in v and 'builders)if(!used.Contains(p)' in v
+assert 'foreach(Pawn p in crew)' in v and 'wallWorker' in v and 'unloadSlots.Add(unload)' in v and '!used.Contains(p) && !BusyProjectR055(p,priorWall)' in v
 assert 'PostLaunchCohortsR053' in p and 'exits[member]=exit;else trapped.Add(member)' in p and 'RHFRoleS41.Withdraw,null,destination' in p
 assert 'TryLocalPocketR053' in ac and 'ally.CanReach(n,PathEndMode.OnCell,Danger.Deadly)' in ac and 'corridor.Path()' in ac
 assert 'LocalBypass(op,map,cell)' in d and 'n!=op.BarricadeCell && !NJRPodSiteClearS41.ReservedFootprint(op,n)' in d

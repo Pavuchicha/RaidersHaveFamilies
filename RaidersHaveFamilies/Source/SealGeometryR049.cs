@@ -25,7 +25,8 @@ namespace RaidersHaveFamilies
             for(int dx=-20;dx<=20;dx++)for(int dz=-20;dz<=20;dz++)
             {
                 IntVec3 c=op.PodCell+new IntVec3(dx,0,dz);
-                if(!c.InBounds(map) || NJRPodSiteClearS41.ReservedFootprint(op,c))continue;
+                if(!c.InBounds(map) || NJRPodSiteClearS41.ReservedFootprint(op,c) ||
+                   (c!=op.BarricadeCell && op.PlannedBarricadesR055.Contains(c)))continue;
                 bool door=DoorAt(map,c);
                 if(!door && !c.Walkable(map) && !NJRVipDebrisR045.ClearableCell(op,map,c))continue;
                 passable.Add(c);
