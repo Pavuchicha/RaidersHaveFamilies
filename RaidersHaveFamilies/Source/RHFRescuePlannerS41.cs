@@ -1590,7 +1590,7 @@ namespace RaidersHaveFamilies
                 {
                     RHFOrderS41 order=board.For(p,false);
                     if(working && order!=null && order.Objective!=null &&
-                       (order.Role==(int)RHFRoleS41.Breach || order.Role==(int)RHFRoleS41.Engineer || order.Role==(int)RHFRoleS41.PodSupply))
+                       (order.Role==(int)RHFRoleS41.Breach || order.Role==(int)RHFRoleS41.Engineer || order.Role==(int)RHFRoleS41.PodSupply || order.Role==(int)RHFRoleS41.SuppressTurret))
                     {if(order.Cell.IsValid)occupied.Add(order.Cell);continue;}
                     IntVec3 cell=p.Position;
                     if(occupied.Contains(cell))
@@ -1605,12 +1605,12 @@ namespace RaidersHaveFamilies
                         p.jobs.EndCurrentJob(JobCondition.InterruptForced,false);
                 }
             }
-            else {NJRRescueAccessR040.Clear(op);board.Barrier=null;board.Breacher=null;}
+            else {NJRRescueAccessR040.Clear(op);board.Barrier=null;board.Breacher=null;board.Threat=null;}
             foreach(var pair in exits)
             {
                 Pawn soldier=pair.Key;IntVec3 destination=pair.Value;
                 RHFOrderS41 order=board.For(soldier,false);
-                if(working && order!=null && (order.Role==(int)RHFRoleS41.Breach || order.Role==(int)RHFRoleS41.Engineer || order.Role==(int)RHFRoleS41.PodSupply))continue;
+                if(working && order!=null && order.Objective!=null && (order.Role==(int)RHFRoleS41.Breach || order.Role==(int)RHFRoleS41.Engineer || order.Role==(int)RHFRoleS41.PodSupply || order.Role==(int)RHFRoleS41.SuppressTurret))continue;
                 bool changed=order==null || order.Role!=(int)RHFRoleS41.Withdraw || order.Cell!=destination;
                 board.Assign(soldier,RHFRoleS41.Withdraw,null,destination,now);
                 if(changed && soldier.jobs?.curJob!=null && !RHFCombatPlannerV125.IsCombatEmergencyJob(soldier) &&

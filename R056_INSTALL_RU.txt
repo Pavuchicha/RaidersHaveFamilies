@@ -1,0 +1,1 @@
+NJR R056. Распаковать в корень репозитория GitHub Desktop поверх R055 с заменой файлов. Summary: R056: Resolve contested post-launch exit corridors. Commit, Push, проверить Actions. Тест №16; проверить выход через следующий проход, реакцию на турели, пять выходов с карты. Отчёт docs/NJR_R056_EXIT_CONTACT_RU.md. DLL локально не проверена.

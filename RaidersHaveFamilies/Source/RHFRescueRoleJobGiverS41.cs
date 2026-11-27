@@ -219,7 +219,7 @@ namespace RaidersHaveFamilies
                 }
             }
             if(op.FortifyPrison && (op.Phase==1 || (op.Phase==2 && op.PodLaunchCompleted)) && role==RHFRoleS41.PodSupply &&
-               NJRVipDebrisR045.IsDebris(order.Objective) && order.Objective.Spawned && order.Cell.IsValid)
+               NJRVipDebrisR045.IsDebris(order.Objective) && order.Objective.Spawned && order.Cell.IsValid && order.Objective.Position!=order.Cell)
             {
                 JobDef move=DefDatabase<JobDef>.GetNamedSilentFail("NJR_MoveSealCargoR044");
                 if(move==null)return null;
@@ -323,8 +323,11 @@ namespace RaidersHaveFamilies
                         GenSight.LineOfSight(pawn.Position,turret.Position,pawn.Map) &&
                         !RHFRescueFireDisciplineV136.UnsafeLine(op,pawn,turret);
                     if(canShoot)return Task(JobDefOf.AttackStatic,turret,180);
+                    if(op.Phase==2 && op.PodLaunchCompleted &&
+                       (pawn.Position-turret.Position).LengthHorizontalSquared==1 &&
+                       pawn.CanReach(turret,PathEndMode.Touch,Danger.Deadly))return Task(JobDefOf.AttackMelee,turret,180);
                     if(order.Cell.IsValid && order.Cell.InBounds(pawn.Map) &&
-                       (pawn.Position-order.Cell).LengthHorizontalSquared>2 &&
+                       (op.Phase==2 && op.PodLaunchCompleted ? pawn.Position!=order.Cell : (pawn.Position-order.Cell).LengthHorizontalSquared>2) &&
                        pawn.CanReach(order.Cell,PathEndMode.OnCell,Danger.Deadly))
                         return Task(JobDefOf.Goto,order.Cell,240);
                     // If no firing line is open, breach the real obstruction
