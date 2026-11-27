@@ -35,4 +35,8 @@ assert 'PostLaunchCohortsR053' in p and 'exits[member]=exit;else trapped.Add(mem
 assert 'TryLocalPocketR053' in ac and 'ally.CanReach(n,PathEndMode.OnCell,Danger.Deadly)' in ac and 'corridor.Path()' in ac
 assert 'LocalBypass(op,map,cell)' in d and 'n!=op.BarricadeCell && !NJRPodSiteClearS41.ReservedFootprint(op,n)' in d
 assert '!pawn.CanReserve(result.targetA)' in j and '!pawn.CanReserve(result.targetB)' in j
+# R053a: phase-3 method has no `early` parameter; never copy the phase-1 guard into it.
+post_release=v.split('private void BuildAndLaunchNativeS311(RHFOperation op, int now)',1)[1]
+assert '(early && NJREarlyWingR053.IsAssault(op,running))' not in post_release
+assert '(early && NJREarlyWingR053.IsAssault(op,running))' in v.split('private void BuildAndLaunchNativeS311(RHFOperation op, int now)',1)[0]
 print('PASS R053: actual trapped 3-cell pocket reconnected by moving the recorded chunk; dynamic split and physical recovery source contracts')

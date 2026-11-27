@@ -1081,7 +1081,7 @@ namespace RaidersHaveFamilies
             if(op.FortifyPrison && op.PodConstructionStage>=1 && op.PodConstructionStage<=4)
             foreach(Pawn running in op.Squad)
             {
-                if(!NativeAliveS311(running,map) || (early && NJREarlyWingR053.IsAssault(op,running)) || running.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044")continue;
+                if(!NativeAliveS311(running,map) || running.jobs?.curJob?.def?.defName!="NJR_MoveSealCargoR044")continue;
                 sealMover=running;sealCargo=op.BoardS41?.For(running,false)?.Objective??running.jobs.curJob.targetA.Thing;
                 sealDestination=running.jobs.curJob.targetB.Cell;break;
             }
