@@ -35,7 +35,7 @@ namespace RaidersHaveFamilies
             // separate tool/medical budget. This clamp is symmetric across tech.
             float core=party.Role==(int)RHFStrikeRole.Rescue ?
                 Mathf.Max(350f,NJRForceStrengthR017.HumanCoreFloor(party)) : 350f;
-            float available=Mathf.Max(0f,party.Points-party.SupplyBudget-core);
+            float available=Mathf.Max(0f,party.Points-party.PodCostR060-party.SupplyBudget-core);
             float reserved=party.AnimalBudgetS42+party.LoadoutBudgetS42;
             if(reserved>available && reserved>0f)
             {

@@ -1,0 +1,13 @@
+{
+  "source": "20261127_214538_648_f367ef71.zip / Player-export.log",
+  "revision": "R060",
+  "vip": [
+    {"map":35309227,"vanilla":480.4,"rank":8,"captives":2,"allocated":922.3,"supplies":110.7,"gear":212.1,"native":599.5,"pod_required":968.0,"sealsAffordable":false,"members":5},
+    {"map":56988736,"vanilla":480.4,"rank":8,"captives":2,"allocated":922.3,"supplies":110.7,"gear":212.1,"native":599.5,"pod_required":968.0,"sealsAffordable":false,"members":5}
+  ],
+  "ground": [
+    {"map":35309227,"vanilla":480.5,"allocated":634.3,"native":558.2,"members":8},
+    {"map":56988736,"vanilla":485.8,"allocated":641.3,"native":564.4,"members":9}
+  ],
+  "actual_wealth":null
+}

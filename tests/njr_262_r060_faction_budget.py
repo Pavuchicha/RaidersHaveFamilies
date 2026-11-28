@@ -44,11 +44,11 @@ for vanilla in (100,350,1200,5000,15000,50000):
 # at 460 points. Replace elites with ordinary members, then supplement.
 assert 2*150+2*70+70>460 and 5*70<=460
 threat=read('NJRThreatBudgetS41.cs'); ops=read('RHFOperations.cs'); force=read('NJRForceStrengthR017.cs'); debug=read('RHFDebugActions.cs'); comp=read('NJRForceCompositionS42.cs')
-for token in ('Dictionary<Faction,List<RHFStrikeParty>>','FactionAllocation(map,op,group.Key)','wing.Points=allocated','op.ThreatPoints=aggregate','LiveCaptives(map,faction)','p.MapHeld!=map','p.IsPrisonerOfColony || p.IsSlaveOfColony','seen.Add(p)'):
+for token in ('Dictionary<Faction,List<RHFStrikeParty>>','FactionAllocation(map,op,group.Key,vanillaSnapshot)','wing.Points=allocated','op.ThreatPoints=aggregate','LiveCaptives(map,faction)','p.MapHeld!=map','p.IsPrisonerOfColony || p.IsSlaveOfColony','seen.Add(p)'):
     assert token in threat,token
 assert ops.index('NJRThreatBudgetS41.AllocateOperation(map,operation);') < ops.index('operations.Add(operation);')
-assert ops.index('NJRThreatBudgetS41.AllocateOperation(map,op);') < ops.index('party.Attempted = true;')
-assert 'NJRThreatBudgetS41.FactionAllocation(map,op,alternate)' in ops
+assert ops.index('NJRThreatBudgetS41.AllocateOperation(map,op,freshVanilla);') < ops.index('party.Attempted = true;')
+assert 'NJRThreatBudgetS41.FactionAllocation(map,op,alternate,freshVanilla)' in ops
 assert 'Mathf.Max(1f,op.ThreatPoints),breach:' not in ops
 assert '!budgetRejected && op.DebugForced' in ops
 assert 'party.Points<rosterFloor' in ops and 'party.Points-rosterFloor' in ops

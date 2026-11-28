@@ -44,16 +44,45 @@ namespace RaidersHaveFamilies
             if((ledger?.FindHostage(p)?.OriginalFaction ?? p.Faction)==faction)
                 seen.Add(p);
         }
-        internal static float FactionAllocation(Map map,RHFOperation op,Faction faction)
+        // The storyteller normally reads periodically cached map wealth. A debug
+        // click (including paused wealth edits) or a scheduled dispatch must use
+        // the current map, not the last periodic recount. Never do this on pawn ticks.
+        internal static float RefreshVanillaThreat(Map map)
+        {
+            float before=StorytellerUtility.DefaultThreatPointsNow(map);
+            float wealthBefore=map.wealthWatcher.WealthTotal;
+            map.wealthWatcher.ForceRecount(false);
+            float wealthAfter=map.wealthWatcher.WealthTotal;
+            float after=StorytellerUtility.DefaultThreatPointsNow(map);
+            var difficulty=Find.Storyteller?.difficulty;
+            string independent="unknown";
+            string scale="unknown";
+            if(difficulty!=null)
+            {
+                // Read only: do not override the player's storyteller settings.
+                var type=difficulty.GetType();
+                var mode=HarmonyLib.AccessTools.Field(type,"wealthIndependentProgressMode");
+                var factor=HarmonyLib.AccessTools.Field(type,"threatScale");
+                if(mode!=null)independent=Convert.ToString(mode.GetValue(difficulty));
+                if(factor!=null)scale=Convert.ToString(factor.GetValue(difficulty),System.Globalization.CultureInfo.InvariantCulture);
+            }
+            Log.Message("[NJR][R061][Wealth] map="+System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(map)+
+                " tick="+Find.TickManager.TicksGame+" wealthBefore="+wealthBefore.ToString("F1")+
+                " wealthAfter="+wealthAfter.ToString("F1")+" storytellerWealth="+map.PlayerWealthForStoryteller.ToString("F1")+
+                " threatBefore="+before.ToString("F2")+" threatAfter="+after.ToString("F2")+
+                " wealthIndependent="+independent+" threatScale="+scale);
+            return after;
+        }
+        internal static float FactionAllocation(Map map,RHFOperation op,Faction faction,float? vanillaSnapshot=null)
         {
             return PartyPoints(map,faction,op.SourceImportance,LiveCaptives(map,faction),
-                RHFMod.Settings.InterventionStrength);
+                RHFMod.Settings.InterventionStrength,vanillaSnapshot);
         }
         // One faction, one complete budget, irrespective of role/number of wings.
         // A distinct hired faction receives its own complete budget. Existing
         // relative weights are preserved only BETWEEN wings of the SAME faction.
         // Called at scheduling and again immediately before arrival; not on ticks.
-        internal static void AllocateOperation(Map map,RHFOperation op)
+        internal static void AllocateOperation(Map map,RHFOperation op,float? vanillaSnapshot=null)
         {
             if(map==null || op?.Parties==null)return;
             var groups=new Dictionary<Faction,List<RHFStrikeParty>>();
@@ -66,7 +95,7 @@ namespace RaidersHaveFamilies
             }
             foreach(var group in groups)
             {
-                float budget=FactionAllocation(map,op,group.Key);
+                float budget=FactionAllocation(map,op,group.Key,vanillaSnapshot);
                 float weights=0f;
                 foreach(RHFStrikeParty wing in group.Value)weights+=Mathf.Max(.0001f,wing.Points);
                 float remaining=budget;
@@ -87,9 +116,9 @@ namespace RaidersHaveFamilies
             op.ThreatPoints=aggregate;
         }
         internal static float PartyPoints(Map map,Faction sponsor,int importance,
-            int sameFactionCaptives,float globalStrength)
+            int sameFactionCaptives,float globalStrength,float? vanillaSnapshot=null)
         {
-            float vanilla=StorytellerUtility.DefaultThreatPointsNow(map);
+            float vanilla=vanillaSnapshot ?? StorytellerUtility.DefaultThreatPointsNow(map);
             int pressure=Mathf.Clamp(RHFPoliticalReputation.Pressure(sponsor),-100,0);
             // Up to +80% VIP importance, +72% multiple captives and +50%
             // political anger; zero pressure gives NO extra strength.

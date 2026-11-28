@@ -194,6 +194,19 @@ namespace RaidersHaveFamilies
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void OtherRank8() { PrepareAt(UI.MouseCell(), 8, true); }
 
+        [DebugAction(ChecksCategory, "29 — NJR: пересчитать богатство и очки рейда", actionType=DebugActionType.Action,
+            allowedGameStates=AllowedGameStates.PlayingOnMap)]
+        public static void AuditThreatR061()
+        {
+            Map map=Find.CurrentMap;
+            if(map==null || !map.IsPlayerHome)return;
+            float points=NJRThreatBudgetS41.RefreshVanillaThreat(map);
+            Find.WindowStack.Add(new Dialog_MessageBox("Богатство: "+map.wealthWatcher.WealthTotal.ToString("F0")+
+                "\nБогатство для рассказчика: "+map.PlayerWealthForStoryteller.ToString("F0")+
+                "\nБазовые очки угрозы: "+points.ToString("F2")+
+                "\nРейд не вызван. Настройки рассказчика и богатство до/после записаны в R061 Wealth."));
+        }
+
         [DebugAction(ChecksCategory, "17 — Проверить состав отрядов операции", actionType = DebugActionType.Action,
             allowedGameStates = AllowedGameStates.PlayingOnMap)]
         public static void CoalitionDiagnostics()

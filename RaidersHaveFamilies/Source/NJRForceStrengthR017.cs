@@ -453,6 +453,30 @@ namespace RaidersHaveFamilies
                     party.Members+"/"+RequiredMembers(party)+
                     ". Inspect RimWorld faction/lord/spawn diagnostics.");
         }
+        internal static void AuditArrival(RHFStrikeParty party,List<Pawn> pawns,IncidentParms parms)
+        {
+            if(party?.Faction==null || pawns==null || parms==null)return;
+            float cost=0f;int count=0;
+            var kinds=new Dictionary<string,int>();
+            foreach(Pawn pawn in pawns)
+            {
+                if(pawn?.Faction!=party.Faction)continue;
+                count++;
+                cost+=Mathf.Max(0f,pawn.kindDef?.combatPower??0f);
+                string key=pawn.kindDef?.defName??"unknown";
+                kinds.TryGetValue(key,out int n);kinds[key]=n+1;
+            }
+            var names=new List<string>();
+            foreach(var k in kinds)names.Add(k.Key+":"+k.Value);
+            float humanBudget=party.Points-party.PodCostR060-party.SupplyBudget-
+                party.AnimalBudgetS42-party.LoadoutBudgetS42;
+            Log.Message("[NJR][R061][Arrival] faction="+party.Faction.Name+
+                " mode="+parms.raidArrivalMode?.defName+" strategy="+parms.raidStrategy?.defName+
+                " gross="+party.Points.ToString("F1")+" rosterBudget="+humanBudget.ToString("F1")+
+                " enginePoints="+parms.points.ToString("F1")+" generatedCost="+cost.ToString("F1")+
+                " count="+count+" kinds="+string.Join(",",names));
+        }
+
     }
 
     // The native incident owns the very same List<Pawn> used for pod arrival,
@@ -470,6 +494,7 @@ namespace RaidersHaveFamilies
             RHFOperation operation=RHFMissionIntegrityV130.ActiveRaidLetterOperation;
             RHFStrikeParty party=RHFOperationController.ActiveRaidParty(map,operation);
             NJRForceStrengthR017.CompleteGeneratedRoster(operation,party,pawns);
+            NJRForceStrengthR017.AuditArrival(party,pawns,parms);
         }
     }
 }

@@ -63,10 +63,12 @@ assert 'Hostages.Count>0?90000:150000' in tick
 # vanilla incident points are handed over; no 300-point floor re-adds value.
 deploy = method_body(ops, 'private bool Deploy(RHFOperation op)')
 assert 'NJRForceCompositionS42.Reserve(op,party);' in deploy
-assert deploy.index('NJRForceCompositionS42.Reserve(op,party);') < deploy.index('float effectivePoints = party.Points')
+# The first effectivePoints value is the gross budget used to reserve the required kit.
+# The native incident only receives the post-reservation net value.
+assert deploy.index('NJRForceCompositionS42.Reserve(op,party);') < deploy.index('effectivePoints = party.Points - party.SupplyBudget') < deploy.index('points = effectivePoints')
 assert 'Mathf.Clamp(effectivePoints, 300f, 15000f)' not in deploy
 assert 'points = effectivePoints' in deploy
-assert 'party.AnimalBudgetS42 - party.LoadoutBudgetS42' in deploy
+assert 'party.AnimalBudgetS42 -' in deploy and 'party.LoadoutBudgetS42 - party.PodCostR060' in deploy
 assert 'party.Drop=false' in deploy and 'party.Siege=false' in deploy
 assert 'NJRForceCompositionS42.CanUsePods(party.Faction)' in deploy
 assert 'NJRForceCompositionS42.CanUseSiege(party.Faction)' in deploy

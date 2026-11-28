@@ -108,7 +108,7 @@ namespace RaidersHaveFamilies
             var cargo=new List<object>();
             if(op.PodCargoStacksS41!=null)foreach(var t in op.PodCargoStacksS41)if(t!=null)cargo.Add(ThingData(t));
             var parties=new List<object>();
-            if(op.Parties!=null)foreach(var p in op.Parties)if(p!=null)parties.Add(new { faction=p.Faction?.Name,p.Role,p.Points,p.Drop,p.Siege,p.Breach,p.Attempted,p.Succeeded,p.Members,p.SupplyBudget,p.SupplySpent });
+            if(op.Parties!=null)foreach(var p in op.Parties)if(p!=null)parties.Add(new { faction=p.Faction?.Name,p.Role,p.Points,p.Drop,p.Siege,p.Breach,p.Attempted,p.Succeeded,p.Members,p.SupplyBudget,p.SupplySpent,p.PodCostR060,p.LoadoutBudgetS42,p.LoadoutSpentS42,p.AnimalBudgetS42,p.AnimalSpentS42 });
             return new { id=OpId(op), op.Type, op.Doctrine, op.Phase, op.Deployed, op.Finished, op.DebugForced,
                 op.CreatedTick, op.SpawnTick, op.ExpiryTick, op.PhaseStartTick, op.LastProgressTick, op.LastOrderTick, op.ThreatPoints,
                 sponsor=op.Sponsor?.Name, vip=Id(op.Vip), targets=PawnIds(op.Targets), squad=PawnIds(op.Squad),
@@ -557,7 +557,7 @@ namespace RaidersHaveFamilies
                 catch(Exception e){StopLocked("start failed: "+e.Message);return Status();}
             }
             try{Install();}catch(Exception e){HookResults.Add("INSTALL FAILED: "+e);}
-            Write("session_start",new { revision="R030", baseRevision="R060", tick=LastTick, hooks=HookResults.ToArray(),
+            Write("session_start",new { revision="R030", baseRevision="R061", tick=LastTick, hooks=HookResults.ToArray(),
                 jobTrackerPawnField=TrackerPawn!=null,pathPawnField=PathPawn!=null,pathCurrentField=PathCurrent!=null, sampleTicks=120, objectTicks=600, byteLimit=SessionLimit,
                 note="All Verse console calls; selected engine and NJR events; snapshots. No claim of every internal game action." },true);
             MainObserve(()=>SnapshotEngineLog("session start"));

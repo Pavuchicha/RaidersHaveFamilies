@@ -340,6 +340,7 @@ namespace RaidersHaveFamilies
                 RHFOperation mission=RHFMissionIntegrityV130.ActiveRaidLetterOperation;
                 RHFStrikeParty wing=RHFOperationController.ActiveRaidParty(incidentMap,mission);
                 NJRForceStrengthR017.CompleteGeneratedRoster(mission,wing,pawns);
+                NJRForceStrengthR017.AuditArrival(wing,pawns,parms);
             }
             if(!RHFRescueGroundEntryS41.IsGroundRescueIncident(parms))return true;
             Map map=(Map)parms.target;
